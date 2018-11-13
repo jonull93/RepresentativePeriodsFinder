@@ -1,0 +1,174 @@
+# properties of the set of representative periods
+number_days_total: 90
+number_days: 5
+used_resolution: 1 # 0.25 1 2 4 => The resolution used when selecting days/weeks, this does not necessarily mean that this resolution is used in the UC/GEP model (although the resolution used to select days/weeks is best taken equal to the planned resolution of the UC/GEP model)
+resolution_approach: 'average' # 'average' or 'sparse'
+
+# properties of the optimization procedure
+number_bins: 40
+correlation_method: 'all' # 'all_not_used' #'all' # none
+dynamics_method: 'none' # 'all_1step_not_used' # 'all_1step' #
+optimization: 'selecting_repr_periods' # gams file to be used
+area_error_tolerance: 1 # optional
+
+equal_weights: false
+
+solver:
+  Method: optimization
+  mip: 'Gurobi'
+  ResLim: 1000
+  Threads: 3
+  OptCr: 0.005
+
+# gams_parameter:
+#     OptCr: 0.005
+#     ResLim: 100
+#     mip: 'CPLEX'
+#     Threads: 3
+
+# result processing options
+save_results: True
+result_dir: 'results/DE_DK_2015_1'
+create_plots: 1 # 0, 1
+calc_dynamics: True
+calc_correlation: True
+
+# properties of the time series that needs to be approximated
+original_resolution: 1.0 # resolution of the data in the .csv file(s). Note: it is expected here that all time series are provided in the same resolution
+rel_path_to_csv_file: '../input_data/'
+time_series:
+    - name: 'Onshore_DE_south'
+      region: 'DE'
+      type: 'basic'
+      source:
+        csv: './input_data/GER_DE_2015_1.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        start: '1'
+        end: '2160'
+        column: 'Onshore_DE_south'
+        index_column: 'Timestep'
+        delimiter: ';'
+      weight: 0.75
+      # mandatory_periods: max
+
+    - name: 'Onshore_DE_mid'
+      region: 'DE'
+      type: 'basic'
+      source:
+        csv: './input_data/GER_DE_2015_1.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        start: '1'
+        end: '2160'
+        column: 'Onshore_DE_mid'
+        index_column: 'Timestep'
+        delimiter: ';'
+      weight: 0.75
+      # mandatory_periods: max
+
+    - name: 'Onshore_DE_north'
+      region: 'DE'
+      type: 'basic'
+      source:
+        csv: './input_data/GER_DE_2015_1.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        start: '1'
+        end: '2160'
+        column: 'Onshore_DE_north'
+        index_column: 'Timestep'
+        delimiter: ';'
+      weight: 0.75
+      # mandatory_periods: max
+
+    - name: 'Onshore_DK_south'
+      region: 'DK'
+      type: 'basic'
+      source:
+        csv: './input_data/GER_DE_2015_1.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        start: '1'
+        end: '2160'
+        column: 'Onshore_DK_south'
+        index_column: 'Timestep'
+        delimiter: ';'
+      weight: 0.75
+
+    - name: 'Onshore_DK_north'
+      region: 'DK'
+      type: 'basic'
+      source:
+        csv: './input_data/GER_DE_2015_1.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        start: '1'
+        end: '2160'
+        column: 'Onshore_DK_north'
+        index_column: 'Timestep'
+        delimiter: ';'
+      weight: 0.75
+
+    - name: 'Offshore_DE'
+      region: 'DE'
+      type: 'basic'
+      source:
+        csv: './input_data/GER_DE_2015_1.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        start: '1'
+        end: '2160'
+        column: 'Offshore_DE'
+        index_column: 'Timestep'
+        delimiter: ';'
+      weight: 0.75
+
+    - name: 'Offshore_DK'
+      region: 'DK'
+      type: 'basic'
+      source:
+        csv: './input_data/GER_DE_2015_1.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        start: '1'
+        end: '2160'
+        column: 'Offshore_DK'
+        index_column: 'Timestep'
+        delimiter: ';'
+      weight: 0.75
+
+    - name: 'PV_DE'
+      region: 'DE'
+      type: 'basic'
+      source:
+        csv: './input_data/GER_DE_2015_1.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        start: '1'
+        end: '2160'
+        column: 'PV_DE'
+        index_column: 'Timestep'
+        delimiter: ';'
+      weight: 0.5
+
+    - name: 'PV_DK'
+      region: 'DK'
+      type: 'basic'
+      source:
+        csv: './input_data/GER_DE_2015_1.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        start: '1'
+        end: '2160'
+        column: 'PV_DK'
+        index_column: 'Timestep'
+        delimiter: ';'
+      weight: 0.5
+
+
+    - name: 'Residual_load_DE'
+      region: 'DE'
+      type: 'basic'
+      source:
+        csv: './input_data/GER_DE_2015_1.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        start: '1'
+        end: '2160'
+        column: 'Residual_load_DE'
+        index_column: 'Timestep'
+        delimiter: ';'
+      weight: 1
+
+    - name: 'Residual_load_DK'
+      region: 'DK'
+      type: 'basic'
+      source:
+        csv: './input_data/GER_DE_2015_1.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        start: '1'
+        end: '2160'
+        column: 'Residual_load_DK'
+        index_column: 'Timestep'
+        delimiter: ';'
+      weight: 1
