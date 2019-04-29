@@ -1,7 +1,7 @@
 # RepresentativeDaysFinders.jl
 
 
-A Julia Module to  ...
+A Julia Module to  
 
 ## Getting started
 
@@ -10,10 +10,16 @@ A Julia Module to  ...
 From the julia REPL, run
 
 ```julia
-v1.1> add https://git.vito.be/scm/emark-epdst/representativedaysfinder.jl.git
+v1.1> add git@gitlab.mech.kuleuven.be:UCM/representativedaysfinder.jl.git
 ```
 
 This will install `representativedaysfinder.jl` as well as all its dependencies
+
+For devoloping the package clone it to <some/path> and
+
+```julia
+v1.1> dev <some/path>
+```
 
 ### Upgrading
 
@@ -21,15 +27,8 @@ To upgrade to the most recent version of `representativedaysfinder.jl`, run
 
 
 ```julia
-v1.1> up
+v1.1> up RepresentativeDaysFinders
 ```
-
-Alternatively, you can specify a branch, as in
-
-```julia
-v1.1> up
-```
-
 
 ### Usage
 
