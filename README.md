@@ -21,6 +21,18 @@ For devoloping the package clone it to <path_to_git_clone> and
 (v1.1) pkg> dev <path_to_git_clone>
 ```
 
+### Useage
+Required are:
+- A `.yaml` configuration file (see `examples` for inspiration)
+- A `.csv` file (or several) containing demand / total load and normalised generation profiles for wind and solar
+
+Important contents of the config file:
+- Your timeseries properties (e.g. number of days, sampling time)
+- Your choice of solution method / optimiser
+- The path to your `.csv` data files along with column names - make sure this is filled in correctly!
+
+The annoying thing is that currently you're going to have to do some pre-processing of your timeseries - you can't just download them from ENTSO-E and have done with it.
+
 ### Upgrading
 
 To upgrade to the most recent version of `representativedaysfinder.jl`, run
