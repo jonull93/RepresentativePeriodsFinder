@@ -1,0 +1,15 @@
+number_days: 12
+number_bins: 40
+number_days_total: 365
+
+dynamics_method: 'none'
+correlation_method: 'none'
+
+time_series:
+  - name: 'DummyColumn'
+    weight: 1
+    source:
+      csv: './unit_testing_data.csv'
+      column: 'DummyColumn'
+      index_column: 'Timestep'
+      delimiter: ';'

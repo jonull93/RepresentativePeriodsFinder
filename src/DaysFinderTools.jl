@@ -2,7 +2,7 @@
 # Author:   Hanspeter Höschle
 # Date:     15/06/2017
 ##################################################################################
-type DaysFinderTool
+mutable struct  DaysFinderTool
 
     ##################################################################################
     # Configuration
@@ -45,12 +45,14 @@ type DaysFinderTool
         self = new()
         self.config_file = config_file
         self.config = YAML.load(open(config_file))
+        self.config["basedir"] = dirname(config_file)
 
+        pad = 3
         ##################################################################################
         # Sets
         ##################################################################################
-        self.bins =     [@sprintf "b%03d" b for b in range(1,self.config["number_bins"])]
-        self.periods =  [@sprintf "p%03d" p for p in range(1,self.config["number_days_total"])]
+        self.bins =     ["b"*string(b, pad=pad) for b in range(1,stop=self.config["number_bins"])]
+        self.periods =  ["p"*string(p, pad=pad) for p in range(1,stop=self.config["number_days_total"])]
 
         ##################################################################################
         # Parameters
@@ -71,23 +73,23 @@ type DaysFinderTool
         self.time_series = Dict{String,TimeSeries}()
         self.curves = Array{String,1}()
         for ts_config in self.config["time_series"]
-            @printf "%s\n" repeat("-", 100)
+            println("-"^100)
 
             ts = TimeSeries(self, ts_config)
             addTimeSeries!(self, ts)
 
-            @printf "%-20s added\n" ts.name
+            println("$(ts.name) added")
 
             ##################################################################################
             # Dynamics profiles
             ##################################################################################
             if self.config["dynamics_method"] == "all_1step"
-                @printf "%s\n" repeat("-", 100)
+                println("-"^100)
 
                 ts_diff = TimeSeries(self, ts, :all_1step)
                 addTimeSeries!(self, ts_diff)
 
-                @printf "%-20s added\n" ts_diff.name
+                println("$(ts_diff.name) added")
             end
         end
 
@@ -97,13 +99,13 @@ type DaysFinderTool
         if self.config["correlation_method"] == "all"
             ts_basic = [ts.name for ts in values(self.time_series) if ts.time_series_type ==:basic]
             for combi in combinations(ts_basic,2)
-                @printf "%s\n" repeat("-", 100)
+                println("-"^100)
                 ts1 = self.time_series[combi[1]]
                 ts2 = self.time_series[combi[2]]
                 ts = TimeSeries(self, ts1, ts2)
                 addTimeSeries!(self, ts)
 
-                @printf "%-20s added\n" ts.name
+                println("$(ts.name) added")
             end
         end
         return self
@@ -128,9 +130,9 @@ end
 ##################################################################################
 # Run Optimization
 ##################################################################################
-function runDaysFinderToolIterativeBounderaries(dft::DaysFinderTool)
-    @printf "%s\n" repeat("=", 100)
-    @printf "%s\n" repeat("=", 100)
+function runDaysFinderToolIterativeBounderaries(dft::DaysFinderTool, optimizer_factory::JuMP.OptimizerFactory)
+    println("="^100)
+    println("="^100)
 
     u_val = Dict{String,Int}()
     w_val = Dict{String,Int}()
@@ -141,7 +143,7 @@ function runDaysFinderToolIterativeBounderaries(dft::DaysFinderTool)
     Big_M_wp_step = (dft.N_total_periods - (dft.N_total_periods / dft.N_representative_periods)) / 50.
     Big_M_wp = dft.N_total_periods / dft.N_representative_periods + Big_M_wp_step
 
-    log("debug", "Step increase Big-M: $Big_M_wp_step")
+    @debug("Step increase Big-M: $Big_M_wp_step")
     TOL_MIN = Dict{String,Float64}()
     for c in dft.curves
         if contains(c, "diff")
@@ -153,15 +155,15 @@ function runDaysFinderToolIterativeBounderaries(dft::DaysFinderTool)
         end
     end
     TIME_LIMIT = length(dft.curves) * 2.5
-    log("debug", "Time limit for iterative runs: $TIME_LIMIT")
+    @debug("Time limit for iterative runs: $TIME_LIMIT")
     LONG_RUN = false
 
     stat = 0
 
     while true
 
-        log("debug", "Big-M for weight constraint: $Big_M_wp")
-        log("debug", "Min-Tolerance for user cuts: $TOL_MIN")
+        @debug("Big-M for weight constraint: $Big_M_wp")
+        @debug("Min-Tolerance for user cuts: $TOL_MIN")
 
         if ~LONG_RUN
             dft.AREA_ERROR_TOLERANCE = Dict{String,Float64}()
@@ -173,38 +175,8 @@ function runDaysFinderToolIterativeBounderaries(dft::DaysFinderTool)
         ##################################################################################
         # Model
         ##################################################################################
-        # if dft.config["solver"]["mip"] == "CPLEX"
-            # m = Model(
-            #     solver=CplexSolver(
-            #                 CPX_PARAM_SCRIND=1,
-            #                 CPX_PARAM_TILIM=TIME_LIMIT,
-            #                 CPX_PARAM_THREADS=dft.config["solver"]["Threads"]))
+        m = Model(optimizer_factory)
 
-        if dft.config["solver"]["mip"] == "GLPK"
-            m = Model(solver=GLPKSolverMIP(presolve=true, msg_lev=GLPK.MSG_ON))
-            # getSolverModel(m).params.tm_lim=15
-
-
-        elseif dft.config["solver"]["mip"] == "CBC"
-            m = Model(
-                    solver=CbcSolver(
-                                seconds=dft.config["solver"]["ResLim"],
-                                logLevel=1,
-                                threads=32))
-
-        elseif dft.config["solver"]["mip"] == "Gurobi"
-            m = Model(
-                    solver=GurobiSolver(
-                        Presolve=0,
-                        TimeLimit=TIME_LIMIT,
-                        Threads=dft.config["solver"]["Threads"]
-                        )
-                    )
-
-        else
-            error()
-            return
-        end
         ##################################################################################
         # Variables
         ##################################################################################
@@ -227,10 +199,10 @@ function runDaysFinderToolIterativeBounderaries(dft::DaysFinderTool)
         m_d = unique(m_d)
 
         # Starting Values
-        # p_start, w_start = define_random_start_point(dft, m_d)
+        # p_start, w_start = define_random_start_point(dft, m_d, optimizer_factory)
         # for p in p_start
-        #     log("debug", "Set starting value for $p")
-        #     log("debug", "Set weight to $(w_start[p])")
+        #     @debug("Set starting value for $p")
+        #     @debug("Set weight to $(w_start[p])")
         #     if getcategory(u[p]) != :Fixed
         #         setvalue(u[p], 1)
         #     end
@@ -272,7 +244,7 @@ function runDaysFinderToolIterativeBounderaries(dft::DaysFinderTool)
         )
 
         # Minimum weight
-        log("debug","minimum weight set to 0.1")
+        @debug("minimum weight set to 0.1")
         @constraint(m, minimum_weight[p in dft.periods],
             w[p] >= u[p] * 0.1
         )
@@ -303,10 +275,10 @@ function runDaysFinderToolIterativeBounderaries(dft::DaysFinderTool)
         ##################################################################################
 
         function mycutgenerator(cb)
-            area_error_val = getvalue(area_error)
+            area_error_val = value(area_error)
 
             for c in dft.curves
-                # @sprintf "%s" repeat("=", 80)
+                println("="^80)
                 # @show c
                 # @show area_error_val[c]
                 # @show dft.AREA_TOTAL[c]
@@ -316,9 +288,9 @@ function runDaysFinderToolIterativeBounderaries(dft::DaysFinderTool)
                 # @show dft.AREA_ERROR_TOLERANCE
 
                 if NEW_AREA_ERROR_TOLERANCE < dft.AREA_ERROR_TOLERANCE[c]
-                    log("info", "Add new area error cut for $c ")
-                    log("debug", "$NEW_AREA_ERROR_TOLERANCE, $(dft.AREA_ERROR_TOLERANCE[c]) ")
-                    @usercut(cb, area_error[c] <= NEW_AREA_ERROR_TOLERANCE * dft.AREA_TOTAL[c])
+                    @info("Add new area error cut for $c ")
+                    @debug("$NEW_AREA_ERROR_TOLERANCE, $(dft.AREA_ERROR_TOLERANCE[c]) ")
+                    # @usercut(cb, area_error[c] <= NEW_AREA_ERROR_TOLERANCE * dft.AREA_TOTAL[c])
                     dft.AREA_ERROR_TOLERANCE[c] = NEW_AREA_ERROR_TOLERANCE
                 end
             end
@@ -329,11 +301,13 @@ function runDaysFinderToolIterativeBounderaries(dft::DaysFinderTool)
 
     # print(m)
 
-        stat = solve(m)
-        u_val = getvalue(u)
-        w_val = getvalue(w)
 
-        area_error_val = getvalue(area_error)
+        optimize!(m)
+        stat = termination_status(m)
+        u_val = value(u)
+        w_val = value(w)
+
+        area_error_val = value(area_error)
         area_error_real_1 = Dict{String, Float64}()
         area_error_real_2 = Dict{String, Float64}()
         area_error_tol = Dict{String, Float64}()
@@ -346,7 +320,7 @@ function runDaysFinderToolIterativeBounderaries(dft::DaysFinderTool)
             area_error_tol[c] = dft.AREA_ERROR_TOLERANCE[c]  * dft.AREA_TOTAL[c]
         end
         for c in dft.curves
-            log("debug", "$c: $(area_error_real_1[c]) $(area_error_real_2[c]) <=  $(area_error_val[c]) <=  $(area_error_tol[c])")
+            @debug("$c: $(area_error_real_1[c]) $(area_error_real_2[c]) <=  $(area_error_val[c]) <=  $(area_error_tol[c])")
         end
 
         test_Big_M = [w_val[p] < u_val[p] * Big_M_wp - 1e-6 for p in dft.periods if u_val[p] == 1]
@@ -383,17 +357,17 @@ function runDaysFinderToolIterativeBounderaries(dft::DaysFinderTool)
     end
 
 
-    if stat in [:Optimal, :UserLimit]
-        u = getvalue(u)
+    if stat in [MOI.OPTIMAL, :UserLimit]
+        u = value(u)
         dft.u = Dict{String,Int}()
         for k in keys(u)
             dft.u[k[1]] = round(Int,abs(u[k[1]]))
         end
 
-        w = getvalue(w)
+        w = value(w)
         dft.w = Dict{String,Int}()
         for k in keys(w)
-            dft.w[k[1]] = round(abs(w[k[1]]),4)
+            dft.w[k[1]] = round(abs(w[k[1]]),digits=4)
         end
 
     else
@@ -437,7 +411,7 @@ function runDaysFinderToolBruteForce(dft::DaysFinderTool)
     time = 0
     while true
         tic()
-        log("info", "Iteration: $iteration")
+        @info("Iteration: $iteration")
         u_val = copy(u_val_zeros)
         while sum(values(u_val)) < dft.N_representative_periods
             u_val[rand(dft.periods,1)[1]] = 1
@@ -493,14 +467,16 @@ function runDaysFinderToolBruteForce(dft::DaysFinderTool)
         @constraint(m, helper[p in dft.periods],
             u[p] == u_val[p])
 
-        stat = solve(m)
+
+        optimize!(m)
+        stat = termination_status(m)
         obj = getobjectivevalue(m)
         # @show stat
-        if stat == :Optimal && obj < result_obj
-            result_u = getvalue(u)
-            result_w = getvalue(w)
+        if stat == MOI.OPTIMAL && obj < result_obj
+            result_u = value(u)
+            result_w = value(w)
             result_obj = obj
-            log("info", "found improved objective: $result_obj")
+            @info("found improved objective: $result_obj")
         end
         time += toq()
         # @show time
@@ -510,7 +486,7 @@ function runDaysFinderToolBruteForce(dft::DaysFinderTool)
         iteration += 1
     end
 
-    log("info", "Best found objective: $result_obj after $iteration Iterations and $time seconds")
+    @info("Best found objective: $result_obj after $iteration Iterations and $time seconds")
 
     dft.u = Dict{String,Int}()
     for k in keys(result_u)
@@ -519,7 +495,7 @@ function runDaysFinderToolBruteForce(dft::DaysFinderTool)
 
     dft.w = Dict{String,Int}()
     for k in keys(result_w)
-        dft.w[k[1]] = round(abs(result_w[k[1]]),4)
+        dft.w[k[1]] = round(abs(result_w[k[1]]),digits=4)
     end
 
     return :UserLimit
@@ -529,7 +505,7 @@ end
 ##################################################################################
 # Defining Starting Values
 ##################################################################################
-function define_random_start_point(dft::DaysFinderTool, p_start::Array{String})
+function define_random_start_point(dft::DaysFinderTool, p_start::Array{String}, optimizer_factory::JuMP.OptimizerFactory)
     w_start = Dict{String,Float64}()
     while true
         while length(p_start) < dft.N_representative_periods
@@ -541,7 +517,7 @@ function define_random_start_point(dft::DaysFinderTool, p_start::Array{String})
         ##################################################################################
         # Optimization
         ##################################################################################
-        m = Model(solver=GurobiSolver())
+        m = Model(optimizer_factory)
         @variable(m, w[p in p_start] >= 0.1)
         @variable(m, area_error[c in dft.curves] >= 0)
 
@@ -566,23 +542,22 @@ function define_random_start_point(dft::DaysFinderTool, p_start::Array{String})
         )
 
         # print(m)
-        stat = solve(m)
-        w = getvalue(w)
+        optimize!(m)
+        stat = termination_status(m)
         for k in keys(w)
-            w_start[k[1]] = round(abs(w[k[1]]),4)
+            w_start[k[1]] = round(abs(value(w[k[1]])),digits=4)
         end
 
-        log("debug", "Status finding starting values: $stat")
+        @debug("Status finding starting values: $stat")
 
-        if stat in [:Optimal]
+        if stat in [MOI.OPTIMAL]
             break
         end
         for c in dft.curves
             dft.AREA_ERROR_TOLERANCE[c] += 0.01
         end
     end
-    log("debug", "$p_start")
-    log("debug", "$w_start")
+    @debug("$w_start")
     return p_start, w_start
 end
 
@@ -590,7 +565,7 @@ end
 # Write out results to  csv and yaml files
 ##################################################################################
 function writeOutResults(dft::DaysFinderTool)
-    result_dir = normpath(joinpath(pwd(), dft.config["result_dir"]))
+    result_dir = normpath(joinpath(dft.config["basedir"], dft.config["result_dir"]))
     if !isdir(result_dir)
         mkpath(result_dir)
     end
@@ -599,73 +574,37 @@ function writeOutResults(dft::DaysFinderTool)
                 periods     = sort([k for k in dft.periods]),
                 weights     = [dft.w[k] for k in sort([k for k in keys(dft.w)])],
                 used_days   = [dft.u[k] for k in sort([k for k in keys(dft.u)])])
-    writetable(joinpath(result_dir, "decision_variables.csv"), df_dv, separator=';')
+    CSV.write(joinpath(result_dir, "decision_variables.csv"), df_dv, delim=';')
 
     df_dv_s = deepcopy(df_dv[df_dv[:weights] .> 0, :])
-    writetable(joinpath(result_dir, "decision_variables_short.csv"), df_dv_s, separator=';')
+    CSV.write(joinpath(result_dir, "decision_variables_short.csv"), df_dv_s, delim=';')
 
     ##################################################################################
     # Resulting time series
     ##################################################################################
     df_ts = DataFrame()
     period_idx = df_dv[:used_days] .== 1
-    log("debug", "Period index of selected days: $period_idx")
+    @debug("Period index of selected days: $period_idx")
 
     for ts in values(dft.time_series)
         df_ts[Symbol(ts.name)] =  ts.matrix_full[period_idx,:]'[:]
     end
-    writetable(joinpath(result_dir, "resulting_profiles.csv"), df_ts, separator=';')
+    CSV.write(joinpath(result_dir, "resulting_profiles.csv"), df_ts, delim=';')
 
     ##################################################################################
     # Copy of config-file
     ##################################################################################
-    cp(dft.config_file, joinpath(result_dir, "config_file.yaml"),remove_destination=true)
+    cp(dft.config_file, joinpath(result_dir, "config_file.yaml"),force=true)
 end
-
-##################################################################################
-# Create Plots of curves and reduced curves
-##################################################################################
-function createPlots(dft::DaysFinderTool)
-    result_dir = normpath(joinpath(pwd(), dft.config["result_dir"], "plots"))
-    if !isdir(result_dir)
-        mkdir(result_dir)
-    end
-
-    w = [dft.w[k] for k in sort([k for k in keys(dft.w)])]
-    u = [dft.u[k] for k in sort([k for k in keys(dft.w)])]
-
-    periods_with_weight = [i for (i,k) in enumerate(sort([k for k in keys(dft.w)])) if dft.w[k]>0]
-    weights = [ww for ww in w if ww > 0]
-
-    for ts in values(dft.time_series)
-        df = DataFrame(x=Float64[],y=Float64[], legend=String[])
-
-        x = [x for x in range(1,length(ts.data))/length(ts.data)*100.]
-        y = sort(ts.data, rev=true)
-        append!(df, DataFrame(x=x, y=y, legend="original"))
-
-        y = ts.matrix_full[periods_with_weight,:]'[:]
-        x = (weights * ones(1, size(ts.matrix_full)[2]))'[:] / length(ts.data) * 100.
-        df2 = sort(DataFrame(x=x, y=y, legend="reduced"), cols=:y, rev=true)
-        df2[:x] = cumsum(df2[:x])
-        append!(df, df2)
-
-
-        p = plot(df, x=:x,y=:y,color=:legend, Geom.line,
-                Guide.xlabel("Duration [-]"), Guide.ylabel("Curve"), Guide.title(ts.name),
-                Coord.Cartesian(xmin=0,xmax=100))
-        file_pdf = joinpath(result_dir, @sprintf "%s.pdf" ts.name)
-        draw(PDF(file_pdf, 27cm, 21cm), p)
-    end
-end
-
 
 ##################################################################################
 # Run Optimization
 ##################################################################################
-function runDaysFinderToolDefault(dft::DaysFinderTool)
-    @printf "%s\n" repeat("=", 100)
-    @printf "%s\n" repeat("=", 100)
+# import RepresentativeDaysFinders: runDaysFinderToolDefault
+# using RepresentativeDaysFinders: DaysFinderTool
+function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.OptimizerFactory)
+    println("="^100)
+    println("="^100)
 
     dft.AREA_ERROR_TOLERANCE = Dict{String,Float64}()
     for c in dft.curves
@@ -682,38 +621,8 @@ function runDaysFinderToolDefault(dft::DaysFinderTool)
     ##################################################################################
     # Model
     ##################################################################################
-    # if dft.config["solver"]["mip"] == "CPLEX"
-    #     m = Model(
-    #         solver=CplexSolver(
-    #                     CPX_PARAM_SCRIND=1,
-    #                     CPX_PARAM_TILIM=dft.config["solver"]["ResLim"],
-    #                     CPX_PARAM_THREADS=dft.config["solver"]["Threads"]))
+    m = Model(optimizer_factory)
 
-    if dft.config["solver"]["mip"] == "GLPK"
-        m = Model(solver=GLPKSolverMIP(presolve=true, msg_lev=GLPK.MSG_ON))
-        # getSolverModel(m).params.tm_lim=15
-
-
-    elseif dft.config["solver"]["mip"] == "CBC"
-        m = Model(
-                solver=CbcSolver(
-                            seconds=dft.config["solver"]["ResLim"],
-                            logLevel=1,
-                            threads=32))
-
-    elseif dft.config["solver"]["mip"] == "Gurobi"
-        m = Model(
-                solver=GurobiSolver(
-                    Presolve=0,
-                    TimeLimit=dft.config["solver"]["ResLim"],
-                    Threads=dft.config["solver"]["Threads"]
-                    )
-                )
-
-    else
-        error()
-        return
-    end
     ##################################################################################
     # Variables
     ##################################################################################
@@ -731,20 +640,20 @@ function runDaysFinderToolDefault(dft::DaysFinderTool)
         append!(m_d, mandatory_periods)
         for p in mandatory_periods
             JuMP.fix(u[p],1)
-            setlowerbound(w[p], 0.1)
+            JuMP.set_lower_bound(w[p], 0.1)
         end
     end
     m_d = unique(m_d)
 
     # Starting Values
-    p_start, w_start = define_random_start_point(dft, m_d)
+    p_start, w_start = define_random_start_point(dft, m_d, optimizer_factory)
     for p in p_start
-        log("debug", "Set starting value for $p")
-        log("debug", "Set weight to $(w_start[p])")
-        if getcategory(u[p]) != :Fixed
-            setvalue(u[p], 1)
+        @debug("Set starting value for $p")
+        @debug("Set weight to $(w_start[p])")
+        if ~is_fixed(u[p])
+            set_start_value(u[p], 1)
         end
-        setvalue(w[p], w_start[p])
+        set_start_value(w[p], w_start[p])
     end
 
     ##################################################################################
@@ -785,7 +694,7 @@ function runDaysFinderToolDefault(dft::DaysFinderTool)
     )
 
     # Minimum weight
-    log("debug","minimum weight set to 0.1")
+    @debug("minimum weight set to 0.1")
     @constraint(m, minimum_weight[p in dft.periods],
         w[p] >= u[p] * 0.1
     )
@@ -811,23 +720,28 @@ function runDaysFinderToolDefault(dft::DaysFinderTool)
         sum(w[p] for p in dft.periods) >= sum(u[p] for p in dft.periods)
     )
 
-    stat = solve(m)
-    u_val = getvalue(u)
-    w_val = getvalue(w)
-    area_error_val = getvalue(area_error)
+
+    optimize!(m)
+    stat = termination_status(m)
+
+    @show stat
+    @show objective_value(m)
+    @show objective_bound(m)
+    @show has_values(m)
 
 
-    if stat in [:Optimal, :UserLimit]
-        u = getvalue(u)
+    if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && has_values(m)
+        u_val = value.(u)
+        w_val = value.(w)
+        # @show w_val
         dft.u = Dict{String,Int}()
         for k in keys(u)
-            dft.u[k[1]] = round(Int,abs(u[k[1]]))
+            dft.u[k[1]] = round(Int,abs(value(u[k[1]])))
         end
 
-        w = getvalue(w)
         dft.w = Dict{String,Int}()
         for k in keys(w)
-            dft.w[k[1]] = round(abs(w[k[1]]),4)
+            dft.w[k[1]] = round(abs(value(w[k[1]])),digits=4)
         end
 
     else

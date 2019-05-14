@@ -1,26 +1,16 @@
-# RepresentativeDaysFinder.jl
+# RepresentativeDaysFinders.jl
 
 
 A Julia Module to  ...
 
 ## Getting started
 
-### Pre-requisites
-
-- [julia > 0.5]
-- [Lumberjack > 2.1.0]
-- [DataFrames > 0.9.1]
-- [YAML > 0.2.1]
-- [Combinatorics > 0.4.0]
-- [JuMP > 0.17.1]
-- [Gadfly > 0.6.2]
-
 ### Installation
 
 From the julia REPL, run
 
 ```julia
-julia> Pkg.clone("git@gitlab.mech.kuleuven.be:UCM/representativedaysfinder.jl.git", "RepresentativeDaysFinder")
+v1.1> add https://git.vito.be/scm/emark-epdst/representativedaysfinder.jl.git
 ```
 
 This will install `representativedaysfinder.jl` as well as all its dependencies
@@ -31,13 +21,13 @@ To upgrade to the most recent version of `representativedaysfinder.jl`, run
 
 
 ```julia
-julia> Pkg.checkout("RepresentativeDaysFinder")
+v1.1> up
 ```
 
 Alternatively, you can specify a branch, as in
 
 ```julia
-julia> Pkg.checkout("RepresentativeDaysFinder", "dev")
+v1.1> up
 ```
 
 
@@ -45,14 +35,30 @@ julia> Pkg.checkout("RepresentativeDaysFinder", "dev")
 
 Run:
 
+```julia
+using RepresentativeDaysFinders
+using JuMP
+using GLPK
+##################################################################################
+# Specify location of config-file
+##################################################################################
+config_file = normpath(joinpath(@__DIR__, "scenarios", "DE_DK_2015_1.yaml"))
+
+findRepresentativeDays(config_file, with_optimizer(GLPK.Optimizer; presolve=true, msg_lev=GLPK.MSG_ALL))
 ```
-julia> using RepresentativeDaysFinder
+## Trouble shooting
+If issues with GR-engine occur just build GR package:
+
+```julia
+
+build GR
+
 ```
+
 
 ## Documentation
 
 ...
-
 ## Reporting Issues and Contributing
 
 ...

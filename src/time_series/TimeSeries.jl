@@ -2,7 +2,7 @@
 # Author:   Hanspeter Höschle
 # Date:     15/06/2017
 ##################################################################################
-type TimeSeries
+mutable struct TimeSeries
     config::Dict{Any,Any}
     time_series_type::Symbol
     weight::Float64
