@@ -1,21 +1,21 @@
-using CSV
-using DataFrames
-using Interpolations
+# using CSV
+# using DataFrames
+# using Interpolations
 
 
 """
     Reads a .csv file downloaded from the ENTSO-E transparency website into a data frame.
 """
-function ENTSOEcsv2dataframe(csvName::String, colNum::Int, colName::Symbol)
+function ENTSOEcsv2dataframe(csvName::String, colNum::Int, colName::Symbol; delim = ',')
     # Read data
-    data = CSV.read(csvName)
-
+    data = CSV.read(csvName, delim = delim)
     # Values are processed as strings, hence the next step
-    df = DataFrame([Int,Union{Missing,Float64}], [:Timestep,colName])
+    df = DataFrame(Dict(:Timestep => Int32[], colName => Union{Missing,Float64}[]))
+    # df = DataFrame([Int,Union{Missing,Float64}], [:Timestep,colName])
     nt = size(data)[1]
     for i = 1:nt
         try
-            push!(df, [i parse(Float64,data[i,colNum])])
+            push!(df, [i Float64(data[i,colNum])])
         catch
             push!(df, [i missing])
         end
@@ -36,14 +36,15 @@ end
     Fills in any missing values in the data frame using linear interpolation.
 """
 function interpolatedataframe(df::DataFrame, colName::Symbol)
+
     itp = makeinterpolator(df)
 
     # Make the data frame without missing values
-    nt = size(df)[1]
+    @show nt = size(df)[1]
     df = DataFrame([[i for i in 1:nt], [itp(i) for i in 1:nt]], [:Timestep, colName])
 
     # Determine if anything missing, if not return the data frame
-    if all(describe(df, :nmissing)[:,:nmissing] .== nothing)
+    if all(describe(df)[:,:nmissing] .== nothing)
         return df
     else
         error("Interpolation of missing values failed")
@@ -62,7 +63,7 @@ function interpolatedataframe(df::DataFrame, colName::Symbol, ts1, ts2)
     df = DataFrame([[i for i in 1:nt*ts1/ts2], [itp(i) for i in 1:ts2/ts1:nt+1-ts2/ts1]], [:Timestep, colName])
 
     # Determine if anything missing, if not return the data frame
-    if all(describe(df, :nmissing)[:,:nmissing] .== nothing)
+    if all(describe(df)[:,:nmissing] .== nothing)
         return df
     else
         error("Interpolation of missing values failed")
