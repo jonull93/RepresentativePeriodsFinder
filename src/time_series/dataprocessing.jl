@@ -10,12 +10,18 @@ function ENTSOEcsv2dataframe(csvName::String, colNum::Int, colName::Symbol; deli
     # Read data
     data = CSV.read(csvName, delim = delim)
     # Values are processed as strings, hence the next step
-    df = DataFrame(Dict(:Timestep => Int32[], colName => Union{Missing,Float64}[]))
-    # df = DataFrame([Int,Union{Missing,Float64}], [:Timestep,colName])
+    # df = DataFrame(OrderedDict(:Timestep => Int32[], colName => Union{Missing,Float64}[]))
+    df = DataFrame([Int,Union{Missing,Float64}], [:Timestep,colName])
     nt = size(data)[1]
     for i = 1:nt
         try
-            push!(df, [i Float64(data[i,colNum])])
+            if typeof(data[i,colNum]) == String
+                push!(df, [i parse(Float64, data[i,colNum])])
+            elseif typeof(data[i,colNum]) <: Number
+                push!(df, [i Float64(data[i,colNum])])
+            else
+                println("Probably wrong")
+            end
         catch
             push!(df, [i missing])
         end
@@ -41,7 +47,7 @@ function interpolatedataframe(df::DataFrame, colName::Symbol)
 
     # Make the data frame without missing values
     @show nt = size(df)[1]
-    df = DataFrame([[i for i in 1:nt], [itp(i) for i in 1:nt]], [:Timestep, colName])
+    df = DataFrame([[Int32(i) for i in 1:nt], [itp(i) for i in 1:nt]], [:Timestep, colName])
 
     # Determine if anything missing, if not return the data frame
     if all(describe(df)[:,:nmissing] .== nothing)
@@ -60,7 +66,7 @@ function interpolatedataframe(df::DataFrame, colName::Symbol, ts1, ts2)
 
     # Make the data frame with interpolated missing values and a new sampling time
     nt = size(df)[1]
-    df = DataFrame([[i for i in 1:nt*ts1/ts2], [itp(i) for i in 1:ts2/ts1:nt+1-ts2/ts1]], [:Timestep, colName])
+    df = DataFrame([[Int32(i) for i in 1:nt*ts1/ts2], [itp(i) for i in 1:ts2/ts1:nt+1-ts2/ts1]], [:Timestep, colName])
 
     # Determine if anything missing, if not return the data frame
     if all(describe(df)[:,:nmissing] .== nothing)
