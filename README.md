@@ -72,6 +72,8 @@ julia> cd("<path_to_git_clone>")
 ```
 If you add packages now they're added to the `Project.toml` file.
 
+If you edit or create a function and want to test it (without killing Julia, starting it again and running `using RepresentativeDaysFinders`), simply run / execute that function (or the entire file, e.g. `TimeSeries.jl`). 
+
 ## Documentation
 
 ...
