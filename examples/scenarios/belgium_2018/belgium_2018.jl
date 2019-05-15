@@ -10,6 +10,9 @@ using Interpolations
 # Specify location of config-file
 ##################################################################################
 config_file = joinpath(@__DIR__,"belgium_2018.yaml")
+csv_file = "load_be_2018_unprocessed.csv"
+df = ENTSOEcsv2dataframe(csv_file, 3, :Load)
+df = interpolatedataframe(df, :Load, 0.25, 1.0)
 
 ##
 using Cbc

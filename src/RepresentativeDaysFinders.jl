@@ -3,7 +3,6 @@
 #       Technologisch Onderzoek  N.V.) proprietary.                            #
 ################################################################################
 module RepresentativeDaysFinders
-
     using DataFrames
     using CSV
 
@@ -11,6 +10,8 @@ module RepresentativeDaysFinders
     using Combinatorics                     # -> functions for finding combinations
     using StatsBase                         # -> function to fit into Histogram bins
     using JuMP                              # -> optimization suite
+
+    using Interpolations
 
     using Plots; gr()
 
@@ -26,10 +27,15 @@ module RepresentativeDaysFinders
     include("time_series/get_mandatory_periods.jl")
     include("output/create_plots.jl")
 
+    ###########################################################
+    # data processing
+    ###########################################################
+    include("time_series/dataprocessing.jl")
+
     ##################################################################################
     # Default method to run tool
     ##################################################################################
-    export findRepresentativeDays
+    export findRepresentativeDays, ENTSOEcsv2dataframe, interpolatedataframe
 
     function findRepresentativeDays(config_file::String, optimizer_factory::JuMP.OptimizerFactory)
         @info("Start RepresentativeDaysFinder")
