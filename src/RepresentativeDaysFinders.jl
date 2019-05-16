@@ -5,14 +5,11 @@
 module RepresentativeDaysFinders
     using DataFrames
     using CSV
-
     using YAML                              # -> read config-file
     using Combinatorics                     # -> functions for finding combinations
     using StatsBase                         # -> function to fit into Histogram bins
     using JuMP                              # -> optimization suite
-
-    using Interpolations
-
+    using Interpolations                    # -> for interpolation when reading ENTSOe data
     using Plots; gr()
 
 
@@ -35,7 +32,7 @@ module RepresentativeDaysFinders
     ##################################################################################
     # Default method to run tool
     ##################################################################################
-    export findRepresentativeDays, ENTSOEcsv2dataframe, interpolatedataframe
+    export findRepresentativeDays, ENTSOEcsv2dataframe, interpolatedataframe, normalisegeneration
 
     function findRepresentativeDays(config_file::String, optimizer_factory::JuMP.OptimizerFactory)
         @info("Start RepresentativeDaysFinder")
