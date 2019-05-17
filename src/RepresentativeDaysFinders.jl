@@ -3,9 +3,11 @@
 #       Technologisch Onderzoek  N.V.) proprietary.                            #
 ################################################################################
 module RepresentativeDaysFinders
+
+    using Dates
+    using TimeZones
     using DataFrames
     using CSV
-
     using YAML                              # -> read config-file
     using Combinatorics                     # -> functions for finding combinations
     using StatsBase                         # -> function to fit into Histogram bins
