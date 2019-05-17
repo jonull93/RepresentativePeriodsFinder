@@ -28,13 +28,11 @@ function ENTSOEcsv2dataframe(csvName::String, colNum::Int, colName::Symbol; deli
     end
     return df
 end
-
-function CSV2DataFrame(csvName::String; delim = ',')
-    # Read data
-    data = CSV.read(csvName, delim = delim)
-    # Values are processed as strings, hence the next step
-    df = DataFrame([Union{Missing,Float64,String} for i in 1:length(names(data))], names(data))
-    function ConvStringOrNum2Float64(x::T) where T <:Union{Missing, Number, String}
+"""
+    CSV2DataFrame creates a dataframe
+"""
+function CSV2DataFrame(csvName::String; delim = ',', ColumnTypes=[])
+    function ConvStringOrNum2Float64(x::T;) where T <:Union{Missing, Number, String}
         if typeof(x) == String
             try
                 return  parse(Float64, x)
@@ -49,7 +47,14 @@ function CSV2DataFrame(csvName::String; delim = ',')
             println("something went wrong")
         end
     end
-
+    # Read data
+    data = CSV.read(csvName, delim = delim)
+    # Values are processed as strings, hence the next step
+    if length(ColumnTypes) == 0
+        df = DataFrame([Union{Missing,Float64,String} for i in 1:length(names(data))], names(data))
+    else
+        df = DataFrame(ColumnTypes, names(data))
+    end
     nt = size(data)[1]
     for r in eachrow(data)
         push!(df, [ConvStringOrNum2Float64(x) for x in r])
@@ -72,7 +77,7 @@ function check_temporal_consistency(df::DataFrame, resultion::Float64, format::S
     df[datecolumn] = map(str->astimezone(ZonedDateTime(str, dformat), tzone),df[datecolumnOrig])
 
     # create empty row df
-    @show empty_row = similar(df, 1)
+    empty_row = similar(df, 1)
     for n in names(empty_row)
         if n != datecolumn
             empty_row[n] = missing
@@ -85,7 +90,7 @@ function check_temporal_consistency(df::DataFrame, resultion::Float64, format::S
         t_prev = df[datecolumn][i-1]
         dt =  Dates.Minute(t_current -  t_prev)
         if  dt != dt_df
-            println((i, df[datecolumn][i], dt))
+            println(("Found irrugilaries (index, DateTime, interval length)",i, df[datecolumn][i], dt))
             #add line
             closed = false
             t_add = t_prev
@@ -108,10 +113,7 @@ end
 function makeinterpolator(df::DataFrame, colNameTarget::Symbol)
     # make array and interpolation grid filtering out missing values
     y = [j for j in df[:,colNameTarget] if !ismissing(j)]
-    @show typeof(y[1])
     grid = [Float64(i) for (i,j) in zip(df[:,:EpochTime], df[:,colNameTarget]) if !ismissing(j)]
-    @show typeof(grid[1])
-
     # Make interpolation object
     itp = LinearInterpolation(grid, y, extrapolation_bc=Flat())
     return itp
@@ -140,26 +142,17 @@ end
 """
     Fills in any missing values using linear interpolation and also converts data with a sampling time of ts1 to ts2.
 """
-function interpolatedataframe(df::DataFrame, colNameTime::Symbol, colNameTarget::Symbol, ts1, ts2)
-    # @show df[:indexRow] = ones(1,size(df)[1])
+function interpolatedataframe(df::DataFrame, colNameTime::Symbol, colNameTarget::Symbol, targetResolution::Float64)
     df[:EpochTime] =map(t->Dates.datetime2epochms(DateTime(t)),df[colNameTime])
-    @show time1ststep = df[:EpochTime][1]
-    @show end_time = df[:EpochTime][end]
+    time1ststep = df[:EpochTime][1]
+    end_time = df[:EpochTime][end]
     itp = makeinterpolator(df,colNameTarget)
-    # Make the data frame with interpolated missing values and a new sampling time
     nt = size(df)[1]
-    # times = [time1ststep+i*60*60*1000 for i in 1:nt*ts1/ts2] #in ms
 
-    # int_vals = [itp(i) for i in 1:ts2/ts1:nt+1-ts2/ts1]
-    int_steps = [i for i in time1ststep:ts2*60*60*1000:end_time]
+    int_steps = [i for i in time1ststep:targetResolution*60*60*1000:end_time]
     int_vals = [itp(i) for i in int_steps]
-    @show a= filter(x->typeof(x)==Missing, int_vals)
-    @show length(a)
-    @show length(int_steps)
-    @show length(int_vals)
-    @show int_steps[1]
-    @show int_steps[end]
-    df_new = DataFrame([int_steps,int_vals], [:TimeStep, colNameTarget])
+    datetimes = [Dates.epochms2datetime(t) for t in int_steps]
+    df_new = DataFrame([datetimes,int_vals,int_steps], [colNameTime,colNameTarget,:TimeStep])
 
     # Determine if anything missing, if not return the data frame
     if length(filter(x->typeof(x)!=Float64,df_new[colNameTarget])) == 0

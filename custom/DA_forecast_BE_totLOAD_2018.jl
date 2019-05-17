@@ -20,16 +20,9 @@ using TimeZones
 # df_LF_wind = ENTSOEcsv2dataframe(joinpath(@__DIR__, "windforecast_ELIA.csv"), 12, :LF_wind; delim = ';')
 df_LF_wind = CSV2DataFrame(joinpath(@__DIR__, "windforecast_ELIA.csv"); delim = ';')
 df_LF_wind_filled = RepresentativeDaysFinders.check_temporal_consistency(df_LF_wind, 0.25, "y-m-d HH:MM:SSz", :Column1)
-
-using Interpolations
-y = [j for j in df_LF_wind_filled[:,:LoadFactor] if !ismissing(j)]
-@show typeof(y[1])
-grid = [Float64(i) for (i,j) in zip(df_LF_wind_filled[:,:EpochTime], df_LF_wind_filled[:,:LoadFactor]) if !ismissing(j)]
-@show grid[1]
-itp = LinearInterpolation(grid, y)
+df_LF_wind_interpolated = interpolatedataframe(df_LF_wind_filled,:DateFormated,:LoadFactor, 1.)
 
 # itp = RepresentativeDaysFinders.makeinterpolator(df_LF_wind_filled, :LoadFactor)
-df_LF_wind_interpolated = interpolatedataframe(df_LF_wind_filled,:DateFormated,:LoadFactor, 0.25, 1.)
 df_LF_solar = ENTSOEcsv2dataframe(joinpath(@__DIR__, "solarforecast_ELIA.csv"), 2, :DateFormated; delim = ';')
 # df_LF_solar_interpolated = interpolatedataframe(df_LF_solar, :LF_solar, 0.25,1.)
 # csv_wind_raw = CSV.read(joinpath(@__DIR__, "windforecast_ELIA.csv"), delim = ";")
