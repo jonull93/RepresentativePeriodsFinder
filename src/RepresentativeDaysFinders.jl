@@ -37,7 +37,7 @@ module RepresentativeDaysFinders
     ##################################################################################
     # Default method to run tool
     ##################################################################################
-    export findRepresentativeDays, ENTSOEcsv2dataframe, interpolatedataframe
+    export findRepresentativeDays, interpolatedataframe, CSV2DataFrame
 
     function findRepresentativeDays(config_file::String, optimizer_factory::JuMP.OptimizerFactory)
         @info("Start RepresentativeDaysFinder")
