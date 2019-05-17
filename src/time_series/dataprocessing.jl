@@ -86,4 +86,5 @@ function normalisegeneration(df::DataFrame, colName::Symbol, tg::Number)
     if maximum(df[:,colName]) > 1
         df[:,colName] = 1/maximum(df[:,colName])*df[:,colName]
     end
+    return df
 end
