@@ -1,5 +1,5 @@
 # properties of the set of representative periods
-number_days_total: 365
+number_days_total: 364
 number_days: 10
 used_resolution: 1 # 0.25 1 2 4 => The resolution used when selecting days/weeks, this does not necessarily mean that this resolution is used in the UC/GEP model (although the resolution used to select days/weeks is best taken equal to the planned resolution of the UC/GEP model)
 resolution_approach: 'average' # 'average' or 'sparse'
@@ -36,14 +36,36 @@ calc_correlation: True
 original_resolution: 1 # resolution of the data in the .csv file(s). Note: it is expected here that all time series are provided in the same resolution
 rel_path_to_csv_file: ''
 time_series:
-    - name: 'DA_load_forecast_BE_2018'
+    - name: 'data_interpolated_load'
       region: 'BE'
       type: 'basic'
       source:
-        csv: 'BE_Total Load - Day Ahead _ Actual_20180_interpolated.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
-        start: 1.0
-        end: 8759.0
-        column: 'TotalLoadForecast'
-        index_column: 'Timestep'
+        csv: 'data_interpolated.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        start: 1
+        end: 8736
+        column: 'DA_Load'
+        index_column: 'Row'
+        delimiter: ','
+      weight: 1
+    - name: 'data_interpolated_PV_LF'
+      region: 'BE'
+      type: 'basic'
+      source:
+        csv: 'data_interpolated.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        start: 1
+        end: 8736
+        column: 'LoadFactor_PV'
+        index_column: 'Row'
+        delimiter: ','
+      weight: 1
+    - name: 'data_interpolated_Wind_LF'
+      region: 'BE'
+      type: 'basic'
+      source:
+        csv: 'data_interpolated.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        start: 1
+        end: 8736
+        column: 'LoadFactor_wind'
+        index_column: 'Row'
         delimiter: ','
       weight: 1

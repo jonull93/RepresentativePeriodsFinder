@@ -37,7 +37,11 @@ function CSV2DataFrame(csvName::String; delim = ',', ColumnTypes=[])
             try
                 return  parse(Float64, x)
             catch
-                return x
+                if x == "N/A"
+                    return missing
+                else
+                    return x
+                end
             end
         elseif typeof(x) <: Number
             return Float64(x)
@@ -67,15 +71,34 @@ end
     Fills missing rows on temporal axis of dataframe in datecolumn.
     resultion in hours
 """
-function check_temporal_consistency(df::DataFrame, resultion::Float64, format::String, datecolumnOrig:: Symbol; datecolumn = :DateFormated)
-    dformat = DateFormat(format)
+function check_temporal_consistency(df::DataFrame, resultion::Float64, format::Dict, datecolumnOrig:: Symbol; datecolumn = :DateFormated)
+    dformat = DateFormat(format[:fstr])
+    st = format[:startindex]
+    ed = format[:endindexOffset]
     # df_str = "y-m-d HH:MM:SSz"
 
     # put all date in same time zone and add column to df
     dt_df = Dates.Minute(resultion*60.0)
     tzone = tz"Europe/Brussels"
-    df[datecolumn] = map(str->astimezone(ZonedDateTime(str, dformat), tzone),df[datecolumnOrig])
-
+    # @show df[datecolumnOrig][17000][st:end-ed]
+    # @show DateTime(df[datecolumnOrig][17000][st:end-ed], dformat)
+    # @show astimezone(ZonedDateTime(df[datecolumnOrig][17000][st:end-ed], dformat), tzone)
+    try
+        df[datecolumn] = map(str->astimezone(ZonedDateTime(str[st:end-ed], dformat), tzone),df[datecolumnOrig])
+    catch
+        try
+            # out = []
+            # for d in df[datecolumnOrig]
+            #     @show d[st:end-ed]
+            #     @show o = DateTime(d[st:end-ed], dformat)
+            #     push!(out, o)
+            # end
+            # df[datecolumn] = out
+            df[datecolumn] = map(str->DateTime(str[st:end-ed], dformat),df[datecolumnOrig])
+        catch
+            error("Timestring could not be parsed")
+        end
+    end
     # create empty row df
     empty_row = similar(df, 1)
     for n in names(empty_row)
@@ -142,7 +165,7 @@ end
 """
     Fills in any missing values using linear interpolation and also converts data with a sampling time of ts1 to ts2.
 """
-function interpolatedataframe(df::DataFrame, colNameTime::Symbol, colNameTarget::Symbol, targetResolution::Float64)
+function interpolatedataframe(df::DataFrame, colNameTime::Symbol, colNameTarget::Symbol,colNameOutput::Symbol, targetResolution::Float64)
     df[:EpochTime] =map(t->Dates.datetime2epochms(DateTime(t)),df[colNameTime])
     time1ststep = df[:EpochTime][1]
     end_time = df[:EpochTime][end]
@@ -152,10 +175,10 @@ function interpolatedataframe(df::DataFrame, colNameTime::Symbol, colNameTarget:
     int_steps = [i for i in time1ststep:targetResolution*60*60*1000:end_time]
     int_vals = [itp(i) for i in int_steps]
     datetimes = [Dates.epochms2datetime(t) for t in int_steps]
-    df_new = DataFrame([datetimes,int_vals,int_steps], [colNameTime,colNameTarget,:TimeStep])
+    df_new = DataFrame([datetimes,int_vals,int_steps], [colNameTime,colNameOutput,:TimeStep])
 
     # Determine if anything missing, if not return the data frame
-    if length(filter(x->typeof(x)!=Float64,df_new[colNameTarget])) == 0
+    if length(filter(x->typeof(x)!=Float64,df_new[colNameOutput])) == 0
         return df_new
     else
         error("Interpolation of failed")
