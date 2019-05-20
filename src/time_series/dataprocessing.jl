@@ -196,3 +196,8 @@ function normalisegeneration(df::DataFrame, colName::Symbol, tg::Number)
         df[:,colName] = 1/maximum(df[:,colName])*df[:,colName]
     end
 end
+
+function scale_df_column!(df::DataFrame, cname::Symbol, scalingFactor::Float64)
+# df[datecolumn] = map(str->astimezone(ZonedDateTime(str[st:end-ed], dformat), tzone),df[datecolumnOrig])
+    df[cname] = map(entry -> entry * scalingFactor, df[cname])
+end

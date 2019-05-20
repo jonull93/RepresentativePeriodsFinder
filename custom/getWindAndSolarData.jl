@@ -8,14 +8,16 @@ WindLocation = pyimport("elia_xml_services.helpers").WindLocation
 
 year = 2017
 start_period = datetime.datetime(2017, 1, 1)
-end_period = datetime.datetime(2017, 12, 31)
+end_period = datetime.datetime(2018, 1, 1)
 
 wf = sc.WindForecast()
-sf = sc.SolarForecast()
+# sf = sc.SolarForecast()
 
-sdf = sf.data(start_period, end_period, region=Region.Limburg)
-wdf = wf.data(start_period, end_period, location=WindLocation.Both, connection=WindConnection.Elia_Connected)
+# sdf = sf.data(start_period, end_period, region=Region.Limburg)
+wind_Offshore_df = wf.data(start_period, end_period, location=WindLocation.Offshore, connection=WindConnection.Elia_Connected)
+wind_Offshore_df = wf.data(start_period, end_period, location=WindLocation.Onshore, connection=WindConnection.Elia_Connected)
 
 # write data
-wdf.to_csv(joinpath(@__DIR__, "windforecast.csv"), sep=";")
-sdf.to_csv(joinpath(@__DIR__, "solarforecast.csv"), sep=";")
+# sdf.to_csv(joinpath(@__DIR__, "solarforecast_new.csv"), sep=";")
+wind_Offshore_df.to_csv(joinpath(@__DIR__, "windforecast_Offshore_new.csv"), sep=";")
+wind_Offshore_df.to_csv(joinpath(@__DIR__, "windforecast_Onshore_new.csv"), sep=";")

@@ -16,18 +16,20 @@ using TimeZones
 ##################################################################################
 # preprocess data if needed
 ##################################################################################
-#interpolation  and preprocessing done here
-df_LF_wind = CSV2DataFrame(joinpath(@__DIR__, "windforecast_ELIA.csv"); delim = ';')
+# interpolation  and preprocessing done here
+df_LF_wind = CSV2DataFrame(joinpath(@__DIR__, "windforecast_new.csv"); delim = ';')
 dformat = Dict(:fstr => "y-m-d HH:MM:SSz",
                :startindex => 1,
                :endindexOffset => 0)
 df_LF_wind_filled = RepresentativeDaysFinders.check_temporal_consistency(df_LF_wind, 0.25, dformat, :Column1)
 df_LF_wind_interpolated = interpolatedataframe(df_LF_wind_filled,:DateFormated,:LoadFactor, :LoadFactor_wind, 1.)
 
-df_LF_solar = CSV2DataFrame(joinpath(@__DIR__, "solarforecast_ELIA.csv"); delim = ';')
+df_LF_solar = CSV2DataFrame(joinpath(@__DIR__, "solarforecast_new.csv"); delim = ';')
 dformat = Dict(:fstr => "y-m-d HH:MM:SS",
                :startindex => 1,
                :endindexOffset => 0)
+RepresentativeDaysFinders.scale_df_column!(df_LF_solar,:LoadFactor, 0.01) #Loadfactor seems to be given in percent
+
 df_LF_solar_filled = RepresentativeDaysFinders.check_temporal_consistency(df_LF_solar, 0.25, dformat, :Column1)
 df_LF_solar_interpolated = interpolatedataframe(df_LF_solar_filled,:DateFormated,:LoadFactor, :LoadFactor_PV, 1.)
 
@@ -50,5 +52,5 @@ CSV.write(joinpath(@__DIR__, "data_interpolated.csv"), LF_joint_Final)
 ##################################################################################
 using Cbc
 config_file = joinpath(@__DIR__,"DA_LOAD_forcast_BE_2018.yaml")
-dft = findRepresentativeDays(config_file, with_optimizer(Cbc.Optimizer; seconds = 3600*5))
+dft = findRepresentativeDays(config_file, with_optimizer(Cbc.Optimizer; seconds = 60*5))
 RepresentativeDaysFinders.create_plots(dft)
