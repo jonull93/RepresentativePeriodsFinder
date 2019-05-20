@@ -1,4 +1,4 @@
 .idea
 results
-
+!custom/results
 examples/scenarios/custom_input_data
