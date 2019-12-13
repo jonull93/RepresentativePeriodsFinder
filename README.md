@@ -10,7 +10,7 @@ A Julia Module to
 While in the Julia REPL, press the "]" key to get to the package manager REPL mode (this is similar to `using Pkg`).
 
 ```julia
-(v1.1) pkg> add git@gitlab.mech.kuleuven.be:UCM/representativedaysfinder.jl.git
+(v1.1) pkg> add git@gitlab.mech.kuleuven.be:UCM/RepresentativeDaysFinder.jl.git
 ```
 
 This will install `representativedaysfinder.jl` as well as all its dependencies
