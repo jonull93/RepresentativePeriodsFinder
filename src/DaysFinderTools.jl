@@ -3,7 +3,6 @@
 # Date:     15/06/2017
 ##################################################################################
 mutable struct  DaysFinderTool
-
     ##################################################################################
     # Configuration
     ##################################################################################
@@ -125,380 +124,6 @@ function addTimeSeries!(self::DaysFinderTool, ts::TimeSeries)
 
     cum_bin_end!(self.A, self.periods, self.bins, ts)
     cum_bin_total!(self.L, self.bins, ts)
-end
-
-##################################################################################
-# Run Optimization
-##################################################################################
-function runDaysFinderToolIterativeBounderaries(dft::DaysFinderTool, optimizer_factory::JuMP.OptimizerFactory)
-    println("="^100)
-    println("="^100)
-
-    u_val = Dict{String,Int}()
-    w_val = Dict{String,Int}()
-    for p in dft.periods
-        u_val[p] = 0.
-        w_val[p] = 0.
-    end
-    Big_M_wp_step = (dft.N_total_periods - (dft.N_total_periods / dft.N_representative_periods)) / 50.
-    Big_M_wp = dft.N_total_periods / dft.N_representative_periods + Big_M_wp_step
-
-    @debug("Step increase Big-M: $Big_M_wp_step")
-    TOL_MIN = Dict{String,Float64}()
-    for c in dft.curves
-        if contains(c, "diff")
-            TOL_MIN[c] = 1e-4
-        elseif contains(c, "corr")
-            TOL_MIN[c] = 1e-4
-        else
-            TOL_MIN[c] =  1e-8
-        end
-    end
-    TIME_LIMIT = length(dft.curves) * 2.5
-    @debug("Time limit for iterative runs: $TIME_LIMIT")
-    LONG_RUN = false
-
-    stat = 0
-
-    while true
-
-        @debug("Big-M for weight constraint: $Big_M_wp")
-        @debug("Min-Tolerance for user cuts: $TOL_MIN")
-
-        if ~LONG_RUN
-            dft.AREA_ERROR_TOLERANCE = Dict{String,Float64}()
-            for c in dft.curves
-                dft.AREA_ERROR_TOLERANCE[c] = dft.config["area_error_tolerance"]
-            end
-        end
-
-        ##################################################################################
-        # Model
-        ##################################################################################
-        m = Model(optimizer_factory)
-
-        ##################################################################################
-        # Variables
-        ##################################################################################
-        @variable(m, u[p in dft.periods], Bin, start=u_val[p])
-        @variable(m, w[p in dft.periods] >= 0, start=w_val[p])
-
-        @variable(m, area_error[c in dft.curves] >= 0)
-        @variable(m, error[c in dft.curves, b in dft.bins] >= 0)
-
-        # Mandatory Days
-        m_d = String[]
-        for ts in values(dft.time_series)
-            mandatory_periods = get_mandatory_periods(ts, dft)
-            append!(m_d, mandatory_periods)
-            for p in mandatory_periods
-                JuMP.fix(u[p],1)
-                setlowerbound(w[p], 0.1)
-            end
-        end
-        m_d = unique(m_d)
-
-        # Starting Values
-        # p_start, w_start = define_random_start_point(dft, m_d, optimizer_factory)
-        # for p in p_start
-        #     @debug("Set starting value for $p")
-        #     @debug("Set weight to $(w_start[p])")
-        #     if getcategory(u[p]) != :Fixed
-        #         setvalue(u[p], 1)
-        #     end
-        #     setvalue(w[p], w_start[p])
-        # end
-
-        ##################################################################################
-        # Objective
-        ##################################################################################
-        @objective(m, Min,
-            + sum(dft.WEIGHT_DC[c] * sum(error[c,b] for b in dft.bins) for c in dft.curves)
-            + 1 * sum(area_error[c] for c in dft.curves) # to bring area_error to lower bound
-        )
-
-        ##################################################################################
-        # Constraints
-        ##################################################################################
-        # Defining error as absolute value
-        @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
-            error[c,b] >= + dft.L[c,b] - sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
-        )
-        @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
-            error[c,b] >= - dft.L[c,b] + sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
-        )
-
-        # User defined number of representative periods
-        @constraint(m, number_periods_eq,
-            sum(u[p] for p in dft.periods) <= dft.N_representative_periods
-        )
-
-        # Restrict non-zero weights to selected periods
-        @constraint(m, single_weight_eq[p in dft.periods],
-            w[p] <= u[p] * Big_M_wp
-        )
-
-        # Guarantee equivalent yearly duration
-        @constraint(m, total_weight_eq,
-            sum(w[p] for p in dft.periods) == dft.N_total_periods
-        )
-
-        # Minimum weight
-        @debug("minimum weight set to 0.1")
-        @constraint(m, minimum_weight[p in dft.periods],
-            w[p] >= u[p] * 0.1
-        )
-
-
-        ##################################################################################
-        # Optional constraints for speed up
-        ##################################################################################
-        # Defining area error
-        @constraint(m, area_error_eq1[c in dft.curves],
-            area_error[c] >= dft.AREA_TOTAL[c] - sum(w[p] * dft.AREA_TOTAL_DAY[c,p] for p in dft.periods)
-        )
-
-        @constraint(m, area_error_eq2[c in dft.curves],
-            area_error[c] >= - dft.AREA_TOTAL[c] + sum(w[p] * dft.AREA_TOTAL_DAY[c,p] for p in dft.periods)
-        )
-
-        # Constraining area error
-        @constraint(m, area_error_limit_eq[c in dft.curves],
-            area_error[c] <= dft.AREA_ERROR_TOLERANCE[c]  * dft.AREA_TOTAL[c]
-        )
-
-        @constraint(m, helper1,
-            sum(w[p] for p in dft.periods) >= sum(u[p] for p in dft.periods)
-        )
-        ##################################################################################
-        # Callback-function
-        ##################################################################################
-
-        function mycutgenerator(cb)
-            area_error_val = value(area_error)
-
-            for c in dft.curves
-                println("="^80)
-                # @show c
-                # @show area_error_val[c]
-                # @show dft.AREA_TOTAL[c]
-                NEW_AREA_ERROR_TOLERANCE = max(abs(area_error_val[c] / dft.AREA_TOTAL[c]), TOL_MIN[c])
-
-                # @show NEW_AREA_ERROR_TOLERANCE
-                # @show dft.AREA_ERROR_TOLERANCE
-
-                if NEW_AREA_ERROR_TOLERANCE < dft.AREA_ERROR_TOLERANCE[c]
-                    @info("Add new area error cut for $c ")
-                    @debug("$NEW_AREA_ERROR_TOLERANCE, $(dft.AREA_ERROR_TOLERANCE[c]) ")
-                    # @usercut(cb, area_error[c] <= NEW_AREA_ERROR_TOLERANCE * dft.AREA_TOTAL[c])
-                    dft.AREA_ERROR_TOLERANCE[c] = NEW_AREA_ERROR_TOLERANCE
-                end
-            end
-        end
-        if ~LONG_RUN
-            addcutcallback(m, mycutgenerator)
-        end
-
-    # print(m)
-
-
-        optimize!(m)
-        stat = termination_status(m)
-        u_val = value(u)
-        w_val = value(w)
-
-        area_error_val = value(area_error)
-        area_error_real_1 = Dict{String, Float64}()
-        area_error_real_2 = Dict{String, Float64}()
-        area_error_tol = Dict{String, Float64}()
-
-        for c in dft.curves
-            sum_area = sum([w_val[p] .* dft.AREA_TOTAL_DAY[c,p] for p in dft.periods])
-            # @show sum_area
-            area_error_real_1[c] = dft.AREA_TOTAL[c] - sum_area
-            area_error_real_2[c] = - dft.AREA_TOTAL[c] + sum_area
-            area_error_tol[c] = dft.AREA_ERROR_TOLERANCE[c]  * dft.AREA_TOTAL[c]
-        end
-        for c in dft.curves
-            @debug("$c: $(area_error_real_1[c]) $(area_error_real_2[c]) <=  $(area_error_val[c]) <=  $(area_error_tol[c])")
-        end
-
-        test_Big_M = [w_val[p] < u_val[p] * Big_M_wp - 1e-6 for p in dft.periods if u_val[p] == 1]
-        test_Area_Error = [area_error_val[c] < dft.AREA_ERROR_TOLERANCE[c]  * dft.AREA_TOTAL[c] for c in dft.curves]
-
-        res = [(p,w_val[p], Big_M_wp - w_val[p]) for p in dft.periods if u_val[p] == 1]
-        @show  test_Big_M all(test_Big_M)  (length(test_Big_M) - count(test_Big_M))
-        @show  test_Area_Error all(test_Area_Error) (length(test_Area_Error) - count(test_Area_Error))
-        @show Big_M_wp res
-
-        if all(test_Big_M) && all(test_Area_Error)
-            if TIME_LIMIT == dft.config["solver"]["ResLim"]
-                break
-            else
-                TIME_LIMIT = dft.config["solver"]["ResLim"]
-                LONG_RUN = true
-            end
-        elseif isempty(test_Big_M)
-            Big_M_wp  += Big_M_wp_step
-            LONG_RUN = false
-        elseif all(test_Big_M) && ~all(test_Area_Error)
-            for (i,c) in enumerate(dft.curves)
-                if ~test_Area_Error[i]
-                    TOL_MIN[c] *= 10
-                end
-            end
-            TIME_LIMIT = length(dft.curves) * 2.5
-            LONG_RUN = false
-        else
-            Big_M_wp  += Big_M_wp_step
-            TIME_LIMIT = length(dft.curves) * 2.5
-            LONG_RUN = false
-        end
-    end
-
-
-    if stat in [MOI.OPTIMAL, :UserLimit]
-        u = value(u)
-        dft.u = Dict{String,Int}()
-        for k in keys(u)
-            dft.u[k[1]] = round(Int,abs(u[k[1]]))
-        end
-
-        w = value(w)
-        dft.w = Dict{String,Int}()
-        for k in keys(w)
-            dft.w[k[1]] = round(abs(w[k[1]]),digits=4)
-        end
-
-    else
-        @show stat
-    end
-    return stat
-end
-
-##################################################################################
-# Brute Force
-##################################################################################
-function runDaysFinderToolBruteForce(dft::DaysFinderTool)
-    TIME_LIMIT = dft.config["solver"]["ResLim"]
-    ITERATION_LIMIT = dft.config["solver"]["ITERATION_LIMIT"]
-    iteration = 1
-
-    ##################################################################################
-    # Results
-    ##################################################################################
-    result_obj = 1e12
-    result_u = 0
-    result_w = 0
-
-    u_val_zeros = Dict{String,Float64}()
-    for d in dft.periods
-        u_val_zeros[d] = 0
-    end
-
-    # Mandatory Periods
-    mandatory_periods = String[]
-    for ts in values(dft.time_series)
-        m_p = get_mandatory_periods(ts, dft)
-        append!(mandatory_periods, m_p)
-    end
-    mandatory_periods = unique(mandatory_periods)
-    for p in mandatory_periods
-        u_val_zeros[p] = 1
-    end
-
-
-    time = 0
-    while true
-        tic()
-        @info("Iteration: $iteration")
-        u_val = copy(u_val_zeros)
-        while sum(values(u_val)) < dft.N_representative_periods
-            u_val[rand(dft.periods,1)[1]] = 1
-        end
-        # @show sum(values(u_val))
-        ##################################################################################
-        # Model
-        ##################################################################################
-        # if dft.config["solver"]["mip"] == "CPLEX"
-        #     m = Model(solver=CplexSolver(CPX_PARAM_SCRIND=0))
-        if dft.config["solver"]["mip"] == "Gurobi"
-            m = Model(solver=GurobiSolver(OutputFlag=0))
-        end
-
-        @variable(m, w[p in dft.periods] >= 0)
-        @variable(m, u[p in dft.periods], Bin)
-        @variable(m, error[c in dft.curves, b in dft.bins] >= 0)
-        for p in mandatory_periods
-            setlowerbound(w[p], 0.1)
-        end
-
-        ##################################################################################
-        # Objective
-        ##################################################################################
-        @objective(m, Min, sum(dft.WEIGHT_DC[c] * sum(error[c,b] for b in dft.bins) for c in dft.curves))
-
-        ##################################################################################
-        # Constraints
-        ##################################################################################
-        # Defining error as absolute value
-        @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
-            error[c,b] >= + dft.L[c,b] - sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
-        )
-        @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
-            error[c,b] >= - dft.L[c,b] + sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
-        )
-
-        # User defined number of representative periods
-        @constraint(m, number_periods_eq,
-            sum(u_val[p] for p in dft.periods) == dft.N_representative_periods
-        )
-
-        # Restrict non-zero weights to selected periods
-        @constraint(m, single_weight_eq[p in dft.periods],
-            w[p] <= u_val[p] * dft.N_total_periods
-        )
-
-        # Guarantee equivalent yearly duration
-        @constraint(m, total_weight_eq,
-            sum(w[p] for p in dft.periods) == dft.N_total_periods
-        )
-
-        @constraint(m, helper[p in dft.periods],
-            u[p] == u_val[p])
-
-
-        optimize!(m)
-        stat = termination_status(m)
-        obj = getobjectivevalue(m)
-        # @show stat
-        if stat == MOI.OPTIMAL && obj < result_obj
-            result_u = value(u)
-            result_w = value(w)
-            result_obj = obj
-            @info("found improved objective: $result_obj")
-        end
-        time += toq()
-        # @show time
-        if (iteration >= ITERATION_LIMIT) | (time >= TIME_LIMIT)
-            break
-        end
-        iteration += 1
-    end
-
-    @info("Best found objective: $result_obj after $iteration Iterations and $time seconds")
-
-    dft.u = Dict{String,Int}()
-    for k in keys(result_u)
-        dft.u[k[1]] = round(Int,abs(result_u[k[1]]))
-    end
-
-    dft.w = Dict{String,Int}()
-    for k in keys(result_w)
-        dft.w[k[1]] = round(abs(result_w[k[1]]),digits=4)
-    end
-
-    return :UserLimit
 end
 
 
@@ -628,9 +253,7 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.O
     ##################################################################################
     @variable(m, u[p in dft.periods], Bin, start=u_val[p])
     @variable(m, w[p in dft.periods] >= 0, start=w_val[p])
-
     @variable(m, area_error[c in dft.curves] >= 0)
-    @variable(m, error[c in dft.curves, b in dft.bins] >= 0)
 
 
     # Mandatory Days
@@ -657,20 +280,31 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.O
     end
 
     ##################################################################################
-    # Objective
-    ##################################################################################
-    @objective(m, Min, sum(dft.WEIGHT_DC[c] * sum(error[c,b] for b in dft.bins) for c in dft.curves))
-
-    ##################################################################################
     # Constraints
     ##################################################################################
-    # Defining error as absolute value
-    @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
-        error[c,b] >= + dft.L[c,b] - sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
-    )
-    @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
-        error[c,b] >= - dft.L[c,b] + sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
-    )
+
+    if dft.config["duration_curve_error"] = "absolute"
+        # Defining error as absolute value
+        @variable(m, error[c in dft.curves, b in dft.bins] >= 0)
+        @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
+            error[c,b] >= + dft.L[c,b] - sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
+        )
+        @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
+            error[c,b] >= - dft.L[c,b] + sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
+        )
+    elseif dft.config["duration_curve_error"] = "square"
+        # Define error as 2 norm error
+        error = Dict()
+        for c in dft.curves, b in dft.bins
+            error[c,b] = @expression(m,
+                (
+                    dft.L[c,b] - sum(w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
+                )^2
+            )
+        end
+    else
+        error("Please specify duration curve error type.")
+    end
 
     # User defined number of representative periods
     @constraint(m, number_periods_eq,
@@ -694,7 +328,6 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.O
     )
 
     # Minimum weight
-    @debug("minimum weight set to 0.1")
     @constraint(m, minimum_weight[p in dft.periods],
         w[p] >= u[p] * 0.1
     )
@@ -720,6 +353,32 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.O
         sum(w[p] for p in dft.periods) >= sum(u[p] for p in dft.periods)
     )
 
+    ###########################################################################
+    # Ordering of representative days constraints and variables
+    ###########################################################################
+    if dft.config["order_days"] == true
+        @variable(m, v[d=dft.periods,d=dft.periods] >= 0)
+        # @variable(m, Bin, v[d=dft.periods,d=dft.periods])
+
+        # Diagonal of v is equal to u
+        @constraint(m, diag_chronology[d=dft.periods],
+            v[d,d] == u[d]
+        )
+
+        timeseries_error = 0
+    else
+        timeseries_error = 0
+    end
+
+    ##################################################################################
+    # Objective
+    ##################################################################################
+
+    @objective(m, Min,
+        sum(
+            dft.WEIGHT_DC[c] * sum(error[c,b] for b in dft.bins) for c in dft.curves
+        ) + sum(timeseries_error...)
+    )
 
     optimize!(m)
     stat = termination_status(m)
@@ -728,7 +387,6 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.O
     @show objective_value(m)
     @show objective_bound(m)
     @show has_values(m)
-
 
     if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && has_values(m)
         u_val = value.(u)

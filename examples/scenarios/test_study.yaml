@@ -15,15 +15,7 @@ equal_weights: false
 
 solver:
   Method: optimization
-  mip: 'Gurobi'
   ResLim: 100
-  Threads: 3
-
-gams_parameter:
-    OptCr: 0.005
-    ResLim: 100
-    mip: 'CPLEX'
-    Threads: 3
 
 # result processing options
 save_results: True
@@ -40,7 +32,7 @@ time_series:
       region: 'BE'
       type: 'basic'
       source:
-        csv: './input_data/Elia_2017.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        csv: './input_data/Elia_2017.csv' # relative to this file
         start: '2017-01-01'
         end: '2017-12-31 23:59:59'
         column: 'Total_load'
@@ -53,7 +45,7 @@ time_series:
       region: 'BE'
       type: 'basic'
       source:
-        csv: './input_data/Elia_2017.csv' #only the name of the CSV file, the path to the csv file is in rel_path_to_csv_file
+        csv: './input_data/Elia_2017.csv' # relative to this file
         start: '2017-01-01'
         end: '2017-12-31 23:59:59'
         column: 'LFW'

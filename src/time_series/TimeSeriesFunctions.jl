@@ -22,7 +22,7 @@ function TimeSeries(dft::DaysFinderTool, config::Dict{Any,Any})
         col = config["source"]["column"]
         csv_file = normpath(joinpath(dft.config["basedir"], config["source"]["csv"]))
         df = CSV.read(csv_file, delim = config["source"]["delimiter"][1])
-        self.data = df[Symbol(col)]
+        self.data = df[!,Symbol(col)]
     end
 
     calculate_matrix_bins!(self, dft)
