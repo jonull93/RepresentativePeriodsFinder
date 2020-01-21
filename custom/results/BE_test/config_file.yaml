@@ -1,5 +1,5 @@
 # properties of the set of representative periods
-number_days_total: 364
+number_days_total: 365
 number_days: 2
 used_resolution: 1 # 0.25 1 2 4 => The resolution used when selecting days/weeks, this does not necessarily mean that this resolution is used in the UC/GEP model (although the resolution used to select days/weeks is best taken equal to the planned resolution of the UC/GEP model)
 resolution_approach: 'average' # 'average' or 'sparse'

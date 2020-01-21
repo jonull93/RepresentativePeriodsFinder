@@ -626,8 +626,8 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.O
     ##################################################################################
     # Variables
     ##################################################################################
-    @variable(m, u[p in dft.periods], Bin, start=u_val[p])
-    @variable(m, w[p in dft.periods] >= 0, start=w_val[p])
+    @variable(m, u[p in dft.periods], Bin)#, start=u_val[p])
+    @variable(m, w[p in dft.periods] >= 0)#, start=w_val[p])
 
     @variable(m, area_error[c in dft.curves] >= 0)
     @variable(m, error[c in dft.curves, b in dft.bins] >= 0)
@@ -640,21 +640,22 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.O
         append!(m_d, mandatory_periods)
         for p in mandatory_periods
             JuMP.fix(u[p],1)
-            JuMP.set_lower_bound(w[p], 0.1)
+            # JuMP.set_lower_bound(w[p], 0.1)
+            JuMP.fix(w[p], 1.0, force = true)
         end
     end
     m_d = unique(m_d)
 
     # Starting Values
-    p_start, w_start = define_random_start_point(dft, m_d, optimizer_factory)
-    for p in p_start
-        @debug("Set starting value for $p")
-        @debug("Set weight to $(w_start[p])")
-        if ~is_fixed(u[p])
-            set_start_value(u[p], 1)
-        end
-        set_start_value(w[p], w_start[p])
-    end
+    # p_start, w_start = define_random_start_point(dft, m_d, optimizer_factory)
+    # for p in p_start
+    #     @debug("Set starting value for $p")
+    #     @debug("Set weight to $(w_start[p])")
+    #     if ~is_fixed(u[p])
+    #         set_start_value(u[p], 1)
+    #     end
+    #     set_start_value(w[p], w_start[p])
+    # end
 
     ##################################################################################
     # Objective
