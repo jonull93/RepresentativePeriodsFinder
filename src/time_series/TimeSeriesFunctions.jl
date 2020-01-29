@@ -95,21 +95,21 @@ function calculate_matrix_bins!(self::TimeSeries, dft::DaysFinderTool)
     self.matrix_bins_cumsum_day = cumsum(self.matrix_bins, dims=2) # -> A
 end
 
-function weight!(w::Dict{String,Float64}, ts::TimeSeries)
+function weight!(w, ts::TimeSeries)
     w[ts.name] = ts.weight
 end
 
-function area_total!(at::Dict{String,Float64}, ts::TimeSeries)
+function area_total!(at, ts::TimeSeries)
     at[ts.name] = sum(abs.(ts.data))
 end
 
-function area_total_days!(atd::Dict{Tuple{String,String},Float64}, periods::Array{String}, ts::TimeSeries)
+function area_total_days!(atd, periods, ts::TimeSeries)
     for (idx, p) in enumerate(periods)
         atd[ts.name, p] = sum(abs.(ts.matrix_full[idx, :]))
     end
 end
 
-function cum_bin_end!(a::Dict{Tuple{String,String,String},Float64}, periods::Array{String}, bins::Array{String}, ts::TimeSeries)
+function cum_bin_end!(a, periods, bins, ts::TimeSeries)
     for (idx_p, p) in enumerate(periods)
         for (idx_b, b) in enumerate(bins)
             a[ts.name, p, b] = ts.matrix_bins_cumsum_day[idx_p, idx_b]
@@ -117,7 +117,7 @@ function cum_bin_end!(a::Dict{Tuple{String,String,String},Float64}, periods::Arr
     end
 end
 
-function cum_bin_total!(l::Dict{Tuple{String,String},Float64}, bins::Array{String}, ts::TimeSeries)
+function cum_bin_total!(l, bins, ts::TimeSeries)
     for (idx_b, b) in enumerate(bins)
         l[ts.name, b] = ts.matrix_bins_cumsum[idx_b]
     end
