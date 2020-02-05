@@ -2,7 +2,7 @@
 # Author:   Hanspeter Höschle
 # Date:     15/06/2017
 ##################################################################################
-mutable struct  DaysFinderTool
+mutable struct DaysFinderTool
     ##################################################################################
     # Configuration
     ##################################################################################
@@ -30,6 +30,11 @@ mutable struct  DaysFinderTool
     AREA_TOTAL_DAY::Dict      # Total area under time series with DC c per day
     AREA_ERROR_TOLERANCE::Dict              # tolerance parameter for area constraint
 
+    ###########################################################################
+    # Model
+    ###########################################################################
+    m::JuMP.Model
+
     ##################################################################################
     # Time Series
     ##################################################################################
@@ -41,6 +46,11 @@ mutable struct  DaysFinderTool
     u::Dict
     w::Dict
     v::Dict
+
+    ###########################################################################
+    # Misc dictionary
+    ###########################################################################
+    misc::Dict
 
     function DaysFinderTool(config_file::String)
         self = new()
@@ -123,7 +133,6 @@ function addTimeSeries!(self::DaysFinderTool, ts::TimeSeries)
 
     weight!(self.WEIGHT_DC, ts)
     area_total!(self.AREA_TOTAL, ts)
-    @show typeof(self.AREA_TOTAL_DAY)
     area_total_days!(self.AREA_TOTAL_DAY, self.periods, ts)
 
     cum_bin_end!(self.A, self.periods, self.bins, ts)
@@ -147,6 +156,7 @@ function define_random_start_point(dft::DaysFinderTool, p_start::Array, optimize
         # Optimization
         ##################################################################################
         m = Model(optimizer_factory)
+        dft.m = m
         @variable(m, w[p in p_start] >= 0.1)
         @variable(m, area_error[c in dft.curves] >= 0)
 
@@ -205,14 +215,14 @@ function writeOutResults(dft::DaysFinderTool)
                 used_days   = [dft.u[k] for k in sort([k for k in keys(dft.u)])])
     CSV.write(joinpath(result_dir, "decision_variables.csv"), df_dv, delim=';')
 
-    df_dv_s = deepcopy(df_dv[df_dv[:weights] .> 0, :])
+    df_dv_s = deepcopy(df_dv[df_dv[!,:weights] .> 0, :])
     CSV.write(joinpath(result_dir, "decision_variables_short.csv"), df_dv_s, delim=';')
 
-    ##################################################################################
+    ###########################################################################
     # Resulting time series
-    ##################################################################################
+    ###########################################################################
     df_ts = DataFrame()
-    period_idx = df_dv[:used_days] .== 1
+    period_idx = df_dv[!,:used_days] .== 1
     @debug("Period index of selected days: $period_idx")
 
     for ts in values(dft.time_series)
@@ -220,22 +230,29 @@ function writeOutResults(dft::DaysFinderTool)
     end
     CSV.write(joinpath(result_dir, "resulting_profiles.csv"), df_ts, delim=';')
 
-    ##################################################################################
+    ###########################################################################
+    # Save the decision variables
+    ###########################################################################
+    IPW = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]
+    df = DataFrame(IPW, dft.periods)
+    CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=';')
+
+    ###########################################################################
     # Copy of config-file
-    ##################################################################################
+    ###########################################################################
     cp(dft.config_file, joinpath(result_dir, "config_file.yaml"),force=true)
 end
 
-##################################################################################
+###############################################################################
 # Run Optimization
-##################################################################################
+###############################################################################
 # import RepresentativeDaysFinders: runDaysFinderToolDefault
 # using RepresentativeDaysFinders: DaysFinderTool
 function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.OptimizerFactory)
-    println("="^100)
-    println("="^100)
+    println("="^80)
+    println("="^80)
 
-    dft.AREA_ERROR_TOLERANCE = Dict{String,Float64}()
+    dft.AREA_ERROR_TOLERANCE = Dict()
     for c in dft.curves
         dft.AREA_ERROR_TOLERANCE[c] = dft.config["area_error_tolerance"]
     end
@@ -247,18 +264,17 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.O
         w_val[p] = 0.
     end
 
-    ##################################################################################
+    ###########################################################################
     # Model
-    ##################################################################################
+    ###########################################################################
     m = Model(optimizer_factory)
 
-    ##################################################################################
+    ###########################################################################
     # Variables
-    ##################################################################################
+    ###########################################################################
     @variable(m, u[p in dft.periods], Bin, start=u_val[p])
     @variable(m, w[p in dft.periods] >= 0, start=w_val[p])
     @variable(m, area_error[c in dft.curves] >= 0)
-
 
     # Mandatory Days
     m_d = []
@@ -283,24 +299,24 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.O
         set_start_value(w[p], w_start[p])
     end
 
-    ##################################################################################
+    ###########################################################################
     # Constraints
-    ##################################################################################
+    ###########################################################################
 
     if dft.config["duration_curve_error"] == "absolute"
         # Defining error as absolute value
-        @variable(m, error[c in dft.curves, b in dft.bins] >= 0)
+        @variable(m, duration_curve_error[c in dft.curves, b in dft.bins] >= 0)
         @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
-            error[c,b] >= + dft.L[c,b] - sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
+            duration_curve_error[c,b] >= + dft.L[c,b] - sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
         )
         @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
-            error[c,b] >= - dft.L[c,b] + sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
+            duration_curve_error[c,b] >= - dft.L[c,b] + sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
         )
     elseif dft.config["duration_curve_error"] == "square"
         # Define error as 2 norm error
-        error = Dict()
+        duration_curve_error = Dict()
         for c in dft.curves, b in dft.bins
-            error[c,b] = @expression(m,
+            duration_curve_error[c,b] = @expression(m,
                 (
                     dft.L[c,b] - sum(w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
                 )^2
@@ -362,7 +378,9 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.O
     ###########################################################################
 
     if dft.config["order_days"] == true
-        # # Define variable which maps days in the year to representative days
+        # Define variable which maps days in the year to representative days
+        # Can be continuous or binary
+        # TODO: allow for the option
         if true
             @variable(m, 0 <= v[pp=dft.periods,p=dft.periods] <= 1)
         elseif false
@@ -393,16 +411,46 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.O
         )
 
         # Define the error for the timeseries
-        timeseries_error = Dict()
-        for c=dft.curves,p=dft.periods,t=dft.timesteps
-            timeseries_error[c,p,t] = @expression(m,
-                (dft.time_series[c].matrix_full[p,t]
-                - reproduced_timeseries[c,p,t])^2
-            )
-        end
+        println("-"^80)
+        println("Defining timeseries error variable...")
+        @variable(m, timeseries_error[c in dft.curves, p in dft.periods, t in dft.timesteps] >= 0)
+        println("Defining first constraint for timeseries error...")
+        @constraint(m, [c in dft.curves, p in dft.periods, t in dft.timesteps],
+            timeseries_error[c,p,t] >= reproduced_timeseries[c,p,t]
+                - dft.time_series[c].matrix_full[p,t]
+        )
+        println("Defining second constraint for timeseries error...")
+        @constraint(m, [c in dft.curves, p in dft.periods, t in dft.timesteps],
+            timeseries_error[c,p,t] >= dft.time_series[c].matrix_full[p,t]
+            - reproduced_timeseries[c,p,t]
+        )
+        # timeseries_error = Dict(
+        #     (c,p,t) => @expression(m,
+        #         (dft.time_series[c].matrix_full[p,t]
+        #         - reproduced_timeseries[c,p,t])^2
+        #     ) for c in dft.curves, p in dft.periods, t in dft.timesteps
+		# )
+
+        # timeseries_error = @expression(m,
+        #     [c=dft.curves,p=dft.periods,t=dft.timesteps],
+        #     dft.time_series[c].matrix_full[p,t]
+        #     - reproduced_timeseries[c,p,t]
+        # )
+
+        # timeseries_error = Dict(
+        #     (c,p,t) => 0.0 for c in dft.curves, p in dft.periods, t=dft.timesteps
+        # )
     else
-        timeseries_error = 0
+        timeseries_error = Dict(
+            (c,p,t) => 0.0 for c in dft.curves, p in dft.periods, t=dft.timesteps
+        )
     end
+
+    # Save some shit to the misc dictionary
+    dft.misc = Dict()
+    dft.misc[:u] = u
+    dft.misc[:v] = v
+
 
     ##################################################################################
     # Objective
@@ -411,13 +459,13 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.O
     @objective(m, Min,
         sum(
             dft.WEIGHT_DC[c] *(
-                + sum(error[c,b] for b in dft.bins)
+                + sum(duration_curve_error[c,b] for b in dft.bins)
                 + sum(timeseries_error[c,p,t] for p in dft.periods, t=dft.timesteps)
             ) for c in dft.curves
         )
     )
 
-    # optimize!(m)
+    optimize!(m)
     stat = termination_status(m)
 
     @show stat
@@ -428,17 +476,19 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.O
     if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && has_values(m)
         u_val = value.(u)
         w_val = value.(w)
-        # @show w_val
+        v_val = value.(v)
+
         dft.u = Dict()
         for k in keys(u)
             dft.u[k[1]] = round(Int,abs(value(u[k[1]])))
         end
-
         dft.w = Dict()
         for k in keys(w)
-            dft.w[k[1]] = round(abs(value(w[k[1]])),digits=4)
+            dft.w[k[1]] = round(abs(value(w[k[1]])), digits=4)
         end
-
+        dft.v = Dict(
+            (i,j) => v_val[i,j] for i in v_val.axes[1], j in v_val.axes[2]
+        )
     else
         @show stat
     end

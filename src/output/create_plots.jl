@@ -9,11 +9,10 @@ function create_plots(dft::DaysFinderTool)
     end
 
     w = [dft.w[k] for k in sort([k for k in keys(dft.w)])]
-    u = [dft.u[k] for k in sort([k for k in keys(dft.w)])]
+    u = [dft.u[k] for k in sort([k for k in keys(dft.u)])]
 
     periods_with_weight = [i for (i,k) in enumerate(sort([k for k in keys(dft.w)])) if dft.w[k]>0]
     weights = [ww for ww in w if ww > 0]
-
 
     for ts in values(dft.time_series)
 
@@ -24,7 +23,7 @@ function create_plots(dft::DaysFinderTool)
         y = ts.matrix_full[periods_with_weight,:]'[:]
         x = (weights * ones(1, size(ts.matrix_full)[2]))'[:] / length(ts.data) * 100.
         df2 = sort(DataFrame(x=x, y=y, legend="reduced"), [:y], rev=true)
-        df2[:x] = cumsum(df2[:x])
+        df2[!,:x] = cumsum(df2[!,:x])
         plot!(df2.x, df2.y, label="reduced")
 
         xaxis!("Duration [-]", 0:10:100)
@@ -38,7 +37,20 @@ function create_plots(dft::DaysFinderTool)
         #
         file_pdf = joinpath(result_dir, "$(ts.name).pdf")
 
+        # TODO: Create heatmap of v
+
         # pdf(p, file_pdf)
         savefig(file_pdf)
     end
+    #######################################################################
+    # Show heatmap of sorting variable
+    #######################################################################
+    IPW = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]'
+    p = heatmap(
+        IPW,
+        xlabel = "Sum = Ordering of periods",
+        ylabel = "Sum = Weighting of rep. period",
+        title="Diagonal = Selection of rep. period"
+    )
+    savefig(p, joinpath(result_dir, "ordering_heatmap.pdf"))
 end
