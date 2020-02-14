@@ -50,7 +50,7 @@ function create_plots(dft::DaysFinderTool)
         IPW,
         xlabel = "Sum = Ordering of periods",
         ylabel = "Sum = Weighting of rep. period",
-        title="Diagonal = Selection of rep. period"
+        title = "Diagonal = Selection of rep. period"
     )
     savefig(p, joinpath(result_dir, "ordering_heatmap.pdf"))
 end
