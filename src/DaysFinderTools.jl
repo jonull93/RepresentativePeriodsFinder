@@ -640,8 +640,12 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.O
         append!(m_d, mandatory_periods)
         for p in mandatory_periods
             JuMP.fix(u[p],1)
-            # JuMP.set_lower_bound(w[p], 0.1)
-            JuMP.fix(w[p], 1.0, force = true)
+            if ("fix_max_weight" in keys(dft.config)) && dft.config["fix_max_weight"]
+                JuMP.fix(w[p], 1.0, force = true)
+                println("fixed stuff")
+            else
+                JuMP.set_lower_bound(w[p], 0.1)
+            end
         end
     end
     m_d = unique(m_d)

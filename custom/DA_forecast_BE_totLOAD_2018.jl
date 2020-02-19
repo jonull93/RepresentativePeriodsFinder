@@ -62,7 +62,7 @@ using TimeZones
 using Gurobi
 # using CPLEX
 config_file = joinpath(@__DIR__,"DA_LOAD_forcast_BE_2018_load_only.yaml")
-dft = findRepresentativeDays(config_file, with_optimizer(Gurobi.Optimizer; TimeLimit = 1800))
+dft = findRepresentativeDays(config_file, with_optimizer(Gurobi.Optimizer; TimeLimit = 60))
 # dft = findRepresentativeDays(config_file, with_optimizer(Cbc.Optimizer; seconds = 60*3*60))
 # dft = findRepresentativeDays(config_file, with_optimizer(CPLEX.Optimizer; CPX_PARAM_TILIM = 60*3))
 RepresentativeDaysFinders.create_plots(dft)
