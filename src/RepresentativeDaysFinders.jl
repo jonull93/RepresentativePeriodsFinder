@@ -36,7 +36,7 @@ module RepresentativeDaysFinders
     ##################################################################################
     export findRepresentativeDays, ENTSOEcsv2dataframe, writeOutResults, DaysFinderTools, create_plots
 
-    function findRepresentativeDays(config_file::String, optimizer_factory::JuMP.OptimizerFactory)
+    function findRepresentativeDays(config_file::String, optimizer_factory)
         @info("Start RepresentativeDaysFinder")
         if isfile(config_file)
             dft = DaysFinderTool(config_file)

@@ -143,7 +143,7 @@ end
 ##################################################################################
 # Defining Starting Values
 ##################################################################################
-function define_random_start_point(dft::DaysFinderTool, p_start::Array, optimizer_factory::JuMP.OptimizerFactory)
+function define_random_start_point(dft::DaysFinderTool, p_start::Array, optimizer_factory)
     w_start = Dict{String,Float64}()
     while true
         while length(p_start) < dft.N_representative_periods
@@ -248,7 +248,7 @@ end
 ###############################################################################
 # import RepresentativeDaysFinders: runDaysFinderToolDefault
 # using RepresentativeDaysFinders: DaysFinderTool
-function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory::JuMP.OptimizerFactory)
+function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     println("="^80)
     println("="^80)
 
