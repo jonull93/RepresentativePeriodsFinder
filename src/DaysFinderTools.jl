@@ -234,7 +234,7 @@ function writeOutResults(dft::DaysFinderTool)
     # Save the decision variables
     ###########################################################################
     IPW = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]
-    df = DataFrame(IPW, dft.periods)
+    df = DataFrame(IPW)
     CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=';')
 
     ###########################################################################
@@ -456,11 +456,15 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     # Objective
     ##################################################################################
 
+    dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
+    ts_weight = try_get_val(dft.config, "time_series_error_weight", 1.0)
+    ramp_weight = try_get_val(dft.config, "ramping_error_weight", 1.0)
+
     @objective(m, Min,
         sum(
             dft.WEIGHT_DC[c] *(
-                + sum(duration_curve_error[c,b] for b in dft.bins)
-                + sum(timeseries_error[c,p,t] for p in dft.periods, t=dft.timesteps)
+                + dc_weight*sum(duration_curve_error[c,b] for b in dft.bins)
+                + ts_weight*sum(timeseries_error[c,p,t] for p in dft.periods, t=dft.timesteps)
             ) for c in dft.curves
         )
     )
