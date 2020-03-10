@@ -45,12 +45,17 @@ function create_plots(dft::DaysFinderTool)
     #######################################################################
     # Show heatmap of sorting variable
     #######################################################################
-    IPW = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]'
-    p = heatmap(
-        IPW,
-        xlabel = "Sum = Ordering of periods",
-        ylabel = "Sum = Weighting of rep. period",
-        title = "Diagonal = Selection of rep. period"
+    order_days = try_get_val(
+        dft.config, "order_days", false
     )
-    savefig(p, joinpath(result_dir, "ordering_heatmap.pdf"))
+    if order_days
+        IPW = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]'
+        p = heatmap(
+            IPW,
+            xlabel = "Sum = Ordering of periods",
+            ylabel = "Sum = Weighting of rep. period",
+            title = "Diagonal = Selection of rep. period"
+        )
+        savefig(p, joinpath(result_dir, "ordering_heatmap.pdf"))
+    end
 end

@@ -231,11 +231,16 @@ function writeOutResults(dft::DaysFinderTool)
     CSV.write(joinpath(result_dir, "resulting_profiles.csv"), df_ts, delim=';')
 
     ###########################################################################
-    # Save the decision variables
+    # Save the ordering variable (if necessary)
     ###########################################################################
-    IPW = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]
-    df = DataFrame(IPW)
-    CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=';')
+    order_days = try_get_val(
+        dft.config, "order_days", false
+    )
+    if order_days
+        IPW = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]
+        df = DataFrame(IPW)
+        CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=';')
+    end
 
     ###########################################################################
     # Copy of config-file
@@ -303,7 +308,10 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     # Constraints
     ###########################################################################
 
-    if dft.config["duration_curve_error"] == "absolute"
+    duration_curve_error = try_get_val(
+        dft.config, "duration_curve_error", "absolute"
+    )
+    if duration_curve_error == "absolute"
         # Defining error as absolute value
         @variable(m, duration_curve_error[c in dft.curves, b in dft.bins] >= 0)
         @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
@@ -312,7 +320,7 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
         @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
             duration_curve_error[c,b] >= - dft.L[c,b] + sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
         )
-    elseif dft.config["duration_curve_error"] == "square"
+    elseif duration_curve_error == "square"
         # Define error as 2 norm error
         duration_curve_error = Dict()
         for c in dft.curves, b in dft.bins
@@ -322,8 +330,6 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
                 )^2
             )
         end
-    else
-        error("Please specify duration curve error type.")
     end
 
     # User defined number of representative periods
@@ -377,7 +383,10 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     # Ordering of representative days constraints and variables
     ###########################################################################
 
-    if dft.config["order_days"] == true
+    order_days = try_get_val(
+        dft.config, "order_days", false
+    )
+    if order_days == true
         # Define variable which maps days in the year to representative days
         # Can be continuous or binary
         # TODO: allow for the option
@@ -412,14 +421,14 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
 
         # Define the error for the timeseries
         println("-"^80)
-        println("Defining timeseries error variable...")
+        # println("Defining timeseries error variable...")
         @variable(m, timeseries_error[c in dft.curves, p in dft.periods, t in dft.timesteps] >= 0)
-        println("Defining first constraint for timeseries error...")
+        # println("Defining first constraint for timeseries error...")
         @constraint(m, [c in dft.curves, p in dft.periods, t in dft.timesteps],
             timeseries_error[c,p,t] >= reproduced_timeseries[c,p,t]
                 - dft.time_series[c].matrix_full[p,t]
         )
-        println("Defining second constraint for timeseries error...")
+        # println("Defining second constraint for timeseries error...")
         @constraint(m, [c in dft.curves, p in dft.periods, t in dft.timesteps],
             timeseries_error[c,p,t] >= dft.time_series[c].matrix_full[p,t]
             - reproduced_timeseries[c,p,t]
@@ -449,8 +458,7 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     # Save some shit to the misc dictionary
     dft.misc = Dict()
     dft.misc[:u] = u
-    dft.misc[:v] = v
-
+    order_days ? dft.misc[:v] = v : dft.misc[:v] = Dict()
 
     ##################################################################################
     # Objective
@@ -480,7 +488,6 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && has_values(m)
         u_val = value.(u)
         w_val = value.(w)
-        v_val = value.(v)
 
         dft.u = Dict()
         for k in keys(u)
@@ -490,9 +497,12 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
         for k in keys(w)
             dft.w[k[1]] = round(abs(value(w[k[1]])), digits=4)
         end
-        dft.v = Dict(
-            (i,j) => v_val[i,j] for i in v_val.axes[1], j in v_val.axes[2]
-        )
+        if order_days == true
+            v_val = value.(v)
+            dft.v = Dict(
+                (i,j) => v_val[i,j] for i in v_val.axes[1], j in v_val.axes[2]
+            )
+        end
     else
         @show stat
     end

@@ -35,27 +35,33 @@ module RepresentativeDaysFinders
     ##################################################################################
     # Default method to run tool
     ##################################################################################
-    export findRepresentativeDays, ENTSOEcsv2dataframe, writeOutResults, DaysFinderTools, create_plots
+    export findRepresentativeDays, ENTSOEcsv2dataframe, writeOutResults, DaysFinderTool, create_plots
+
+    function findRepresentativeDays(dft::DaysFinderTool, optimizer_factory)
+        # Optimize
+        if dft.config["solver"]["Method"] == "BruteForce"
+            stat = runDaysFinderToolBruteForce(dft, optimizer_factory)
+        elseif dft.config["solver"]["Method"] == "Iterative"
+            stat = runDaysFinderToolIterativeBounderaries(dft, optimizer_factory)
+        else
+            stat = runDaysFinderToolDefault(dft, optimizer_factory)
+        end
+
+        # write out results
+        if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT]
+            writeOutResults(dft)
+            if dft.config["create_plots"] == 1
+                create_plots(dft)
+            end
+        end
+        return dft
+    end
 
     function findRepresentativeDays(config_file::String, optimizer_factory)
         @info("Start RepresentativeDaysFinder")
         if isfile(config_file)
             dft = DaysFinderTool(config_file)
-            if dft.config["solver"]["Method"] == "BruteForce"
-                stat = runDaysFinderToolBruteForce(dft, optimizer_factory)
-            elseif dft.config["solver"]["Method"] == "Iterative"
-                stat = runDaysFinderToolIterativeBounderaries(dft, optimizer_factory)
-            else
-                stat = runDaysFinderToolDefault(dft, optimizer_factory)
-            end
-
-            if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT]
-                writeOutResults(dft)
-                if dft.config["create_plots"] == 1
-                    create_plots(dft)
-                end
-            end
-            return dft
+            findRepresentativeDays(dft, optimizer_factory)
         else
             @error("Config-file not found $config_file")
         end
