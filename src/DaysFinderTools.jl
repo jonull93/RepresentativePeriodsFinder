@@ -245,7 +245,7 @@ function writeOutResults(dft::DaysFinderTool)
     ###########################################################################
     # Copy of config-file
     ###########################################################################
-    cp(dft.config_file, joinpath(result_dir, "config_file.yaml"),force=true)
+    YAML.write_file(joinpath(result_dir, "config_file.yaml"), dft.config)
 end
 
 ###############################################################################
