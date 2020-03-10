@@ -52,76 +52,94 @@ mutable struct DaysFinderTool
     ###########################################################################
     misc::Dict
 
-    function DaysFinderTool(config_file::String)
+    function DaysFinderTool(config_file::String; populate_entries::Bool = false)
         self = new()
         self.config_file = config_file
         self.config = YAML.load(open(config_file))
         self.config["basedir"] = dirname(config_file)
 
-        pad = 3
-        ##################################################################################
-        # Sets
-        ##################################################################################
-        self.bins =     ["b"*string(b, pad=pad) for b in range(1,stop=self.config["number_bins"])]
-        self.periods = 1:self.config["number_days_total"]
-        self.timesteps = 1:24
+        if populate_entries == true
+            self = populateDaysFinderTool!(self)
+        end
+
+        return self
+    end
+
+    # Pretty prints of long term planning model
+    function Base.print(io::IO, dft::DaysFinderTool)
+        println(io, "Representative Days Finder")
+        println(io, "Configuration file: \n\t$(dft.config_file)")
+    end
+
+    function Base.show(io::IO, dft::DaysFinderTool)
+        print(io, dft)
+    end
+end
+
+function populateDaysFinderTool!(self::DaysFinderTool)
+    pad = 3
+    ##################################################################################
+    # Sets
+    ##################################################################################
+    self.bins =     ["b"*string(b, pad=pad) for b in range(1,stop=self.config["number_bins"])]
+    self.periods = 1:self.config["number_days_total"]
+    self.timesteps = 1:24
+
+    ##################################################################################
+    # Parameters
+    ##################################################################################
+    self.WEIGHT_DC                  = Dict()
+    self.A                          = Dict()
+    self.L                          = Dict()
+
+    self.AREA_TOTAL                 = Dict()
+    self.AREA_TOTAL_DAY             = Dict()
+
+    self.N_representative_periods   = self.config["number_days"]
+    self.N_total_periods            = self.config["number_days_total"]
+
+    ##################################################################################
+    # Initialize the TimeSeries
+    ##################################################################################
+    self.time_series = Dict()
+    self.curves = Array{String,1}()
+    for ts_config in self.config["time_series"]
+        println("-"^100)
+
+        ts = TimeSeries(self, ts_config)
+        addTimeSeries!(self, ts)
+
+        println("$(ts.name) added")
 
         ##################################################################################
-        # Parameters
+        # Dynamics profiles
         ##################################################################################
-        self.WEIGHT_DC                  = Dict()
-        self.A                          = Dict()
-        self.L                          = Dict()
-
-        self.AREA_TOTAL                 = Dict()
-        self.AREA_TOTAL_DAY             = Dict()
-
-        self.N_representative_periods   = self.config["number_days"]
-        self.N_total_periods            = self.config["number_days_total"]
-
-        ##################################################################################
-        # Initialize the TimeSeries
-        ##################################################################################
-        self.time_series = Dict()
-        self.curves = Array{String,1}()
-        for ts_config in self.config["time_series"]
+        if self.config["dynamics_method"] == "all_1step"
             println("-"^100)
 
-            ts = TimeSeries(self, ts_config)
+            ts_diff = TimeSeries(self, ts, :all_1step)
+            addTimeSeries!(self, ts_diff)
+
+            println("$(ts_diff.name) added")
+        end
+    end
+
+    ##################################################################################
+    # Correlation
+    ##################################################################################
+    if self.config["correlation_method"] == "all"
+        ts_basic = [ts.name for ts in values(self.time_series) if ts.time_series_type ==:basic]
+        for combi in combinations(ts_basic,2)
+            println("-"^100)
+            ts1 = self.time_series[combi[1]]
+            ts2 = self.time_series[combi[2]]
+            ts = TimeSeries(self, ts1, ts2)
             addTimeSeries!(self, ts)
 
             println("$(ts.name) added")
-
-            ##################################################################################
-            # Dynamics profiles
-            ##################################################################################
-            if self.config["dynamics_method"] == "all_1step"
-                println("-"^100)
-
-                ts_diff = TimeSeries(self, ts, :all_1step)
-                addTimeSeries!(self, ts_diff)
-
-                println("$(ts_diff.name) added")
-            end
         end
-
-        ##################################################################################
-        # Correlation
-        ##################################################################################
-        if self.config["correlation_method"] == "all"
-            ts_basic = [ts.name for ts in values(self.time_series) if ts.time_series_type ==:basic]
-            for combi in combinations(ts_basic,2)
-                println("-"^100)
-                ts1 = self.time_series[combi[1]]
-                ts2 = self.time_series[combi[2]]
-                ts = TimeSeries(self, ts1, ts2)
-                addTimeSeries!(self, ts)
-
-                println("$(ts.name) added")
-            end
-        end
-        return self
     end
+    return self
 end
 
 ##################################################################################
@@ -226,7 +244,7 @@ function writeOutResults(dft::DaysFinderTool)
     @debug("Period index of selected days: $period_idx")
 
     for ts in values(dft.time_series)
-        df_ts[Symbol(ts.name)] =  ts.matrix_full[period_idx,:]'[:]
+        df_ts[!,Symbol(ts.name)] =  ts.matrix_full[period_idx,:]'[:]
     end
     CSV.write(joinpath(result_dir, "resulting_profiles.csv"), df_ts, delim=';')
 
@@ -245,7 +263,11 @@ function writeOutResults(dft::DaysFinderTool)
     ###########################################################################
     # Copy of config-file
     ###########################################################################
-    YAML.write_file(joinpath(result_dir, "config_file.yaml"), dft.config)
+    stringdata = JSON.json(dft.config)
+    open(joinpath(result_dir, "config_file.json"), "w") do f
+        write(f, stringdata)
+    end
+    return dft
 end
 
 ###############################################################################

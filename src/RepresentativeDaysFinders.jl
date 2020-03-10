@@ -14,6 +14,7 @@ module RepresentativeDaysFinders
     using JuMP                              # -> optimization suite
     using Interpolations
     using Plots; gr()
+    using JSON # output config file
 
 
     include("time_series/TimeSeries.jl")
@@ -35,7 +36,7 @@ module RepresentativeDaysFinders
     ##################################################################################
     # Default method to run tool
     ##################################################################################
-    export findRepresentativeDays, ENTSOEcsv2dataframe, writeOutResults, DaysFinderTool, create_plots
+    export findRepresentativeDays, ENTSOEcsv2dataframe, writeOutResults, DaysFinderTool, populateDaysFinderTool!, create_plots
 
     function findRepresentativeDays(dft::DaysFinderTool, optimizer_factory)
         # Optimize
