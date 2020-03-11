@@ -82,8 +82,13 @@ function populateDaysFinderTool!(self::DaysFinderTool)
     # Sets
     ##################################################################################
     self.bins =     ["b"*string(b, pad=pad) for b in range(1,stop=self.config["number_bins"])]
-    self.periods = 1:self.config["number_days_total"]
-    self.timesteps = 1:24
+
+    lenT = try_get_val(self.config, "timesteps_per_period", 24)
+    self.timesteps = 1:lenT
+
+    lenP = try_get_val(self.config, "number_days_total", 365)
+    self.periods = 1:lenP
+
 
     ##################################################################################
     # Parameters
@@ -139,6 +144,10 @@ function populateDaysFinderTool!(self::DaysFinderTool)
             println("$(ts.name) added")
         end
     end
+
+    # misc dictionary
+    self.misc = Dict()
+
     return self
 end
 
@@ -174,7 +183,6 @@ function define_random_start_point(dft::DaysFinderTool, p_start::Array, optimize
         # Optimization
         ##################################################################################
         m = Model(optimizer_factory)
-        dft.m = m
         @variable(m, w[p in p_start] >= 0.1)
         @variable(m, area_error[c in dft.curves] >= 0)
 
@@ -295,12 +303,13 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     # Model
     ###########################################################################
     m = Model(optimizer_factory)
+    dft.m = m # save to DaysFinderTool
 
     ###########################################################################
     # Variables
     ###########################################################################
-    @variable(m, u[p in dft.periods], Bin, start=u_val[p])
-    @variable(m, w[p in dft.periods] >= 0, start=w_val[p])
+    @variable(m, u[p in dft.periods], Bin)
+    @variable(m, w[p in dft.periods] >= 0)
     @variable(m, area_error[c in dft.curves] >= 0)
 
     # Mandatory Days
@@ -315,16 +324,16 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     end
     m_d = unique(m_d)
 
-    # Starting Values
-    p_start, w_start = define_random_start_point(dft, m_d, optimizer_factory)
-    for p in p_start
-        @debug("Set starting value for $p")
-        @debug("Set weight to $(w_start[p])")
-        if ~is_fixed(u[p])
-            set_start_value(u[p], 1)
-        end
-        set_start_value(w[p], w_start[p])
-    end
+    # # Starting Values
+    # p_start, w_start = define_random_start_point(dft, m_d, optimizer_factory)
+    # for p in p_start
+    #     @debug("Set starting value for $p")
+    #     @debug("Set weight to $(w_start[p])")
+    #     if ~is_fixed(u[p])
+    #         set_start_value(u[p], 1)
+    #     end
+    #     set_start_value(w[p], w_start[p])
+    # end
 
     ###########################################################################
     # Constraints
@@ -409,6 +418,9 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
         dft.config, "order_days", false
     )
     if order_days == true
+
+        println("Timeseries error constraints...")
+
         # Define variable which maps days in the year to representative days
         # Can be continuous or binary
         # TODO: allow for the option
@@ -438,23 +450,27 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
         # Define the reproduced timeseries
         reproduced_timeseries = @expression(m,
             [c=dft.curves,p=dft.periods,t=dft.timesteps],
-            sum(v[pp,p]*dft.time_series[c].matrix_full[p,t] for pp=dft.periods)
+            sum(v[pp,p]*dft.time_series[c].matrix_full[pp,t] for pp=dft.periods)
         )
+        dft.misc[:reproduced_timeseries] = reproduced_timeseries # save
 
         # Define the error for the timeseries
         println("-"^80)
-        # println("Defining timeseries error variable...")
         @variable(m, timeseries_error[c in dft.curves, p in dft.periods, t in dft.timesteps] >= 0)
-        # println("Defining first constraint for timeseries error...")
+
         @constraint(m, [c in dft.curves, p in dft.periods, t in dft.timesteps],
             timeseries_error[c,p,t] >= reproduced_timeseries[c,p,t]
                 - dft.time_series[c].matrix_full[p,t]
         )
-        # println("Defining second constraint for timeseries error...")
+
         @constraint(m, [c in dft.curves, p in dft.periods, t in dft.timesteps],
             timeseries_error[c,p,t] >= dft.time_series[c].matrix_full[p,t]
             - reproduced_timeseries[c,p,t]
         )
+
+        # c = dft.curves[1]; p = dft.periods[1]; t = dft.timesteps[1]
+        # @show reproduced_timeseries[c,p,t]
+        # @show dft.time_series[c].matrix_full[p,t]
         # timeseries_error = Dict(
         #     (c,p,t) => @expression(m,
         #         (dft.time_series[c].matrix_full[p,t]
@@ -478,7 +494,6 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     end
 
     # Save some shit to the misc dictionary
-    dft.misc = Dict()
     dft.misc[:u] = u
     order_days ? dft.misc[:v] = v : dft.misc[:v] = Dict()
 
@@ -498,6 +513,20 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
             ) for c in dft.curves
         )
     )
+
+    # @objective(m, Min,
+    #     sum(
+    #         dft.WEIGHT_DC[c] *(
+    #             + dc_weight*sum(dft.L[c,b] - sum(w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods) for b in dft.bins)
+    #             + ts_weight*sum( for p in dft.periods, b in dft.bins)
+    #         ) for c in dft.curves
+    #     )
+    # )
+
+    # @objective(m, Min, sum(dft.WEIGHT_DC[c]*
+    #     (dft.time_series[c].matrix_full[p,t] - reproduced_timeseries[c,p,t])^2
+    #     for c in dft.curves, p in dft.periods, t in dft.timesteps
+    # ))
 
     optimize!(m)
     stat = termination_status(m)

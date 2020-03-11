@@ -74,7 +74,7 @@ function calculate_matrix_bins!(self::TimeSeries, dft::DaysFinderTool)
     ##################################################################################
     # Calculate bins and matrices
     ##################################################################################
-    self.matrix_full = reshape(self.data, round(Int,length(self.data) / length(dft.periods)), length(dft.periods))'
+    self.matrix_full = reshape(self.data, round(Int, length(self.data) / length(dft.periods)), length(dft.periods))'
 
     value_width = (maximum(self.data) - minimum(self.data)) / length(dft.bins)
 
