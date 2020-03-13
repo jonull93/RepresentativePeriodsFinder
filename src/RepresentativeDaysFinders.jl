@@ -33,9 +33,9 @@ module RepresentativeDaysFinders
     ###########################################################
     include("time_series/dataprocessing.jl")
 
-    ##################################################################################
+    ############################################################
     # Default method to run tool
-    ##################################################################################
+    ############################################################
     export findRepresentativeDays, ENTSOEcsv2dataframe, writeOutResults, DaysFinderTool, populateDaysFinderTool!, create_plots
 
     function findRepresentativeDays(dft::DaysFinderTool, optimizer_factory)
