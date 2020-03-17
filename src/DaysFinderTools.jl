@@ -196,20 +196,22 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     ###########################################################################
     # Variables
     ###########################################################################
-    model_formulation = try_get_val(dft.config,
-        "model_formulation", "traditional"
-    )
-    if model_formulation == "traditional"
-        @variable(m, u[p in dft.periods], Bin)
-        @variable(m, w[p in dft.periods] >= 0)
-        dft.misc[:u] = u
-        dft.misc[:w] = w
-    elseif model_formulation == "alternative"
-        @variable(m, x[p in dft.periods, r in vcat(0, dft.periods)], Bin)
-        dft.misc[:x] = x
-    else
-        error("Model formulation specification not recognised")
+    @variable(m, u[p in dft.periods], Bin)
+    @variable(m, w[p in dft.periods] >= 0)
+
+    # Hot starts
+    hot_start_values = try_get_val(dft.config, "hot_start_values", nothing)
+    if isnothing(hot_start_values) == false
+        u_val = hot_start_values[:u]
+        w_val = hot_start_values[:w]
+        for p in dft.periods
+            set_start_value(u[p], u_val[p])
+            set_start_value(w[p], w_val[p])
+        end
     end
+
+    dft.misc[:u] = u
+    dft.misc[:w] = w
 
     # Mandatory Days
     m_d = []
@@ -240,67 +242,38 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
 
     # Defining error as absolute value
     @variable(m, duration_curve_error[c in dft.curves, b in dft.bins] >= 0)
-    if model_formulation == "traditional"
-        @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
-            duration_curve_error[c,b] >= + dft.L[c,b] - sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
-        )
-        @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
-            duration_curve_error[c,b] >= - dft.L[c,b] + sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
-        )
+    @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
+        duration_curve_error[c,b] >= + dft.L[c,b] - sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
+    )
+    @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
+        duration_curve_error[c,b] >= - dft.L[c,b] + sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
+    )
 
-        # User defined number of representative periods
-        @constraint(m, number_periods_eq,
-            sum(u[p] for p in dft.periods) <= dft.N_representative_periods
-        )
+    # User defined number of representative periods
+    @constraint(m, number_periods_eq,
+        sum(u[p] for p in dft.periods) <= dft.N_representative_periods
+    )
 
-        # Restrict non-zero weights to selected periods
-        if dft.config["equal_weights"] == true
-            @constraint(m, single_weight_eq[p in dft.periods],
-                w[p] == u[p] * dft.N_total_periods / dft.N_representative_periods
-            )
-        else
-            @constraint(m, single_weight_eq[p in dft.periods],
-                w[p] <= u[p] * dft.N_total_periods
-            )
-        end
-
-        # Guarantee equivalent yearly duration
-        @constraint(m, total_weight_eq,
-            sum(w[p] for p in dft.periods) == dft.N_total_periods
+    # Restrict non-zero weights to selected periods
+    if dft.config["equal_weights"] == true
+        @constraint(m, single_weight_eq[p in dft.periods],
+            w[p] == u[p] * dft.N_total_periods / dft.N_representative_periods
         )
-
-        # Minimum weight
-        @constraint(m, minimum_weight[p in dft.periods],
-            w[p] >= u[p] * 0.1
-        )
-    elseif model_formulation == "alternative"
-        @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
-            duration_curve_error[c,b] >= + dft.L[c,b] - sum(
-                sum(x[p,r]*r for r in vcat(0,dft.periods)) / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
-
-        )
-        @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
-            duration_curve_error[c,b] >= - dft.L[c,b] + sum(
-                sum(x[p,r]*r for r in vcat(0,dft.periods)) / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods
-            )
-        )
-
-        # User defined number of representative periods
-        @constraint(m, number_periods_eq,
-            sum(x[p,0] for p in dft.periods) ==
-                dft.N_total_periods - dft.N_representative_periods
-        )
-
-        # Guarantee equivalent yearly duration
-        @constraint(m, total_weight_eq,
-            sum(x[p,r]*r for p in dft.periods, r in vcat(0,dft.periods)) == dft.N_total_periods
-        )
-
-        # Make sure that sum of rows == 1!
-        @constraint(m, select_but_one_weight[p in dft.periods],
-            sum(x[p,r] for r in vcat(0,dft.periods)) == 1
+    else
+        @constraint(m, single_weight_eq[p in dft.periods],
+            w[p] <= u[p] * dft.N_total_periods
         )
     end
+
+    # Guarantee equivalent yearly duration
+    @constraint(m, total_weight_eq,
+        sum(w[p] for p in dft.periods) == dft.N_total_periods
+    )
+
+    # Minimum weight
+    @constraint(m, minimum_weight[p in dft.periods],
+        w[p] >= u[p] * 0.1
+    )
 
     ##################################################################################
     # Optional constraints for speed up
@@ -450,20 +423,10 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     @show has_values(m)
 
     if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && has_values(m)
-        if model_formulation == "traditional"
-            u_val = value.(u).data
-            w_val = value.(w).data
-            dft.u = Dict(p => round(abs(u_val[p])) for p in dft.periods)
-            dft.w = Dict(p => round(abs(w_val[p]), digits=4) for p in dft.periods)
-        elseif model_formulation == "alternative"
-            x_val = value.(x)
-            u_val = [iszero(x[p,1]) ? 1 : 0 for p in dft.periods]
-            w_val = [
-                sum(x_val[p,r]*r for r in vcat(0, dft.periods)) for p in dft.periods
-            ]
-            dft.u = Dict(p => round(abs(u_val[p])) for p in dft.periods)
-            dft.w = Dict(p => round(abs(w_val[p]), digits=4) for p in dft.periods)
-        end
+        u_val = value.(u).data
+        w_val = value.(w).data
+        dft.u = Dict(p => round(abs(u_val[p])) for p in dft.periods)
+        dft.w = Dict(p => round(abs(w_val[p]), digits=4) for p in dft.periods)
 
         if order_days == true
             v_val = value.(v)
