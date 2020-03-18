@@ -241,13 +241,17 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     ###########################################################################
 
     # Defining error as absolute value
-    @variable(m, duration_curve_error[c in dft.curves, b in dft.bins] >= 0)
-    @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
-        duration_curve_error[c,b] >= + dft.L[c,b] - sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
-    )
-    @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
-        duration_curve_error[c,b] >= - dft.L[c,b] + sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
-    )
+    include_DC_error = try_get_val(dft.config, "include_DC_error", true)
+    duration_curve_error = EmptyContainer(Float64)
+    if include_DC_error == true
+        @variable(m, duration_curve_error[c in dft.curves, b in dft.bins] >= 0)
+        @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
+            duration_curve_error[c,b] >= + dft.L[c,b] - sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
+        )
+        @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
+            duration_curve_error[c,b] >= - dft.L[c,b] + sum( w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods)
+        )
+    end
 
     # User defined number of representative periods
     @constraint(m, number_periods_eq,
@@ -307,17 +311,17 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     order_days = try_get_val(
         dft.config, "order_days", false
     )
-    if order_days == true
+    if order_days in ("binary","square_error")
         println("Timeseries error constraints...")
         # Define variable which maps days in the year to representative days
         # Can be continuous or binary
-        # TODO: allow for the option
-        if true
+        binary_ordering = try_get_val(dft.config, "binary_ordering", true)
+        if order_days == "binary"
             @variable(m, 0 <= v[pp=dft.periods,p=dft.periods] <= 1)
-        elseif false
+        elseif order_days == "square_error"
             @variable(m, v[pp=dft.periods,p=dft.periods], Bin)
         else
-            error("Please specify whether ordering variable should be binary or continuous")
+            error("Please specify ordering type")
         end
         dft.misc[:v] = v
 
@@ -336,45 +340,25 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
             sum(v[p,pp] for pp in dft.periods) == w[p]
         )
 
-        # Define the reproduced timeseries
-        reproduced_timeseries = @expression(m,
-            [c=dft.curves,p=dft.periods,t=dft.timesteps],
-            sum(v[pp,p]*dft.time_series[c].matrix_full[pp,t] for pp=dft.periods)
-        )
-        dft.misc[:reproduced_timeseries] = reproduced_timeseries # save
-
-        # Define the error for the timeseries
-        println("-"^80)
-        @variable(m, timeseries_error[c in dft.curves, p in dft.periods, t in dft.timesteps] >= 0)
-
-        @constraint(m, [c in dft.curves, p in dft.periods, t in dft.timesteps],
-            timeseries_error[c,p,t] >= reproduced_timeseries[c,p,t]
-                - dft.time_series[c].matrix_full[p,t]
-        )
-
-        @constraint(m, [c in dft.curves, p in dft.periods, t in dft.timesteps],
-            timeseries_error[c,p,t] >= dft.time_series[c].matrix_full[p,t]
-            - reproduced_timeseries[c,p,t]
-        )
-
-        # c = dft.curves[1]; p = dft.periods[1]; t = dft.timesteps[1]
-        # @show reproduced_timeseries[c,p,t]
-        # @show dft.time_series[c].matrix_full[p,t]
-        # timeseries_error = Dict(
-        #     (c,p,t) => @expression(m,
-        #         (dft.time_series[c].matrix_full[p,t]
-        #         - reproduced_timeseries[c,p,t])^2
-        #     ) for c in dft.curves, p in dft.periods, t in dft.timesteps
-		# )
-
-        # timeseries_error = @expression(m,
+        # # Define the reproduced timeseries
+        # reproduced_timeseries = @expression(m,
         #     [c=dft.curves,p=dft.periods,t=dft.timesteps],
-        #     dft.time_series[c].matrix_full[p,t]
-        #     - reproduced_timeseries[c,p,t]
+        #     sum(v[pp,p]*dft.time_series[c].matrix_full[pp,t] for pp=dft.periods)
         # )
-
-        # timeseries_error = Dict(
-        #     (c,p,t) => 0.0 for c in dft.curves, p in dft.periods, t=dft.timesteps
+        # dft.misc[:reproduced_timeseries] = reproduced_timeseries # save
+        #
+        # # Define the error for the timeseries
+        # println("-"^80)
+        # @variable(m, timeseries_error[c in dft.curves, p in dft.periods, t in dft.timesteps] >= 0)
+        #
+        # @constraint(m, [c in dft.curves, p in dft.periods, t in dft.timesteps],
+        #     timeseries_error[c,p,t] >= reproduced_timeseries[c,p,t]
+        #         - dft.time_series[c].matrix_full[p,t]
+        # )
+        #
+        # @constraint(m, [c in dft.curves, p in dft.periods, t in dft.timesteps],
+        #     timeseries_error[c,p,t] >= dft.time_series[c].matrix_full[p,t]
+        #     - reproduced_timeseries[c,p,t]
         # )
     else
         timeseries_error = Dict(
@@ -386,6 +370,8 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     # Objective
     ##################################################################################
 
+    TSEMD = getTimeSeriesErrorMatrix(dft)
+
     dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
     ts_weight = try_get_val(dft.config, "time_series_error_weight", 1.0)
     ramp_weight = try_get_val(dft.config, "ramping_error_weight", 1.0)
@@ -394,24 +380,23 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
         sum(
             dft.WEIGHT_DC[c] *(
                 + dc_weight*sum(duration_curve_error[c,b] for b in dft.bins)
-                + ts_weight*sum(timeseries_error[c,p,t] for p in dft.periods, t=dft.timesteps)
+                + ts_weight*sum(
+                    v[pp,p]*TSEMD[c][pp,p] for pp in dft.periods, p in dft.periods
+                )
             ) for c in dft.curves
         )
     )
 
-    # @objective(m, Min,
-    #     sum(
-    #         dft.WEIGHT_DC[c] *(
-    #             + dc_weight*sum(dft.L[c,b] - sum(w[p] / dft.N_total_periods * dft.A[c,p,b] for p in dft.periods) for b in dft.bins)
-    #             + ts_weight*sum( for p in dft.periods, b in dft.bins)
-    #         ) for c in dft.curves
-    #     )
-    # )
-
-    # @objective(m, Min, sum(dft.WEIGHT_DC[c]*
-    #     (dft.time_series[c].matrix_full[p,t] - reproduced_timeseries[c,p,t])^2
-    #     for c in dft.curves, p in dft.periods, t in dft.timesteps
-    # ))
+    @objective(m, Min,
+        sum(
+            dft.WEIGHT_DC[c] *(
+                + dc_weight*sum(duration_curve_error[c,b] for b in dft.bins)
+                + ts_weight*sum(
+                     sum(v[pp,p]*dft.time_series[c].matrix_full[pp,t] for pp=dft.periods) - dft.time_series[c].matrix_full[p,t]
+                )
+            ) for c in dft.curves
+        )
+    )
 
     optimize!(m)
     stat = termination_status(m)
@@ -497,6 +482,17 @@ function define_random_start_point(dft::DaysFinderTool, p_start::Array, optimize
     end
     @debug("$w_start")
     return p_start, w_start
+end
+
+function getTimeSeriesErrorMatrix(dft::DaysFinderTool)
+    TSEM = Array{Float64,2}(undef, length(dft.periods), length(dft.periods))
+    TSEMD = Dict(
+        c => abs.([sum(
+            + dft.time_series[c].matrix_full[p,t]
+            - dft.time_series[c].matrix_full[pp,t] for t in dft.timesteps
+        ) for  p in dft.periods, pp in dft.periods]) for c in dft.curves
+    )
+    return TSEMD
 end
 
 ##################################################################################

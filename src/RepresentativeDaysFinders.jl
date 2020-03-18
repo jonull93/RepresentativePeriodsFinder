@@ -19,6 +19,7 @@ module RepresentativeDaysFinders
 
     include("time_series/TimeSeries.jl")
     include("DaysFinderTools.jl")
+    include("EmptyContainer.jl")
     include("time_series/TimeSeriesFunctions.jl")
 
     ###########################################################
