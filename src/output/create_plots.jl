@@ -46,9 +46,9 @@ function create_plots(dft::DaysFinderTool)
     # Show heatmap of sorting variable
     #######################################################################
     order_days = try_get_val(
-        dft.config, "order_days", false
+        dft.config, "order_days", "none"
     )
-    if order_days
+    if order_days in ["binary", "square_error"]
         IPW = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]'
         p = heatmap(
             IPW,

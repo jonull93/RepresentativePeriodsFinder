@@ -361,9 +361,8 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
         #     - reproduced_timeseries[c,p,t]
         # )
     else
-        timeseries_error = Dict(
-            (c,p,t) => 0.0 for c in dft.curves, p in dft.periods, t=dft.timesteps
-        )
+        v = EmptyContainer(Float64)
+        timeseries_error = EmptyContainer(Float64)
     end
 
     ##################################################################################
@@ -387,17 +386,6 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
         )
     )
 
-    @objective(m, Min,
-        sum(
-            dft.WEIGHT_DC[c] *(
-                + dc_weight*sum(duration_curve_error[c,b] for b in dft.bins)
-                + ts_weight*sum(
-                     sum(v[pp,p]*dft.time_series[c].matrix_full[pp,t] for pp=dft.periods) - dft.time_series[c].matrix_full[p,t]
-                )
-            ) for c in dft.curves
-        )
-    )
-
     optimize!(m)
     stat = termination_status(m)
 
@@ -413,7 +401,7 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
         dft.u = Dict(p => round(abs(u_val[p])) for p in dft.periods)
         dft.w = Dict(p => round(abs(w_val[p]), digits=4) for p in dft.periods)
 
-        if order_days == true
+        if order_days in ["binary", "square_error"]
             v_val = value.(v)
             dft.v = Dict(
                 (i,j) => v_val[i,j] for i in v_val.axes[1], j in v_val.axes[2]
@@ -529,9 +517,9 @@ function writeOutResults(dft::DaysFinderTool)
     # Save the ordering variable (if necessary)
     ###########################################################################
     order_days = try_get_val(
-        dft.config, "order_days", false
+        dft.config, "order_days", "none"
     )
-    if order_days
+    if order_days in ["binary", "square_error"]
         IPW = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]
         df = DataFrame(IPW)
         CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=';')
