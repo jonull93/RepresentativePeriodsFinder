@@ -48,7 +48,7 @@ function create_plots(dft::DaysFinderTool)
     order_days = try_get_val(
         dft.config, "order_days", "none"
     )
-    if order_days in ["binary", "square_error"]
+    if order_days in ["binary", "continuous"]
         IPW = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]'
         p = heatmap(
             IPW,

@@ -309,19 +309,16 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     ###########################################################################
 
     order_days = try_get_val(
-        dft.config, "order_days", false
+        dft.config, "order_days", "none"
     )
-    if order_days in ("binary","square_error")
+    if order_days in ("binary","continuous")
         println("Timeseries error constraints...")
         # Define variable which maps days in the year to representative days
         # Can be continuous or binary
-        binary_ordering = try_get_val(dft.config, "binary_ordering", true)
-        if order_days == "binary"
+        if order_days == "continuous"
             @variable(m, 0 <= v[pp=dft.periods,p=dft.periods] <= 1)
-        elseif order_days == "square_error"
+        elseif order_days == "binary"
             @variable(m, v[pp=dft.periods,p=dft.periods], Bin)
-        else
-            error("Please specify ordering type")
         end
         dft.misc[:v] = v
 
@@ -401,7 +398,7 @@ function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
         dft.u = Dict(p => round(abs(u_val[p])) for p in dft.periods)
         dft.w = Dict(p => round(abs(w_val[p]), digits=4) for p in dft.periods)
 
-        if order_days in ["binary", "square_error"]
+        if order_days in ["binary", "continuous"]
             v_val = value.(v)
             dft.v = Dict(
                 (i,j) => v_val[i,j] for i in v_val.axes[1], j in v_val.axes[2]
@@ -481,56 +478,4 @@ function getTimeSeriesErrorMatrix(dft::DaysFinderTool)
         ) for  p in dft.periods, pp in dft.periods]) for c in dft.curves
     )
     return TSEMD
-end
-
-##################################################################################
-# Write out results to  csv and yaml files
-##################################################################################
-function writeOutResults(dft::DaysFinderTool)
-    result_dir = normpath(joinpath(dft.config["basedir"], dft.config["result_dir"]))
-    if !isdir(result_dir)
-        mkpath(result_dir)
-    end
-
-    df_dv = DataFrame(
-                periods     = sort([k for k in dft.periods]),
-                weights     = [dft.w[k] for k in sort([k for k in keys(dft.w)])],
-                used_days   = [dft.u[k] for k in sort([k for k in keys(dft.u)])])
-    CSV.write(joinpath(result_dir, "decision_variables.csv"), df_dv, delim=';')
-
-    df_dv_s = deepcopy(df_dv[df_dv[!,:weights] .> 0, :])
-    CSV.write(joinpath(result_dir, "decision_variables_short.csv"), df_dv_s, delim=';')
-
-    ###########################################################################
-    # Resulting time series
-    ###########################################################################
-    df_ts = DataFrame()
-    period_idx = df_dv[!,:used_days] .== 1
-    @debug("Period index of selected days: $period_idx")
-
-    for ts in values(dft.time_series)
-        df_ts[!,Symbol(ts.name)] = ts.matrix_full[period_idx,:]'[:]
-    end
-    CSV.write(joinpath(result_dir, "resulting_profiles.csv"), df_ts, delim=';')
-
-    ###########################################################################
-    # Save the ordering variable (if necessary)
-    ###########################################################################
-    order_days = try_get_val(
-        dft.config, "order_days", "none"
-    )
-    if order_days in ["binary", "square_error"]
-        IPW = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]
-        df = DataFrame(IPW)
-        CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=';')
-    end
-
-    ###########################################################################
-    # Copy of config-file
-    ###########################################################################
-    stringdata = JSON.json(dft.config)
-    open(joinpath(result_dir, "config_file.json"), "w") do f
-        write(f, stringdata)
-    end
-    return dft
 end

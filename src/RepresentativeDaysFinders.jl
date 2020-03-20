@@ -27,6 +27,7 @@ module RepresentativeDaysFinders
     ###########################################################
     include("time_series/get_mandatory_periods.jl")
     include("output/create_plots.jl")
+    include("output/writeOutResults.jl")
     include("util.jl")
 
     ###########################################################
