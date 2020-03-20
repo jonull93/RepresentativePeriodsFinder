@@ -29,8 +29,7 @@ function create_plots(dft::DaysFinderTool)
         xaxis!("Duration [-]", 0:10:100)
         yaxis!("Curve [-]")
         title!(ts.name)
-        #
-        #
+
         # p = plot(df, x=:x,y=:y,color=:legend, Geom.line,
         #         Guide.xlabel("Duration [-]"), Guide.ylabel("Curve"), Guide.title(ts.name),
         #         Coord.Cartesian(xmin=0,xmax=100))
@@ -45,17 +44,12 @@ function create_plots(dft::DaysFinderTool)
     #######################################################################
     # Show heatmap of sorting variable
     #######################################################################
-    order_days = try_get_val(
-        dft.config, "order_days", "none"
+    v = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]'
+    p = heatmap(
+        v,
+        xlabel = "Sum = Ordering of periods",
+        ylabel = "Sum = Weighting of rep. period",
+        title = "Diagonal = Selection of rep. period"
     )
-    if order_days in ["binary", "continuous"]
-        IPW = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]'
-        p = heatmap(
-            IPW,
-            xlabel = "Sum = Ordering of periods",
-            ylabel = "Sum = Weighting of rep. period",
-            title = "Diagonal = Selection of rep. period"
-        )
-        savefig(p, joinpath(result_dir, "ordering_heatmap.pdf"))
-    end
+    savefig(p, joinpath(result_dir, "ordering_heatmap.pdf"))
 end

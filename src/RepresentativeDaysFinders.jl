@@ -38,7 +38,7 @@ module RepresentativeDaysFinders
     ############################################################
     # Default method to run tool
     ############################################################
-    export findRepresentativeDays, ENTSOEcsv2dataframe, writeOutResults, DaysFinderTool, populateDaysFinderTool!, create_plots
+    export findRepresentativeDays, ENTSOEcsv2dataframe, writeOutResults, DaysFinderTool, populateDaysFinderTool!, create_plots, makeDaysFinderToolModel, postOptimizationOfOrdering
 
     function findRepresentativeDays(dft::DaysFinderTool, optimizer_factory)
         # Optimize
@@ -47,7 +47,8 @@ module RepresentativeDaysFinders
         elseif dft.config["solver"]["Method"] == "Iterative"
             stat = runDaysFinderToolIterativeBounderaries(dft, optimizer_factory)
         else
-            stat = runDaysFinderToolDefault(dft, optimizer_factory)
+            makeDaysFinderToolModel(dft, optimizer_factory)
+            stat = optimizeDaysFinderTool(dft)
         end
 
         # write out results
