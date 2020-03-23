@@ -26,16 +26,11 @@ function writeOutResults(dft::DaysFinderTool)
     CSV.write(joinpath(result_dir, "resulting_profiles.csv"), df_ts, delim=';')
 
     ###########################################################################
-    # Save the ordering variable (if necessary)
+    # Save the ordering variable
     ###########################################################################
-    order_days = try_get_val(
-        dft.config, "order_days", "none"
-    )
-    if order_days in ["binary", "continuous"]
-        IPW = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]
-        df = DataFrame(IPW)
-        CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=';')
-    end
+    IPW = [dft.v[i,j] for i in dft.periods, j in dft.periods]
+    df = DataFrame(IPW)
+    CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=';')
 
     ###########################################################################
     # Copy of config-file
@@ -60,8 +55,6 @@ function writeOutResults(dft::DaysFinderTool)
     open(joinpath(result_dir, "optimisation_result.json"), "w") do f
         write(f, stringdata)
     end
-
-
-
+    
     return dft
 end
