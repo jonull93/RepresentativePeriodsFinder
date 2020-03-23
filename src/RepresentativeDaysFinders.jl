@@ -41,15 +41,46 @@ module RepresentativeDaysFinders
     export findRepresentativeDays, ENTSOEcsv2dataframe, writeOutResults, DaysFinderTool, populateDaysFinderTool!, create_plots, makeDaysFinderToolModel, postOptimizationOfOrdering
 
     function findRepresentativeDays(dft::DaysFinderTool, optimizer_factory)
-        # Optimize
-        if dft.config["solver"]["Method"] == "BruteForce"
-            stat = runDaysFinderToolBruteForce(dft, optimizer_factory)
-        elseif dft.config["solver"]["Method"] == "Iterative"
-            stat = runDaysFinderToolIterativeBounderaries(dft, optimizer_factory)
+        # Make model
+        if dft.config["solver"]["Method"] == "reorder"
+            try
+                makeReOrderingDaysFinderTool(dft, optimizer_factory)
+                stat = optimizeDaysFinderTool(dft)
+            catch
+                error("Could not reorder periods. Did you forget to solve to find periods?")
+            end
+        elseif dft.config["solver"]["Method"] == "iterative_bins"
+            binsVec = try_get_val(
+                dft.config["solver"], "Bins", [10,20,40]
+            )
+            boundType = try_get_val(
+                dft.config["solver"], "BoundType", "LowerBound"
+            )
+            for b in binsVec
+                println("-"^80)
+                println("-"^80)
+                println("Number of bins used for DC error for this iteration: $b")
+                println("-"^80)
+                dft.config["number_bins"] = b
+                if b != binsVec[1]
+                    dft.config["hot_start_values"] = dft.v
+                    if boundType == "ObjectiveLowerBound"
+                        dft.config["objective_lower_bound"] =
+                            objective_bound(dft.m)
+                    elseif boundType == "ObjectiveValue"
+                        dft.config["objective_lower_bound"] =
+                            objective_value(dft.m)
+                    end
+                end
+                populateDaysFinderTool!(dft)
+                makeDaysFinderToolModel(dft, optimizer_factory)
+                stat = optimizeDaysFinderTool(dft)
+            end
         else
             makeDaysFinderToolModel(dft, optimizer_factory)
             stat = optimizeDaysFinderTool(dft)
         end
+
 
         # write out results
         if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT]

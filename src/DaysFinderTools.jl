@@ -151,9 +151,6 @@ function populateDaysFinderTool!(self::DaysFinderTool)
     return self
 end
 
-##################################################################################
-#  Add TimeSeries to Model
-##################################################################################
 function addTimeSeries!(self::DaysFinderTool, ts::TimeSeries)
     self.time_series[ts.name] = ts
     push!(self.curves, ts.name)
@@ -166,11 +163,6 @@ function addTimeSeries!(self::DaysFinderTool, ts::TimeSeries)
     cum_bin_total!(self.L, self.bins, ts)
 end
 
-###############################################################################
-# Run Optimization
-###############################################################################
-# import RepresentativeDaysFinders: runDaysFinderToolDefault
-# using RepresentativeDaysFinders: DaysFinderTool
 function runDaysFinderToolDefault(dft::DaysFinderTool, optimizer_factory)
     println("="^80)
     println("="^80)
@@ -431,6 +423,15 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     dft.misc[:v] = v
     dft.misc[:w] = w
 
+    # Hot start v
+    v_start = try_get_val(
+        dft.config, "hot_start_values",
+        Dict((i,j) => i < dft.N_total_periods ? 1.0 : 0.0 for i in dft.periods, j in dft.periods)
+    )
+    for i in dft.periods, j in dft.periods
+        set_start_value(v[i,j], v_start[i,j])
+    end
+
     # If v[i,j] = 1, then day if is represented by day j
     # The sum over j (columns) is the weighting of a particular day
     # The sum over i (rows) must equal 1 - a day is represented by only one other day
@@ -465,13 +466,96 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     )
 
     # Other constraints
-    # Minimum weight
-    @constraint(m, minimum_weight[j in dft.periods],
-        w[j] >= u[j] * 0.1
-    )
-
     # TODO Impose particular day as a solution
 
+    # Define objective
+    TSEMD = getTimeSeriesErrorMatrix(dft)
+    dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
+    ts_weight = try_get_val(dft.config, "time_series_error_weight", 1.0)
+    obj = @expression(m,
+        sum(
+            dft.WEIGHT_DC[c] *(
+                + dc_weight*sum(duration_curve_error[c,b] for b in dft.bins)
+                + ts_weight*sum(
+                    v[pp,p]*TSEMD[c][pp,p] for pp in dft.periods, p in dft.periods
+                )
+            ) for c in dft.curves
+        )
+    )
+    @objective(m, Min, obj)
+
+    # Constrain lower bound of objective
+    obj_lower_bound = try_get_val(
+        dft.config, "objective_lower_bound", 0.0
+    )
+    @constraint(m, obj >= obj_lower_bound)
+
+    return m
+end
+
+function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
+    println("-" ^ 80)
+    println("-" ^ 80)
+    println("Re ordering days")
+    println("-" ^ 80)
+    println("-" ^ 80)
+
+    # Make model
+    m = Model(optimizer_factory)
+    dft.m = m
+
+    # Retrieve selection variable
+    u = dft.u
+
+    # Get sets
+    RP = [idx for (idx,val) in enumerate(u) if val[2] > 0] # selected periods j
+    P = dft.periods # all periods i
+
+    # Make ordering variable and weighting expression
+    @variable(m, v[i=P,j=RP] >= 0)
+    @expression(m, w[j=RP], sum(v[i,j] for i=P))
+    dft.misc[:v] = v
+    dft.misc[:w] = w
+
+    # Enforce that representative period is selected for it's own period
+    @constraint(m, [j=RP], v[j,j] == 1)
+
+    # Ensure that every day is assigned a linear combination of rep periods
+    @constraint(m, [i=P], sum(v[i,j] for j=RP) == 1)
+
+    # Ensure same yearly duration
+    @constraint(m, sum(v[i,j] for i=P, j=RP) == dft.N_total_periods)
+
+    # Define DC error
+    @variable(m, duration_curve_error[c in dft.curves, b in dft.bins] >= 0)
+    @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
+        duration_curve_error[c,b] >= + dft.L[c,b] - sum(w[j] / dft.N_total_periods * dft.A[c,j,b] for j in RP)
+    )
+    @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
+        duration_curve_error[c,b] >= - dft.L[c,b] + sum(w[j] / dft.N_total_periods * dft.A[c,j,b] for j in RP)
+    )
+
+    # Make expression for the reconstructed time series
+    reconstructed_time_series = @expression(m,
+        [c=dft.curves, i=P, t=dft.timesteps],
+        sum(v[i,j]*dft.time_series[c].matrix_full[j,t] for j=RP)
+    )
+
+    # Define error
+    @variable(m, ts_error[c=dft.curves, i=P, t=dft.timesteps] >= 0)
+    @constraint(m,
+    	[c=dft.curves, i=P, t=dft.timesteps],
+    	ts_error[c,i,t] >=
+            + reconstructed_time_series[c,i,t]
+    		- dft.time_series[c].matrix_full[i,t]
+    )
+    @constraint(m,
+    	[c=dft.curves, i=P,t=dft.timesteps],
+    	ts_error[c,i,t] >= -(
+            + reconstructed_time_series[c,i,t]
+    		- dft.time_series[c].matrix_full[i,t]
+        )
+    )
 
     # Define objective
     TSEMD = getTimeSeriesErrorMatrix(dft)
@@ -482,9 +566,7 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
         sum(
             dft.WEIGHT_DC[c] *(
                 + dc_weight*sum(duration_curve_error[c,b] for b in dft.bins)
-                + ts_weight*sum(
-                    v[pp,p]*TSEMD[c][pp,p] for pp in dft.periods, p in dft.periods
-                )
+                + ts_weight*sum(ts_error[c,i,t] for i in P, t in dft.timesteps)
             ) for c in dft.curves
         )
     )
@@ -517,61 +599,6 @@ function optimizeDaysFinderTool(dft::DaysFinderTool)
 
     # Return solution status
     return stat
-end
-
-function postOptimizationOfOrdering(dft::DaysFinderTool, optimizer_factory)
-    # Make model
-    m = Model(optimizer_factory)
-    dft.m = m
-
-    # Retrieve selection variable
-    u = [dft.u[j] for j in dft.periods]
-
-    # Get sets
-    RP = [idx for (idx,val) in enumerate(u) if val > 0] # selected periods j
-    P = dft.periods # all periods i
-
-    # Make ordering variable
-    @variable(m, v[i=P,j=RP] >= 0)
-
-    # Enforce that representative period is selected for it's own period
-    @constraint(m, [j=RP], v[j,j] == 1)
-
-    # Ensure that every day is assigned a linear combination of rep periods
-    @constraint(m, [i=P], sum(v[i,j] for j=RP) == 1)
-
-    # Ensure same yearly duration
-    @constraint(m, sum(v[i,j] for i=P, j=RP) == dft.N_total_periods)
-
-    # Make expression for the reconstructed time series
-    reconstructed_time_series = @expression(m,
-        [c=dft.curves, i=P, t=dft.timesteps],
-        sum(v[i,j]*dft.time_series[c].matrix_full[j,t] for j=RP)
-    )
-
-    # Define error
-    @variable(m, ts_error[c=dft.curves, i=P, t=dft.timesteps] >= 0)
-    @constraint(m,
-    	[c=dft.curves, i=P, t=dft.timesteps],
-    	ts_error[c,i,t] >= reconstructed_time_series[c,p,t]
-    		- dft.time_series[c].matrix_full[i,t]
-    )
-    @constraint(m,
-    	[c=dft.curves, p=P, t=dft.timesteps],
-    	ts_error[c,i,t] >= -(reconstructed_time_series[c,i,t]
-    		- dft.time_series[c].matrix_full[i,t]
-    )
-
-    # Define weighting as an expression for convenience
-    @expression(m, w[j=RP], sum(v[i,j] for i=P))
-
-    # Save some stuff
-    dft.misc[:v] = v
-    dft.misc[:w] = w
-
-    @objective(m, Min, sum(ts_error))
-
-    return m
 end
 
 ##################################################################################

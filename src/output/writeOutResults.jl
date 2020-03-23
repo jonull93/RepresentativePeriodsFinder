@@ -44,5 +44,24 @@ function writeOutResults(dft::DaysFinderTool)
     open(joinpath(result_dir, "config_file.json"), "w") do f
         write(f, stringdata)
     end
+
+    ###########################################################################
+    # Objective value and bound to json
+    ###########################################################################
+    obj_val = objective_value(dft.m)
+    obj_bound = objective_bound(dft.m)
+    optStatus = Dict(
+        "objective_value" => obj_val,
+        "objective_bound" => obj_bound,
+        "optimality_gap" => (obj_val - obj_bound)/obj_val * 100,
+        "solution_method" => dft.config["solver"]["Method"]
+    )
+    stringdata = JSON.json(optStatus)
+    open(joinpath(result_dir, "optimisation_result.json"), "w") do f
+        write(f, stringdata)
+    end
+
+
+
     return dft
 end

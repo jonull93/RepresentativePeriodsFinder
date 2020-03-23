@@ -16,10 +16,12 @@ function create_plots(dft::DaysFinderTool)
 
     for ts in values(dft.time_series)
 
+        # Original
         x = [x for x in range(1,stop=length(ts.data))/length(ts.data)*100.]
         y = sort(ts.data, rev=true)
         plot(x, y, xlim=(0, 100), dpi=300, size = (1000, 1000/28*21), label="original")
 
+        # Reduced
         y = ts.matrix_full[periods_with_weight,:]'[:]
         x = (weights * ones(1, size(ts.matrix_full)[2]))'[:] / length(ts.data) * 100.
         df2 = sort(DataFrame(x=x, y=y, legend="reduced"), [:y], rev=true)
@@ -30,26 +32,22 @@ function create_plots(dft::DaysFinderTool)
         yaxis!("Curve [-]")
         title!(ts.name)
 
-        # p = plot(df, x=:x,y=:y,color=:legend, Geom.line,
-        #         Guide.xlabel("Duration [-]"), Guide.ylabel("Curve"), Guide.title(ts.name),
-        #         Coord.Cartesian(xmin=0,xmax=100))
-        #
         file_pdf = joinpath(result_dir, "$(ts.name).pdf")
 
-        # TODO: Create heatmap of v
-
-        # pdf(p, file_pdf)
         savefig(file_pdf)
     end
     #######################################################################
     # Show heatmap of sorting variable
     #######################################################################
-    v = [dft.v[pp,p] for p in dft.periods, pp in dft.periods]'
+    v = Array{Float64,2}([dft.v[pp,p] for p in dft.periods, pp in dft.periods])
     p = heatmap(
         v,
         xlabel = "Sum = Ordering of periods",
         ylabel = "Sum = Weighting of rep. period",
-        title = "Diagonal = Selection of rep. period"
+        title = "Diagonal = Selection of rep. period",
+        aspect_ratio=:equal,
+        xlim=[minimum(dft.periods),maximum(dft.periods)],
+        ylim=[minimum(dft.periods),maximum(dft.periods)],
     )
     savefig(p, joinpath(result_dir, "ordering_heatmap.pdf"))
 end
