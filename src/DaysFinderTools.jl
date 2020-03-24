@@ -188,7 +188,7 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
         set_start_value(v[i,j], v_start[i,j])
     end
 
-    # If v[i,j] = 1, then day if is represented by day j
+    # If v[i,j] = 1, then day i is represented by day j
     # The sum over j (columns) is the weighting of a particular day
     # The sum over i (rows) must equal 1 - a day is represented by only one other day
 

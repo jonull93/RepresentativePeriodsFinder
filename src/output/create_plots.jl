@@ -39,11 +39,11 @@ function create_plots(dft::DaysFinderTool)
     #######################################################################
     # Show heatmap of sorting variable
     #######################################################################
-    v = Array{Float64,2}([dft.v[pp,p] for p in dft.periods, pp in dft.periods])
+    v = Array{Float64,2}([dft.v[p,pp] for p in dft.periods, pp in dft.periods])
     p = heatmap(
         v,
-        xlabel = "Sum = Ordering of periods",
-        ylabel = "Sum = Weighting of rep. period",
+        ylabel = "Sum = Ordering of periods",
+        xlabel = "Sum = Weighting of rep. period",
         title = "Diagonal = Selection of rep. period",
         aspect_ratio=:equal,
         xlim=[minimum(dft.periods),maximum(dft.periods)],
