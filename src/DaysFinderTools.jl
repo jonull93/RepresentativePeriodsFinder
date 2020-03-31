@@ -163,6 +163,80 @@ function addTimeSeries!(self::DaysFinderTool, ts::TimeSeries)
     cum_bin_total!(self.L, self.bins, ts)
 end
 
+function makeDCErrorOnlyDaysFinderToolModel(
+    dft::DaysFinderTool, optimizer_factory
+    )
+    # Model
+    m = Model(optimizer_factory)
+    dft.m = m
+
+    # Variables
+    @variable(m, u[j in dft.periods], Bin)
+    @variable(m, w[j in dft.periods] >= 0)
+    @variable(m, v[i in dft.periods, j in dft.periods] >= 0)
+    dft.misc[:u] = u
+    dft.misc[:v] = v
+    dft.misc[:w] = w
+
+    # Defining error as absolute value
+    @variable(m, duration_curve_error[c in dft.curves, b in dft.bins] >= 0)
+    @constraint(m, duration_curve_error_eq1[c in dft.curves, b in dft.bins],
+        duration_curve_error[c,b] >= + dft.L[c,b] - sum( w[j] / dft.N_total_periods * dft.A[c,j,b] for j in dft.periods)
+    )
+    @constraint(m, duration_curve_error_eq2[c in dft.curves, b in dft.bins],
+        duration_curve_error[c,b] >= - dft.L[c,b] + sum( w[j] / dft.N_total_periods * dft.A[c,j,b] for j in dft.periods)
+    )
+
+    # User defined number of representative periods
+    @constraint(m, number_periods_eq,
+        sum(u[j] for j in dft.periods) <= dft.N_representative_periods
+    )
+
+    # Restrict non-zero weights to selected periods
+    equal_weights = try_get_val(dft.config, "equal_weights", true)
+    if equal_weights == true
+        @constraint(m, single_weight_eq[j in dft.periods],
+            w[j] == u[j] * dft.N_total_periods / dft.N_representative_periods
+        )
+    else
+        @constraint(m, single_weight_eq[j in dft.periods],
+            w[j] <= u[j] * dft.N_total_periods
+        )
+    end
+
+    # Guarantee equivalent yearly duration
+    @constraint(m, total_weight_eq,
+        sum(w[j] for j in dft.periods) == dft.N_total_periods
+    )
+
+    # Minimum weight
+    @debug("minimum weight set to 0.1")
+    @constraint(m, minimum_weight[p in dft.periods],
+        w[p] >= u[p] * 0.1
+    )
+
+    # Constraints for v - no effect on results, just for things to work smoothly
+    # If day j is selected as a representative day then u[j] is 1
+    @constraint(m, [i in dft.periods, j in dft.periods],
+        v[i,j] <= u[j]
+    )
+    @constraint(m, [j in dft.periods],
+        sum(v[i,j] for i in dft.periods) <= w[j]
+    )
+
+    # Objective
+    dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
+    obj = @expression(m,
+        sum(
+            dft.WEIGHT_DC[c] *(
+                + dc_weight*sum(duration_curve_error[c,b] for b in dft.bins)
+            ) for c in dft.curves
+        )
+    )
+    @objective(m, Min, obj)
+    return m
+end
+
 function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     # Model
     m = Model(optimizer_factory)
@@ -233,7 +307,7 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
             dft.WEIGHT_DC[c] *(
                 + dc_weight*sum(duration_curve_error[c,b] for b in dft.bins)
                 + ts_weight*sum(
-                    v[pp,p]*TSEMD[c][pp,p] for pp in dft.periods, p in dft.periods
+                    v[pp,j]*TSEMD[c][pp,p] for pp in dft.periods, p in dft.periods
                 )
             ) for c in dft.curves
         )
@@ -287,7 +361,14 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
     @constraint(m, [j=RP], v[j,j] == 1)
 
     # Ensure that every day is assigned a linear combination of rep periods
-    @constraint(m, [i=P], sum(v[i,j] for j=RP) == 1)
+    linear_comb = try_get_val(
+        dft.config["solver"], "LinearCombination", "sum_to_one"
+    )
+    if linear_comb == "sum_to_1"
+        @constraint(m, [i=P], sum(v[i,j] for j=RP) == 1)
+    elseif linear_comb == "relaxed"
+        nothing
+    end
 
     # Ensure same yearly duration
     @constraint(m, sum(v[i,j] for i=P, j=RP) == dft.N_total_periods)

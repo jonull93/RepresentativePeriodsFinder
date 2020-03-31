@@ -35,13 +35,14 @@ function writeOutResults(dft::DaysFinderTool)
     ###########################################################################
     # Copy of config-file
     ###########################################################################
-    stringdata = JSON.json(dft.config)
-    open(joinpath(result_dir, "config_file.json"), "w") do f
-        write(f, stringdata)
-    end
+    YAML.write_file(joinpath(result_dir, "config_file.yaml"), dft.config)
+    # stringdata = JSON.json(dft.config)
+    # open(joinpath(result_dir, "config_file.json"), "w") do f
+    #     write(f, stringdata)
+    # end
 
     ###########################################################################
-    # Objective value and bound to json
+    # Objective value and bound to yaml file
     ###########################################################################
     obj_val = objective_value(dft.m)
     obj_bound = objective_bound(dft.m)
@@ -51,10 +52,11 @@ function writeOutResults(dft::DaysFinderTool)
         "optimality_gap" => (obj_val - obj_bound)/obj_val * 100,
         "solution_method" => dft.config["solver"]["Method"]
     )
-    stringdata = JSON.json(optStatus)
-    open(joinpath(result_dir, "optimisation_result.json"), "w") do f
-        write(f, stringdata)
-    end
-    
+    YAML.write_file(joinpath(result_dir, "config_file.yaml"), optStatus)
+    # stringdata = JSON.json(optStatus)
+    # open(joinpath(result_dir, "optimisation_result.json"), "w") do f
+    #     write(f, stringdata)
+    # end
+
     return dft
 end

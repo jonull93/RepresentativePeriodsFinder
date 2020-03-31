@@ -76,6 +76,9 @@ module RepresentativeDaysFinders
                 makeDaysFinderToolModel(dft, optimizer_factory)
                 stat = optimizeDaysFinderTool(dft)
             end
+        elseif dft.config["solver"]["Method"] == "DC_error_only"
+            makeDCErrorOnlyDaysFinderToolModel(dft, optimizer_factory)
+            stat = optimizeDaysFinderTool(dft)
         else
             makeDaysFinderToolModel(dft, optimizer_factory)
             stat = optimizeDaysFinderTool(dft)
