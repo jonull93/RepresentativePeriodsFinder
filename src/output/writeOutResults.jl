@@ -10,7 +10,7 @@ function writeOutResults(dft::DaysFinderTool)
                 used_days   = [dft.u[k] for k in sort([k for k in keys(dft.u)])])
     CSV.write(joinpath(result_dir, "decision_variables.csv"), df_dv, delim=';')
 
-    df_dv_s = deepcopy(df_dv[df_dv[!,:weights] .> 0, :])
+    df_dv_s = deepcopy(df_dv[df_dv[!,:used_days] .> 0, :])
     CSV.write(joinpath(result_dir, "decision_variables_short.csv"), df_dv_s, delim=';')
 
     ###########################################################################
@@ -28,9 +28,11 @@ function writeOutResults(dft::DaysFinderTool)
     ###########################################################################
     # Save the ordering variable
     ###########################################################################
-    IPW = [dft.v[i,j] for i in dft.periods, j in dft.periods]
-    df = DataFrame(IPW)
-    CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=';')
+    if any(values(dft.v) .> 0)
+        IPW = [dft.v[i,j] for i in dft.periods, j in dft.periods]
+        df = DataFrame(IPW)
+        CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=';')
+    end
 
     ###########################################################################
     # Copy of config-file
@@ -52,11 +54,7 @@ function writeOutResults(dft::DaysFinderTool)
         "optimality_gap" => (obj_val - obj_bound)/obj_val * 100,
         "solution_method" => dft.config["solver"]["Method"]
     )
-    YAML.write_file(joinpath(result_dir, "config_file.yaml"), optStatus)
-    # stringdata = JSON.json(optStatus)
-    # open(joinpath(result_dir, "optimisation_result.json"), "w") do f
-    #     write(f, stringdata)
-    # end
+    YAML.write_file(joinpath(result_dir, "optimisation_results.yaml"), optStatus)
 
     return dft
 end

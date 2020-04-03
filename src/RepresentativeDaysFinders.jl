@@ -41,6 +41,13 @@ module RepresentativeDaysFinders
     export findRepresentativeDays, ENTSOEcsv2dataframe, writeOutResults, DaysFinderTool, populateDaysFinderTool!, create_plots, makeDaysFinderToolModel, postOptimizationOfOrdering
 
     function findRepresentativeDays(dft::DaysFinderTool, optimizer_factory)
+        # Safety measure against having too many periods
+        method = try_get_val(dft.config["solver"], "Method", "ordering")
+        max_periods = 500
+        if length(dft.periods) > max_periods && method == "ordering"
+            error("Number of periods is greater than $max_periods - this will probably crash Julia.")
+        end
+
         # Make model
         if dft.config["solver"]["Method"] == "reorder"
             try
@@ -79,14 +86,17 @@ module RepresentativeDaysFinders
         elseif dft.config["solver"]["Method"] == "DC_error_only"
             makeDCErrorOnlyDaysFinderToolModel(dft, optimizer_factory)
             stat = optimizeDaysFinderTool(dft)
-        else
+        elseif dft.config["solver"]["Method"] == "ordering"
             makeDaysFinderToolModel(dft, optimizer_factory)
             stat = optimizeDaysFinderTool(dft)
+        else
+            error("Please specify solver method")
         end
 
 
         # write out results
-        if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT]
+        save_results = try_get_val(dft.config, "save_results", true)
+        if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && save_results
             writeOutResults(dft)
             if dft.config["create_plots"] == 1
                 create_plots(dft)

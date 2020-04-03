@@ -17,13 +17,13 @@ function create_plots(dft::DaysFinderTool)
     for ts in values(dft.time_series)
 
         # Original
-        x = [x for x in range(1,stop=length(ts.data))/length(ts.data)*100.]
-        y = sort(ts.data, rev=true)
+        x = [x for x in range(1,stop=length(ts.data_norm))/length(ts.data_norm)*100.]
+        y = sort(ts.data_norm, rev=true)
         plot(x, y, xlim=(0, 100), dpi=300, size = (1000, 1000/28*21), label="original")
 
         # Reduced
-        y = ts.matrix_full[periods_with_weight,:]'[:]
-        x = (weights * ones(1, size(ts.matrix_full)[2]))'[:] / length(ts.data) * 100.
+        y = ts.matrix_full_norm[periods_with_weight,:]'[:]
+        x = (weights * ones(1, size(ts.matrix_full_norm)[2]))'[:] / length(ts.data_norm) * 100.
         df2 = sort(DataFrame(x=x, y=y, legend="reduced"), [:y], rev=true)
         df2[!,:x] = cumsum(df2[!,:x])
         plot!(df2.x, df2.y, label="reduced")
@@ -39,15 +39,17 @@ function create_plots(dft::DaysFinderTool)
     #######################################################################
     # Show heatmap of sorting variable
     #######################################################################
-    v = Array{Float64,2}([dft.v[p,pp] for p in dft.periods, pp in dft.periods])
-    p = heatmap(
-        v,
-        ylabel = "Sum = Ordering of periods",
-        xlabel = "Sum = Weighting of rep. period",
-        title = "Diagonal = Selection of rep. period",
-        aspect_ratio=:equal,
-        xlim=[minimum(dft.periods),maximum(dft.periods)],
-        ylim=[minimum(dft.periods),maximum(dft.periods)],
-    )
-    savefig(p, joinpath(result_dir, "ordering_heatmap.pdf"))
+    if any(values(dft.v) .> 0)
+        v = Array{Float64,2}([dft.v[p,pp] for p in dft.periods, pp in dft.periods])
+        p = heatmap(
+            v,
+            ylabel = "Sum = Ordering of periods",
+            xlabel = "Sum = Weighting of rep. period",
+            title = "Diagonal = Selection of rep. period",
+            aspect_ratio=:equal,
+            xlim=[minimum(dft.periods),maximum(dft.periods)],
+            ylim=[minimum(dft.periods),maximum(dft.periods)],
+        )
+        savefig(p, joinpath(result_dir, "ordering_heatmap.pdf"))
+    end
 end

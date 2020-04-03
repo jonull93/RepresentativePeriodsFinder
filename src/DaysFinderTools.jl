@@ -1,4 +1,4 @@
-##################################################################################
+###############################################################################
 # Author:   Hanspeter Höschle
 # Date:     15/06/2017
 ##################################################################################
@@ -173,7 +173,7 @@ function makeDCErrorOnlyDaysFinderToolModel(
     # Variables
     @variable(m, u[j in dft.periods], Bin)
     @variable(m, w[j in dft.periods] >= 0)
-    @variable(m, v[i in dft.periods, j in dft.periods] >= 0)
+    v = [0]
     dft.misc[:u] = u
     dft.misc[:v] = v
     dft.misc[:w] = w
@@ -215,21 +215,15 @@ function makeDCErrorOnlyDaysFinderToolModel(
         w[p] >= u[p] * 0.1
     )
 
-    # Constraints for v - no effect on results, just for things to work smoothly
-    # If day j is selected as a representative day then u[j] is 1
-    @constraint(m, [i in dft.periods, j in dft.periods],
-        v[i,j] <= u[j]
-    )
-    @constraint(m, [j in dft.periods],
-        sum(v[i,j] for i in dft.periods) <= w[j]
-    )
-
     # Objective
     dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
+    dc_norm_weight = dft.N_total_periods*length(dft.timesteps)/length(dft.bins)
     obj = @expression(m,
         sum(
             dft.WEIGHT_DC[c] *(
-                + dc_weight*sum(duration_curve_error[c,b] for b in dft.bins)
+                + dc_weight*dc_norm_weight*sum(
+                    duration_curve_error[c,b] for b in dft.bins
+                )
             ) for c in dft.curves
         )
     )
@@ -243,12 +237,9 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     dft.m = m
 
     # Create variables
-    @variable(m, u[j in dft.periods], Bin)
     @variable(m, v[i in dft.periods, j in dft.periods], Bin)
-    @variable(m, w[j in dft.periods])
-    @constraint(m, [j in dft.periods],
-        sum(v[i,j] for i in dft.periods) == w[j]
-    )
+    @variable(m, u[j in dft.periods], Bin)
+    @variable(m, w[j in dft.periods] >= 0)
     dft.misc[:u] = u
     dft.misc[:v] = v
     dft.misc[:w] = w
@@ -281,6 +272,26 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
         sum(u[j] for j in dft.periods) <= dft.N_representative_periods
     )
 
+    # Define weightings - either in relation to the chronology variable v or seperately
+    disj_weight = try_get_val(dft.config["solver"], "DecoupledWeights", false)
+    if disj_weight == true
+        @constraint(m, [j in dft.periods],
+            w[j] <= u[j] * dft.N_total_periods
+        )
+    else
+        @constraint(m, [j in dft.periods],
+            w[j] == sum(v[i,j] for i in dft.periods)
+        )
+    end
+
+    # Equal weightings
+    equal_weights = try_get_val(dft.config, "equal_weights", true)
+    if equal_weights == true
+        @constraint(m, single_weight_eq[j in dft.periods],
+            w[j] == u[j] * dft.N_total_periods / dft.N_representative_periods
+        )
+    end
+
     # Sum of weightings of representative periods must equal N_total_periods
     @constraint(m,
         sum(w[j] for j in dft.periods) == dft.N_total_periods
@@ -302,12 +313,14 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     TSEMD = getTimeSeriesErrorMatrix(dft)
     dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
     ts_weight = try_get_val(dft.config, "time_series_error_weight", 1.0)
+    dc_norm_weight = dft.N_total_periods*length(dft.timesteps)/length(dft.bins)
     obj = @expression(m,
         sum(
             dft.WEIGHT_DC[c] *(
-                + dc_weight*sum(duration_curve_error[c,b] for b in dft.bins)
-                + ts_weight*sum(
-                    v[pp,j]*TSEMD[c][pp,p] for pp in dft.periods, p in dft.periods
+                + dc_weight*dc_norm_weight*sum(
+                    duration_curve_error[c,b] for b in dft.bins
+                ) + ts_weight*sum(
+                    v[i,j]*TSEMD[c][i,j] for i in dft.periods, j in dft.periods
                 )
             ) for c in dft.curves
         )
@@ -346,6 +359,7 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
     @expression(m, w[j=RP], sum(v[i,j] for i=P))
     dft.misc[:v] = v
     dft.misc[:w] = w
+    dft.misc[:u] = JuMP.Containers.DenseAxisArray(sort([val for val in values(u)]), 1:8)
 
     # Enforce same weightings if applicable
     enforce_same_weightings = try_get_val(
@@ -357,6 +371,14 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
         )
     end
 
+    # Enforce equal weightings
+    equal_weights = try_get_val(dft.config, "equal_weights", true)
+    if equal_weights == true
+        @constraint(m, single_weight_eq[j in dft.periods],
+            w[j] == u[j] * dft.N_total_periods / dft.N_representative_periods
+        )
+    end
+
     # Enforce that representative period is selected for it's own period
     @constraint(m, [j=RP], v[j,j] == 1)
 
@@ -364,7 +386,7 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
     linear_comb = try_get_val(
         dft.config["solver"], "LinearCombination", "sum_to_one"
     )
-    if linear_comb == "sum_to_1"
+    if linear_comb == "sum_to_one"
         @constraint(m, [i=P], sum(v[i,j] for j=RP) == 1)
     elseif linear_comb == "relaxed"
         nothing
@@ -385,7 +407,7 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
     # Make expression for the reconstructed time series
     reconstructed_time_series = @expression(m,
         [c=dft.curves, i=P, t=dft.timesteps],
-        sum(v[i,j]*dft.time_series[c].matrix_full[j,t] for j=RP)
+        sum(v[i,j]*dft.time_series[c].matrix_full_norm[j,t] for j=RP)
     )
 
     # Define error
@@ -394,13 +416,13 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
     	[c=dft.curves, i=P, t=dft.timesteps],
     	ts_error[c,i,t] >=
             + reconstructed_time_series[c,i,t]
-    		- dft.time_series[c].matrix_full[i,t]
+    		- dft.time_series[c].matrix_full_norm[i,t]
     )
     @constraint(m,
     	[c=dft.curves, i=P,t=dft.timesteps],
     	ts_error[c,i,t] >= -(
             + reconstructed_time_series[c,i,t]
-    		- dft.time_series[c].matrix_full[i,t]
+    		- dft.time_series[c].matrix_full_norm[i,t]
         )
     )
 
@@ -408,12 +430,16 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
     TSEMD = getTimeSeriesErrorMatrix(dft)
     dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
     ts_weight = try_get_val(dft.config, "time_series_error_weight", 1.0)
+    dc_norm_weight = dft.N_total_periods*length(dft.timesteps)/length(dft.bins)
 
     @objective(m, Min,
         sum(
             dft.WEIGHT_DC[c] *(
-                + dc_weight*sum(duration_curve_error[c,b] for b in dft.bins)
-                + ts_weight*sum(ts_error[c,i,t] for i in P, t in dft.timesteps)
+                + dc_weight*dc_norm_weight*sum(
+                    duration_curve_error[c,b] for b in dft.bins
+                ) + ts_weight*sum(
+                    ts_error[c,i,t] for i in P, t in dft.timesteps
+                )
             ) for c in dft.curves
         )
     )
@@ -437,9 +463,13 @@ function optimizeDaysFinderTool(dft::DaysFinderTool)
         dft.w = Dict(
             j => j in w_val.axes[1] ? w_val[j] : 0 for j in dft.periods
         )
-        dft.v = Dict(
-            (i,j) => j in v_val.axes[2] ? v_val[i,j] : 0 for i in dft.periods, j in dft.periods
-        )
+        if typeof(v_val) <: JuMP.Containers.DenseAxisArray
+            dft.v = Dict(
+                (i,j) => j in v_val.axes[2] ? v_val[i,j] : 0 for i in dft.periods, j in dft.periods
+            )
+        else
+            dft.v = Dict(0 => 0)
+        end
     else
         @show stat
     end
@@ -452,8 +482,8 @@ function getTimeSeriesErrorMatrix(dft::DaysFinderTool)
     TSEM = Array{Float64,2}(undef, length(dft.periods), length(dft.periods))
     TSEMD = Dict(
         c => abs.([sum(
-            + dft.time_series[c].matrix_full[p,t]
-            - dft.time_series[c].matrix_full[pp,t] for t in dft.timesteps
+            + dft.time_series[c].matrix_full_norm[p,t]
+            - dft.time_series[c].matrix_full_norm[pp,t] for t in dft.timesteps
         ) for  p in dft.periods, pp in dft.periods]) for c in dft.curves
     )
     return TSEMD
