@@ -5,12 +5,13 @@ function writeOutResults(dft::DaysFinderTool)
     end
 
     df_dv = DataFrame(
-                periods     = sort([k for k in dft.periods]),
-                weights     = [dft.w[k] for k in sort([k for k in keys(dft.w)])],
-                used_days   = [dft.u[k] for k in sort([k for k in keys(dft.u)])])
+        periods     = dft.periods,
+        weights     = dft.w,
+        used_days   = dft.u
+    )
     CSV.write(joinpath(result_dir, "decision_variables.csv"), df_dv, delim=';')
 
-    df_dv_s = deepcopy(df_dv[df_dv[!,:used_days] .> 0, :])
+    df_dv_s = deepcopy(sort(df_dv[df_dv[!,:used_days] .> 0, :]))
     CSV.write(joinpath(result_dir, "decision_variables_short.csv"), df_dv_s, delim=';')
 
     ###########################################################################
@@ -32,7 +33,7 @@ function writeOutResults(dft::DaysFinderTool)
         v = [
             dft.v[i,j] for i in dft.periods, j in 1:length(dft.rep_periods)
         ]
-        df = DataFrame(v)
+        df = DataFrame(v, Symbol.(dft.rep_periods))
         CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=';')
     end
 

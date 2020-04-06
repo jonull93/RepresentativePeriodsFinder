@@ -40,7 +40,7 @@ function create_plots(dft::DaysFinderTool)
     # Show heatmap of sorting variable
     #######################################################################
     if any(values(dft.v) .> 0)
-        v = spzeros(length.([dft.periods,dft.periods]))
+        v = zeros(length.([dft.periods,dft.periods])...)
         v[:, dft.rep_periods] = dft.v
         p = heatmap(
             v,

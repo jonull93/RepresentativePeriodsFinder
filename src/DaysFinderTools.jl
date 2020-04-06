@@ -84,11 +84,12 @@ function populateDaysFinderTool!(self::DaysFinderTool)
     ##################################################################################
     self.bins =     ["b"*string(b, pad=pad) for b in range(1,stop=self.config["number_bins"])]
 
-    lenT = try_get_val(self.config, "timesteps_per_period", 24)
-    self.timesteps = 1:lenT
-
     lenP = try_get_val(self.config, "number_days_total", 365)
     self.periods = 1:lenP
+
+    # TODO: this should just be timeseries length / N_periods
+    lenT = try_get_val(self.config, "timesteps_per_period", 24)
+    self.timesteps = 1:lenT
 
 
     ##################################################################################
@@ -248,7 +249,7 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     # Hot start v
     v_start_rand = getRandomHotStartForOrderingVariable(dft)
     v_start = try_get_val(
-        dft.config, "hot_start_values", v_start_temp
+        dft.config, "hot_start_values", v_start_rand
     )
     for i in dft.periods, j in dft.periods
         set_start_value(v[i,j], v_start[i,j])
@@ -349,7 +350,11 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
     dft.m = m
 
     # Get sets
-    RP = dft.rep_periods # rep. periods j
+    if isdefined(dft, :rep_periods)
+        RP = dft.rep_periods # rep. periods j
+    else
+        error("Representative periods not defined, cannot reorder")
+    end
     P = dft.periods # all periods i
 
     # Make ordering variable and weighting expression
@@ -368,7 +373,7 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
     )
     if enforce_same_weightings == true
         @constraint(m, [j=RP],
-            w[j] == dft.w[dft.rep_periods[j]]
+            w[j] == dft.w[j]
         )
     end
 
@@ -454,15 +459,30 @@ function optimizeDaysFinderTool(dft::DaysFinderTool)
 
     # Write results to dft if optimal
     if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && has_values(dft.m)
-        # Save values
+        # Save selection variable as is
         dft.u = round.(getVariableValue(dft.misc[:u]))
-        dft.w = getVariableValue(dft.misc[:w])
-        dft.v = getVariableValue(dft.misc[:v])
 
         # Save representative periods and their mapping
         dft.rep_periods = [
             idx for (idx,val) in enumerate(dft.u) if val > 0
         ]
+
+        # Transform w variable to be correct length if needs be
+        w = getVariableValue(dft.misc[:w])
+        if length(w) == dft.N_representative_periods
+            dft.w = zeros(dft.N_total_periods)
+            dft.w[dft.rep_periods] = w
+        else
+            dft.w = w
+        end
+
+        # Only save the non-zero columns of v
+        v = getVariableValue(dft.misc[:v])
+        if size(v, 2) != dft.N_representative_periods
+            dft.v = v[:,dft.rep_periods]
+        else
+            dft.v = v
+        end
     else
         @show stat
     end
@@ -488,5 +508,7 @@ end
 
 function getRandomHotStartForOrderingVariable(dft::DaysFinderTool)
     v_start_rand = spzeros(length.([dft.periods,dft.periods])...)
-    v_start_rand = [1:dft.N_representative_periods] .= 1
+    idx = rand(dft.periods, dft.N_representative_periods - 1)
+    v_start_rand[idx,idx] .= 1
+    return v_start_rand
 end

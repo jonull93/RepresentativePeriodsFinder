@@ -93,7 +93,7 @@ module RepresentativeDaysFinders
 
         # write out results
         save_results = try_get_val(dft.config, "save_results", true)
-        if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && save_results
+        if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && has_values(dft.m) && save_results
             writeOutResults(dft)
             if dft.config["create_plots"] == 1
                 create_plots(dft)
