@@ -29,8 +29,10 @@ function writeOutResults(dft::DaysFinderTool)
     # Save the ordering variable
     ###########################################################################
     if any(values(dft.v) .> 0)
-        IPW = [dft.v[i,j] for i in dft.periods, j in dft.periods]
-        df = DataFrame(IPW)
+        v = [
+            dft.v[i,j] for i in dft.periods, j in 1:length(dft.rep_periods)
+        ]
+        df = DataFrame(v)
         CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=';')
     end
 

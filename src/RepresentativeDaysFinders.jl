@@ -15,6 +15,7 @@ module RepresentativeDaysFinders
     using Interpolations
     using Plots; gr()
     using JSON # output config file
+    using SparseArrays # For the ordering variable
 
 
     include("time_series/TimeSeries.jl")
@@ -38,7 +39,7 @@ module RepresentativeDaysFinders
     ############################################################
     # Default method to run tool
     ############################################################
-    export findRepresentativeDays, ENTSOEcsv2dataframe, writeOutResults, DaysFinderTool, populateDaysFinderTool!, create_plots, makeDaysFinderToolModel, postOptimizationOfOrdering
+    export findRepresentativeDays, ENTSOEcsv2dataframe, writeOutResults, DaysFinderTool, populateDaysFinderTool!, create_plots, makeDaysFinderToolModel, makeReOrderingDaysFinderTool, makeDCErrorOnlyDaysFinderToolModel, optimizeDaysFinderTool
 
     function findRepresentativeDays(dft::DaysFinderTool, optimizer_factory)
         # Safety measure against having too many periods
@@ -50,12 +51,8 @@ module RepresentativeDaysFinders
 
         # Make model
         if dft.config["solver"]["Method"] == "reorder"
-            try
-                makeReOrderingDaysFinderTool(dft, optimizer_factory)
-                stat = optimizeDaysFinderTool(dft)
-            catch
-                error("Could not reorder periods. Did you forget to solve to find periods?")
-            end
+            makeReOrderingDaysFinderTool(dft, optimizer_factory)
+            stat = optimizeDaysFinderTool(dft)
         elseif dft.config["solver"]["Method"] == "iterative_bins"
             binsVec = try_get_val(
                 dft.config["solver"], "Bins", [10,20,40]

@@ -14,7 +14,8 @@ mutable struct DaysFinderTool
     ##################################################################################
     bins::Array                   # set of bins
     curves::Array                 # set of duration curves
-    periods::UnitRange                # set of potential representative periods
+    periods::UnitRange            # set of potential representative periods
+    rep_periods::Array{Int64,1}   # set of chosen representative periods - list of integers
     timesteps::UnitRange # Set of timesteps per potential period
 
     ##################################################################################
@@ -43,9 +44,9 @@ mutable struct DaysFinderTool
     ##################################################################################
     # Results
     ##################################################################################
-    u::Dict
-    w::Dict
-    v::Dict
+    u::Array{Int64,1}
+    w::Array{Float64,1}
+    v::Array{Float64,2}
 
     ###########################################################################
     # Misc dictionary
@@ -173,7 +174,7 @@ function makeDCErrorOnlyDaysFinderToolModel(
     # Variables
     @variable(m, u[j in dft.periods], Bin)
     @variable(m, w[j in dft.periods] >= 0)
-    v = [0]
+    v = spzeros(length.([dft.periods,dft.periods])...)
     dft.misc[:u] = u
     dft.misc[:v] = v
     dft.misc[:w] = w
@@ -193,7 +194,7 @@ function makeDCErrorOnlyDaysFinderToolModel(
     )
 
     # Restrict non-zero weights to selected periods
-    equal_weights = try_get_val(dft.config, "equal_weights", true)
+    equal_weights = try_get_val(dft.config, "equal_weights", false)
     if equal_weights == true
         @constraint(m, single_weight_eq[j in dft.periods],
             w[j] == u[j] * dft.N_total_periods / dft.N_representative_periods
@@ -245,9 +246,9 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     dft.misc[:w] = w
 
     # Hot start v
+    v_start_rand = getRandomHotStartForOrderingVariable(dft)
     v_start = try_get_val(
-        dft.config, "hot_start_values",
-        Dict((i,j) => i < dft.N_total_periods ? 1.0 : 0.0 for i in dft.periods, j in dft.periods)
+        dft.config, "hot_start_values", v_start_temp
     )
     for i in dft.periods, j in dft.periods
         set_start_value(v[i,j], v_start[i,j])
@@ -285,7 +286,7 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     end
 
     # Equal weightings
-    equal_weights = try_get_val(dft.config, "equal_weights", true)
+    equal_weights = try_get_val(dft.config, "equal_weights", false)
     if equal_weights == true
         @constraint(m, single_weight_eq[j in dft.periods],
             w[j] == u[j] * dft.N_total_periods / dft.N_representative_periods
@@ -347,19 +348,19 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
     m = Model(optimizer_factory)
     dft.m = m
 
-    # Retrieve selection variable
-    u = dft.u
-
     # Get sets
-    RP = [val[1] for (idx,val) in enumerate(u) if val[2] > 0] # selected periods j
+    RP = dft.rep_periods # rep. periods j
     P = dft.periods # all periods i
 
     # Make ordering variable and weighting expression
     @variable(m, v[i=P,j=RP] >= 0)
-    @expression(m, w[j=RP], sum(v[i,j] for i=P))
+    @variable(m, w[j=RP] >= 0)
+    @constraint(m, [j in RP],
+        w[j] == sum(v[i,j] for i in dft.periods)
+    )
     dft.misc[:v] = v
     dft.misc[:w] = w
-    dft.misc[:u] = JuMP.Containers.DenseAxisArray(sort([val for val in values(u)]), 1:8)
+    dft.misc[:u] = dft.u # Indicates that selection has been done
 
     # Enforce same weightings if applicable
     enforce_same_weightings = try_get_val(
@@ -367,14 +368,14 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
     )
     if enforce_same_weightings == true
         @constraint(m, [j=RP],
-            w[j] == dft.w[j]
+            w[j] == dft.w[dft.rep_periods[j]]
         )
     end
 
     # Enforce equal weightings
-    equal_weights = try_get_val(dft.config, "equal_weights", true)
+    equal_weights = try_get_val(dft.config, "equal_weights", false)
     if equal_weights == true
-        @constraint(m, single_weight_eq[j in dft.periods],
+        @constraint(m, single_weight_eq[j in RP],
             w[j] == u[j] * dft.N_total_periods / dft.N_representative_periods
         )
     end
@@ -453,23 +454,15 @@ function optimizeDaysFinderTool(dft::DaysFinderTool)
 
     # Write results to dft if optimal
     if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && has_values(dft.m)
-        u_val = value.(dft.misc[:u])
-        v_val = value.(dft.misc[:v])
-        w_val = value.(dft.misc[:w])
+        # Save values
+        dft.u = round.(getVariableValue(dft.misc[:u]))
+        dft.w = getVariableValue(dft.misc[:w])
+        dft.v = getVariableValue(dft.misc[:v])
 
-        dft.u = Dict(
-            j => j in u_val.axes[1] ? u_val[j] : 0 for j in dft.periods
-        )
-        dft.w = Dict(
-            j => j in w_val.axes[1] ? w_val[j] : 0 for j in dft.periods
-        )
-        if typeof(v_val) <: JuMP.Containers.DenseAxisArray
-            dft.v = Dict(
-                (i,j) => j in v_val.axes[2] ? v_val[i,j] : 0 for i in dft.periods, j in dft.periods
-            )
-        else
-            dft.v = Dict(0 => 0)
-        end
+        # Save representative periods and their mapping
+        dft.rep_periods = [
+            idx for (idx,val) in enumerate(dft.u) if val > 0
+        ]
     else
         @show stat
     end
@@ -481,10 +474,19 @@ end
 function getTimeSeriesErrorMatrix(dft::DaysFinderTool)
     TSEM = Array{Float64,2}(undef, length(dft.periods), length(dft.periods))
     TSEMD = Dict(
-        c => abs.([sum(
-            + dft.time_series[c].matrix_full_norm[p,t]
-            - dft.time_series[c].matrix_full_norm[pp,t] for t in dft.timesteps
-        ) for  p in dft.periods, pp in dft.periods]) for c in dft.curves
+        c => [
+            sum(abs.(
+                + dft.time_series[c].matrix_full_norm[p,t]
+                - dft.time_series[c].matrix_full_norm[pp,t]
+                for t in dft.timesteps
+            ))
+            for p in dft.periods, pp in dft.periods
+        ] for c in dft.curves
     )
     return TSEMD
+end
+
+function getRandomHotStartForOrderingVariable(dft::DaysFinderTool)
+    v_start_rand = spzeros(length.([dft.periods,dft.periods])...)
+    v_start_rand = [1:dft.N_representative_periods] .= 1
 end

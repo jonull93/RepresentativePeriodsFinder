@@ -5,3 +5,15 @@ function try_get_val(d::AbstractDict, k, default=0.0)
         return default
     end
 end
+
+function getVariableValue(x::JuMP.Containers.DenseAxisArray)
+    return value.(x).data
+end
+
+function getVariableValue(x::JuMP.Containers.SparseAxisArray)
+    return value.(x).data
+end
+
+function getVariableValue(x::AbstractArray)
+    return x
+end
