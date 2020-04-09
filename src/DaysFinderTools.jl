@@ -492,17 +492,32 @@ function optimizeDaysFinderTool(dft::DaysFinderTool)
 end
 
 function getTimeSeriesErrorMatrix(dft::DaysFinderTool)
-    TSEM = Array{Float64,2}(undef, length(dft.periods), length(dft.periods))
-    TSEMD = Dict(
-        c => [
-            sum(abs.(
-                + dft.time_series[c].matrix_full_norm[p,t]
-                - dft.time_series[c].matrix_full_norm[pp,t]
-                for t in dft.timesteps
-            ))
-            for p in dft.periods, pp in dft.periods
-        ] for c in dft.curves
+    type = try_get_val(
+        dft.config, "time_series_error_matrix_type", "average"
     )
+    if type == "absolute"
+        TSEMD = Dict(
+            c => [
+                sum(abs.(
+                    + dft.time_series[c].matrix_full_norm[p,t]
+                    - dft.time_series[c].matrix_full_norm[pp,t]
+                    for t in dft.timesteps
+                ))
+                for p in dft.periods, pp in dft.periods
+            ] for c in dft.curves
+        )
+    elseif type == "average"
+        TSEMD = Dict(
+            c => [
+                abs.(sum(
+                    + dft.time_series[c].matrix_full_norm[p,t]
+                    - dft.time_series[c].matrix_full_norm[pp,t]
+                    for t in dft.timesteps
+                ))
+                for p in dft.periods, pp in dft.periods
+            ] for c in dft.curves
+        )
+    end
     return TSEMD
 end
 

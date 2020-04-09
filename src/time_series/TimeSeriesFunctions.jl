@@ -83,9 +83,9 @@ function calculate_matrix_bins!(self::TimeSeries, dft::DaysFinderTool)
         self.matrix_bins[p,:] = fit(Histogram, self.matrix_full_norm[p,:], bins, closed=:left).weights'
     end
 
-    self.matrix_bins_cumsum = cumsum(sum(self.matrix_bins,dims=1)/length(self.data_norm)*100.,dims=2)[:] # -> L
+    self.matrix_bins_cumsum = cumsum(sum(self.matrix_bins,dims=1)/length(self.data_norm),dims=2)[:] # -> L
 
-    self.matrix_bins = 100. * self.matrix_bins / round(Int,length(self.data_norm)/length(dft.periods))
+    self.matrix_bins = self.matrix_bins / round(Int,length(self.data_norm)/length(dft.periods))
 
     self.matrix_bins_cumsum_day = cumsum(self.matrix_bins, dims=2) # -> A
 end
@@ -119,11 +119,12 @@ function cum_bin_total!(l, bins, ts::TimeSeries)
 end
 
 function normalise_time_series!(self::TimeSeries)
+    # Normalise to [0,1]
     min = minimum(self.data)
     max = maximum(self.data)
-    self.data_norm = 2*(self.data .- max) ./ (max - min) .+ 1
+    self.data_norm = (self.data .- max) ./ (max - min)
 
     min = minimum(self.matrix_full)
     max = maximum(self.matrix_full)
-    self.matrix_full_norm = 2*(self.matrix_full .- max) ./ (max - min) .+ 1
+    self.matrix_full_norm = (self.matrix_full .- max) ./ (max - min)
 end
