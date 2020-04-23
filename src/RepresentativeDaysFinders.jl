@@ -105,7 +105,7 @@ module RepresentativeDaysFinders
     function findRepresentativeDays(config_file::String, optimizer_factory)
         @info("Start RepresentativeDaysFinder")
         if isfile(config_file)
-            dft = DaysFinderTool(config_file)
+            dft = DaysFinderTool(config_file, populate_entries=true)
             findRepresentativeDays(dft, optimizer_factory)
         else
             @error("Config-file not found $config_file")
