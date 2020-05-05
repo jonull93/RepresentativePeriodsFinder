@@ -80,19 +80,6 @@ end
 function populateDaysFinderTool!(self::DaysFinderTool)
     pad = 3
     ##################################################################################
-    # Sets
-    ##################################################################################
-    self.bins =     ["b"*string(b, pad=pad) for b in range(1,stop=self.config["number_bins"])]
-
-    lenP = try_get_val(self.config, "number_days_total", 365)
-    self.periods = 1:lenP
-
-    # TODO: this should just be timeseries length / N_periods
-    lenT = try_get_val(self.config, "timesteps_per_period", 24)
-    self.timesteps = 1:lenT
-
-
-    ##################################################################################
     # Parameters
     ##################################################################################
     self.WEIGHT_DC                  = Dict()
@@ -102,8 +89,21 @@ function populateDaysFinderTool!(self::DaysFinderTool)
     self.AREA_TOTAL                 = Dict()
     self.AREA_TOTAL_DAY             = Dict()
 
-    self.N_representative_periods   = self.config["number_days"]
-    self.N_total_periods            = self.config["number_days_total"]
+    self.N_representative_periods   = try_get_val(self.config, "number_days", 8)
+    self.N_total_periods            = try_get_val(self.config, "number_days_total", 365)
+
+    ##################################################################################
+    # Sets
+    ##################################################################################
+    self.bins =     ["b"*string(b, pad=pad) for b in range(1,stop=self.config["number_bins"])]
+
+    lenP = self.N_total_periods
+    self.periods = 1:lenP
+
+    # TODO: this should just be timeseries length / N_periods
+    # But this makes an assumption on the length of the timeseries, so eh...
+    lenT = try_get_val(self.config, "timesteps_per_period", 24)
+    self.timesteps = 1:lenT
 
     ##################################################################################
     # Initialize the TimeSeries
@@ -340,9 +340,7 @@ end
 
 function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
     println("-" ^ 80)
-    println("-" ^ 80)
     println("Re ordering days")
-    println("-" ^ 80)
     println("-" ^ 80)
 
     # Make model
@@ -467,9 +465,11 @@ function optimizeDaysFinderTool(dft::DaysFinderTool)
             idx for (idx,val) in enumerate(dft.u) if val > 0
         ]
 
+        # NOTE: length(dft.rep_periods) != dft.N_representative_periods necessarily! Could be that optimiser chose less days than it was allowed to.
+
         # Transform w variable to be correct length if needs be
         w = getVariableValue(dft.misc[:w])
-        if length(w) == dft.N_representative_periods
+        if length(w) == length(dft.rep_periods)
             dft.w = zeros(dft.N_total_periods)
             dft.w[dft.rep_periods] = w
         else
@@ -478,7 +478,7 @@ function optimizeDaysFinderTool(dft::DaysFinderTool)
 
         # Only save the non-zero columns of v
         v = getVariableValue(dft.misc[:v])
-        if size(v, 2) != dft.N_representative_periods
+        if size(v, 2) != length(dft.rep_periods)
             dft.v = v[:,dft.rep_periods]
         else
             dft.v = v
