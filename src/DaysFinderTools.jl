@@ -300,28 +300,34 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     )
 
     # Define DC error
-    @variable(m, duration_curve_error[c in dft.curves, b in dft.bins] >= 0)
-    @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
-        duration_curve_error[c,b] >= + dft.L[c,b] - sum(w[j] / dft.N_total_periods * dft.A[c,j,b] for j in dft.periods)
-    )
-    @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
-        duration_curve_error[c,b] >= - dft.L[c,b] + sum(w[j] / dft.N_total_periods * dft.A[c,j,b] for j in dft.periods)
-    )
+    # @variable(m, duration_curve_error[c in dft.curves, b in dft.bins] >= 0)
+    # @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
+    #     duration_curve_error[c,b] >= + dft.L[c,b] - sum(w[j] / dft.N_total_periods * dft.A[c,j,b] for j in dft.periods)
+    # )
+    # @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
+    #     duration_curve_error[c,b] >= - dft.L[c,b] + sum(w[j] / dft.N_total_periods * dft.A[c,j,b] for j in dft.periods)
+    # )
 
     # Other constraints
     # TODO Impose particular day as a solution
 
     # Define objective
     TSEMD = getTimeSeriesErrorMatrix(dft)
+    DCEMD = getDurationCurveErrorMatrix(dft)
+    @show keys(DCEMD)
     dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
     ts_weight = try_get_val(dft.config, "time_series_error_weight", 1.0)
     dc_norm_weight = dft.N_total_periods*length(dft.timesteps)/length(dft.bins)
     obj = @expression(m,
         sum(
             dft.WEIGHT_DC[c] *(
+                # + dc_weight*dc_norm_weight*sum(
+                #     duration_curve_error[c,b] for b in dft.bins
+                # )
                 + dc_weight*dc_norm_weight*sum(
-                    duration_curve_error[c,b] for b in dft.bins
-                ) + ts_weight*sum(
+                    v[i,j]*DCEMD[c][i,j] for i in dft.periods, j in dft.periods
+                )
+                + ts_weight*sum(
                     v[i,j]*TSEMD[c][i,j] for i in dft.periods, j in dft.periods
                 )
             ) for c in dft.curves
@@ -519,6 +525,21 @@ function getTimeSeriesErrorMatrix(dft::DaysFinderTool)
         )
     end
     return TSEMD
+end
+
+function getDurationCurveErrorMatrix(dft::DaysFinderTool)
+    # TODO: This is a symmetric matrix, exploit that.
+    DCEMD = Dict(
+        c => [
+            sum(
+                abs.(
+                    .+ sort(dft.time_series[c].matrix_full_norm[p,:])
+                    .- sort(dft.time_series[c].matrix_full_norm[pp,:])
+                )
+            )
+            for p in dft.periods, pp in dft.periods
+        ] for c in dft.curves
+    )
 end
 
 function getRandomHotStartForOrderingVariable(dft::DaysFinderTool)
