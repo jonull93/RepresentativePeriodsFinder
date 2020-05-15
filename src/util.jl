@@ -17,3 +17,11 @@ end
 function getVariableValue(x::AbstractArray)
     return x
 end
+
+function getVariableValue(x::Array{VariableRef,1})
+    return value.(x)
+end
+
+function getVariableValue(x::Array{VariableRef,2})
+    return value.(x)
+end

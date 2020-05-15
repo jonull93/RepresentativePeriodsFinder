@@ -174,7 +174,11 @@ function makeDCErrorOnlyDaysFinderToolModel(
 
     # Variables
     @variable(m, u[j in dft.periods], Bin)
-    @variable(m, w[j in dft.periods] >= 0)
+    if try_get_val(dft.config, "integral_weights", false)
+        @variable(m, w[j in dft.periods], Int)
+    else
+        @variable(m, w[j in dft.periods] >= 0)
+    end
     v = spzeros(length.([dft.periods,dft.periods])...)
     dft.misc[:u] = u
     dft.misc[:v] = v
@@ -239,59 +243,97 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     dft.m = m
 
     # Create variables
-    @variable(m, v[i in dft.periods, j in dft.periods], Bin)
-    @variable(m, u[j in dft.periods], Bin)
-    @variable(m, w[j in dft.periods] >= 0)
+    v = Array{VariableRef,2}(
+        undef, length(dft.periods), length(dft.periods)
+    )
+    u = Array{VariableRef,1}(undef, length(dft.periods))
+    w = Array{VariableRef,1}(undef, length(dft.periods))
+
+    @debug "Making ordering variable..."
+    for i in dft.periods, j in dft.periods
+        v[i,j] = @variable(m, binary=true)
+        if mod(i-1, 1000) == 0 && j == 1
+            @debug "i = $i"
+        end
+    end
+    for i in dft.periods
+        u[i] = @variable(m, binary=true)
+    end
+    if try_get_val(dft.config, "integral_weights", false)
+        for i in dft.periods
+            w[i] = @variable(m, lower_bound=0)
+        end
+    else
+        for i in dft.periods
+            w[i] = @variable(m, integer=true, lower_bound=0)
+        end
+    end
+
+    # Save these to DaysFinderTool
     dft.misc[:u] = u
     dft.misc[:v] = v
     dft.misc[:w] = w
 
-    # Hot start v
-    v_start_rand = getRandomHotStartForOrderingVariable(dft)
-    v_start = try_get_val(
-        dft.config, "hot_start_values", v_start_rand
-    )
-    for i in dft.periods, j in dft.periods
-        set_start_value(v[i,j], v_start[i,j])
-    end
+    # # Hot start v
+    # v_start_rand = getRandomHotStartForOrderingVariable(dft)
+    # v_start = try_get_val(
+    #     dft.config, "hot_start_values", v_start_rand
+    # )
+    # for i in dft.periods, j in dft.periods
+    #     set_start_value(v[i,j], v_start[i,j])
+    # end
 
     # If v[i,j] = 1, then day i is represented by day j
     # The sum over j (columns) is the weighting of a particular day
     # The sum over i (rows) must equal 1 - a day is represented by only one other day
 
     # Each day i has to be represented by another day j
-    @constraint(m, [i in dft.periods],
-        sum(v[i,j] for j in dft.periods) == 1
-    )
+    @debug "Enforcing representation of each period by a representative period..."
+    for i in dft.periods
+        @constraint(m,
+            sum(v[i,j] for j in dft.periods) == 1
+        )
+    end
 
     # If day j is selected as a representative day then u[j] is 1
-    @constraint(m, [i in dft.periods, j in dft.periods],
-        v[i,j] <= u[j]
-    )
+    @debug "Enforcing selection of representative period..."
+    for i in dft.periods, j in dft.periods
+        @constraint(m,
+            v[i,j] <= u[j]
+        )
+    end
 
     # Choose only N_representative periods
+    @debug "Constraint number of representative periods..."
     @constraint(m,
         sum(u[j] for j in dft.periods) <= dft.N_representative_periods
     )
 
     # Define weightings - either in relation to the chronology variable v or seperately
+    @debug "Define weightings..."
     disj_weight = try_get_val(dft.config["solver"], "DecoupledWeights", false)
     if disj_weight == true
-        @constraint(m, [j in dft.periods],
-            w[j] <= u[j] * dft.N_total_periods
-        )
+        for j in dft.periods
+            @constraint(m,
+                w[j] <= u[j] * dft.N_total_periods
+            )
+        end
     else
-        @constraint(m, [j in dft.periods],
-            w[j] == sum(v[i,j] for i in dft.periods)
-        )
+        for j in dft.periods
+            @constraint(m,
+                w[j] == sum(v[i,j] for i in dft.periods)
+            )
+        end
     end
 
     # Equal weightings
     equal_weights = try_get_val(dft.config, "equal_weights", false)
     if equal_weights == true
-        @constraint(m, single_weight_eq[j in dft.periods],
-            w[j] == u[j] * dft.N_total_periods / dft.N_representative_periods
-        )
+        for j in dft.periods
+            @constraint(m,
+                w[j] == u[j] * dft.N_total_periods / dft.N_representative_periods
+            )
+        end
     end
 
     # Sum of weightings of representative periods must equal N_total_periods
@@ -299,31 +341,22 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
         sum(w[j] for j in dft.periods) == dft.N_total_periods
     )
 
-    # Define DC error
-    # @variable(m, duration_curve_error[c in dft.curves, b in dft.bins] >= 0)
-    # @constraint(m, error_eq1[c in dft.curves, b in dft.bins],
-    #     duration_curve_error[c,b] >= + dft.L[c,b] - sum(w[j] / dft.N_total_periods * dft.A[c,j,b] for j in dft.periods)
-    # )
-    # @constraint(m, error_eq2[c in dft.curves, b in dft.bins],
-    #     duration_curve_error[c,b] >= - dft.L[c,b] + sum(w[j] / dft.N_total_periods * dft.A[c,j,b] for j in dft.periods)
-    # )
-
     # Other constraints
     # TODO Impose particular day as a solution
 
     # Define objective
+    @debug "Getting time series error matrix..."
     TSEMD = getTimeSeriesErrorMatrix(dft)
+    @debug "Getting duration curve error matrix..."
     DCEMD = getDurationCurveErrorMatrix(dft)
-    @show keys(DCEMD)
     dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
     ts_weight = try_get_val(dft.config, "time_series_error_weight", 1.0)
     dc_norm_weight = dft.N_total_periods*length(dft.timesteps)/length(dft.bins)
+
+    @debug "Making objective..."
     obj = @expression(m,
         sum(
             dft.WEIGHT_DC[c] *(
-                # + dc_weight*dc_norm_weight*sum(
-                #     duration_curve_error[c,b] for b in dft.bins
-                # )
                 + dc_weight*dc_norm_weight*sum(
                     v[i,j]*DCEMD[c][i,j] for i in dft.periods, j in dft.periods
                 )
@@ -336,6 +369,7 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     @objective(m, Min, obj)
 
     # Constrain lower bound of objective
+    # TODO: probably not relevant
     obj_lower_bound = try_get_val(
         dft.config, "objective_lower_bound", 0.0
     )
@@ -363,7 +397,11 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
 
     # Make ordering variable and weighting expression
     @variable(m, v[i=P,j=RP] >= 0)
-    @variable(m, w[j=RP] >= 0)
+    if try_get_val(dft.config, "integral_weights", false)
+        @variable(m, w[j in dft.periods], Int)
+    else
+        @variable(m, w[j in dft.periods] >= 0)
+    end
     @constraint(m, [j in RP],
         w[j] == sum(v[i,j] for i in dft.periods)
     )
@@ -540,6 +578,37 @@ function getDurationCurveErrorMatrix(dft::DaysFinderTool)
             for p in dft.periods, pp in dft.periods
         ] for c in dft.curves
     )
+
+    # Periodic duration curve minimising the square error
+    # DCEMD = Dict(
+    #     c => [
+    #         sum(
+    #             abs.(
+    #                 .+ sort(dft.time_series[c].matrix_full_norm[p,:])
+    #                 .- sort(dft.time_series[c].matrix_full_norm[pp,:])
+    #             ).^2
+    #         )
+    #         for p in dft.periods, pp in dft.periods
+    #     ] for c in dft.curves
+    # )
+
+    # The below gives the error in the range - is a stupid idea though.
+    # DCEMD = Dict(
+    #     c => [
+    #             abs.(
+    #                 (
+    #                     + maximum(dft.time_series[c].matrix_full_norm[p,:])
+    #                     - minimum(dft.time_series[c].matrix_full_norm[p,:])
+    #                 )
+    #                 -
+    #                 (
+    #                     + maximum(dft.time_series[c].matrix_full_norm[pp,:])
+    #                     - minimum(dft.time_series[c].matrix_full_norm[pp,:])
+    #                 )
+    #             )
+    #         for p in dft.periods, pp in dft.periods
+    #     ] for c in dft.curves
+    # )
 end
 
 function getRandomHotStartForOrderingVariable(dft::DaysFinderTool)

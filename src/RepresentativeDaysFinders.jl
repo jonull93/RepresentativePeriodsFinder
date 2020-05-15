@@ -44,9 +44,11 @@ module RepresentativeDaysFinders
     function findRepresentativeDays(dft::DaysFinderTool, optimizer_factory)
         # Safety measure against having too many periods
         method = try_get_val(dft.config["solver"], "Method", "ordering")
-        max_periods = 500
+        max_periods = 365
         if length(dft.periods) > max_periods && method == "ordering"
-            error("Number of periods is greater than $max_periods - this will probably crash Julia.")
+            @warn """
+                Number of periods is greater than $max_periods and ordering solution method has been selected. This will likely crash Julia.
+            """
         end
 
         # Make model

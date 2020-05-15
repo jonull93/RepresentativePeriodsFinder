@@ -19,7 +19,7 @@ function writeOutResults(dft::DaysFinderTool)
     ###########################################################################
     df_ts = DataFrame()
     period_idx = df_dv[!,:used_days] .== 1
-    @debug("Period index of selected days: $period_idx")
+    # @debug("Period index of selected days: $period_idx")
 
     for ts in values(dft.time_series)
         df_ts[!,Symbol(ts.name)] = ts.matrix_full[period_idx,:]'[:]
