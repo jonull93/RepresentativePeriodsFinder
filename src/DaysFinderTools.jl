@@ -351,13 +351,12 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     DCEMD = getDurationCurveErrorMatrix(dft)
     dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
     ts_weight = try_get_val(dft.config, "time_series_error_weight", 1.0)
-    dc_norm_weight = dft.N_total_periods*length(dft.timesteps)/length(dft.bins)
 
     @debug "Making objective..."
     obj = @expression(m,
         sum(
             dft.WEIGHT_DC[c] *(
-                + dc_weight*dc_norm_weight*sum(
+                + dc_weight*sum(
                     v[i,j]*DCEMD[c][i,j] for i in dft.periods, j in dft.periods
                 )
                 + ts_weight*sum(
