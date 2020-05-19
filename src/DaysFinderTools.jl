@@ -538,10 +538,14 @@ function getTimeSeriesErrorMatrix(dft::DaysFinderTool)
     type = try_get_val(
         dft.config, "time_series_error_matrix_type", "average"
     )
+    squareBool = try_get_val(
+        dft.config, "use_squared_error_matrix", false
+    )
+    errorfunc = squareBool ? x -> x^2 : x -> abs(x)
     if type == "absolute"
         TSEMD = Dict(
             c => [
-                sum(abs.(
+                sum(errorfunc.(
                     + dft.time_series[c].matrix_full_norm[p,t]
                     - dft.time_series[c].matrix_full_norm[pp,t]
                     for t in dft.timesteps
@@ -552,7 +556,7 @@ function getTimeSeriesErrorMatrix(dft::DaysFinderTool)
     elseif type == "average"
         TSEMD = Dict(
             c => [
-                abs.(sum(
+                errorfunc.(sum(
                     + dft.time_series[c].matrix_full_norm[p,t]
                     - dft.time_series[c].matrix_full_norm[pp,t]
                     for t in dft.timesteps
@@ -566,10 +570,14 @@ end
 
 function getDurationCurveErrorMatrix(dft::DaysFinderTool)
     # TODO: This is a symmetric matrix, exploit that.
+    squareBool = try_get_val(
+        dft.config, "use_squared_error_matrix", false
+    )
+    errorfunc = squareBool ? x -> x^2 : x -> abs(x)
     DCEMD = Dict(
         c => [
             sum(
-                abs.(
+                errorfunc.(
                     .+ sort(dft.time_series[c].matrix_full_norm[p,:])
                     .- sort(dft.time_series[c].matrix_full_norm[pp,:])
                 )
