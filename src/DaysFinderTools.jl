@@ -195,7 +195,7 @@ function makeDCErrorOnlyDaysFinderToolModel(
 
     # User defined number of representative periods
     @constraint(m, number_periods_eq,
-        sum(u[j] for j in dft.periods) <= dft.N_representative_periods
+        sum(u[j] for j in dft.periods) == dft.N_representative_periods
     )
 
     # Restrict non-zero weights to selected periods
@@ -306,7 +306,7 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     # Choose only N_representative periods
     @debug "Constraint number of representative periods..."
     @constraint(m,
-        sum(u[j] for j in dft.periods) <= dft.N_representative_periods
+        sum(u[j] for j in dft.periods) == dft.N_representative_periods
     )
 
     # Define weightings - either in relation to the chronology variable v or seperately
