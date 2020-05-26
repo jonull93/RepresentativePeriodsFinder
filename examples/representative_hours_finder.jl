@@ -15,12 +15,21 @@ dft.config["solver"]["Method"] = "DC_error_only" # This is the original rep days
 # Populate the days finder tool. This adds the time series to it.
 populateDaysFinderTool!(dft)
 
-# Now we can find the representative days
-findRepresentativeDays(dft,
-    optimizer_with_attributes(
-        Gurobi.Optimizer, "TimeLimit" => timeLimitVal
-    )
+# Make the model first
+optimizer_factory = optimizer_with_attributes(
+    Gurobi.Optimizer, "TimeLimit" => timeLimitVal
 )
+RepresentativeDaysFinders.makeDCErrorOnlyDaysFinderToolModel(
+    dft, optimizer_factory
+)
+
+# You can fix any hours / days you want here
+# As an example, here I fix hour 1
+u = dft.misc[:u]
+fix(u[1], 1, force=true)
+
+# Optimise here
+stat = optimizeDaysFinderTool(dft)
 
 # Write out the results
 writeOutResults(dft)
