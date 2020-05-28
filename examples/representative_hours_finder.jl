@@ -28,6 +28,9 @@ RepresentativeDaysFinders.makeDCErrorOnlyDaysFinderToolModel(
 u = dft.misc[:u]
 fix(u[1], 1, force=true)
 
+# Note: Actually you should also be able to do this:
+# dft.config["fixed_periods"] = [1]
+
 # Optimise here
 stat = optimizeDaysFinderTool(dft)
 

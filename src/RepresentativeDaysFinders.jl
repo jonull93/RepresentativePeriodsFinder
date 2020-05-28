@@ -16,6 +16,9 @@ module RepresentativeDaysFinders
     using Plots; gr()
     using JSON # output config file
     using SparseArrays # For the ordering variable
+    using Cbc # For tests
+    using GLPK # For tests
+    using Gurobi # For tests
 
 
     include("time_series/TimeSeries.jl")
