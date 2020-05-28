@@ -16,7 +16,7 @@ dft.config["solver"]["Method"] = "DC_error_only" # This is the original rep days
 populateDaysFinderTool!(dft)
 
 # Make the model first
-optimizer_factory = optimizer_with_attributes(
+optimizer_factory = RepresentativeDaysFinders.optimizer_with_attributes(
     Gurobi.Optimizer, "TimeLimit" => timeLimitVal
 )
 RepresentativeDaysFinders.makeDCErrorOnlyDaysFinderToolModel(
@@ -25,11 +25,13 @@ RepresentativeDaysFinders.makeDCErrorOnlyDaysFinderToolModel(
 
 # You can fix any hours / days you want here
 # As an example, here I fix hour 1
-u = dft.misc[:u]
-fix(u[1], 1, force=true)
+# u = dft.misc[:u]
+# fix(u[1], 1, force=true)
 
-# Note: Actually you should also be able to do this:
-# dft.config["fixed_periods"] = [1]
+# Howto fix #num_max_periods in your data:
+num_max_periods = 30
+max_ix = sortperm(reshape(dft.time_series["Total_load"].matrix_full, size(dft.time_series["Total_load"].matrix_full)[1]), rev=true)
+dft.config["fixed_periods"] = max_ix[1:num_max_periods]
 
 # Optimise here
 stat = optimizeDaysFinderTool(dft)

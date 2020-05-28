@@ -17,7 +17,7 @@ populateDaysFinderTool!(dft)
 
 # Now we can find the representative days
 findRepresentativeDays(dft,
-    optimizer_with_attributes(
+    RepresentativeDaysFinders.optimizer_with_attributes(
         Gurobi.Optimizer, "TimeLimit" => timeLimitVal
     )
 )
