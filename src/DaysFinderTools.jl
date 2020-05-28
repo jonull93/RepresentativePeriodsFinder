@@ -14,7 +14,7 @@ mutable struct DaysFinderTool
     ##################################################################################
     bins::Array                   # set of bins
     curves::Array                 # set of duration curves
-    periods::UnitRange            # set of potential representative periods
+    periods::Array{Int64,1}            # set of potential representative periods
     rep_periods::Array{Int64,1}   # set of chosen representative periods - list of integers
     timesteps::UnitRange # Set of timesteps per potential period
 
@@ -237,6 +237,104 @@ function makeDCErrorOnlyDaysFinderToolModel(
     return m
 end
 
+function makeSquaredErrorDaysFinderToolModel(
+    dft::DaysFinderTool, optimizer_factory
+    )
+    # Model
+    m = Model(optimizer_factory)
+    dft.m = m
+
+    # Variables
+    @variable(m, u[j in dft.periods], Bin)
+    if try_get_val(dft.config, "integral_weights", false)
+        @variable(m, w[j in dft.periods], Int)
+    else
+        @variable(m, w[j in dft.periods] >= 0)
+    end
+    @variable(m, v[j in dft.periods, i in dft.periods] >= 0)
+    dft.misc[:u] = u
+    dft.misc[:v] = v
+    dft.misc[:w] = w
+
+    # Define duration curve
+    @variable(m,
+        reconstructed_duration_curve[c in dft.curves, b in dft.bins] >= 0
+    )
+    @constraint(m, duration_curve_con[c in dft.curves, b in dft.bins],
+        reconstructed_duration_curve[c,b]
+        == sum(w[j] / dft.N_total_periods * dft.A[c,j,b] for j in dft.periods)
+    )
+
+    # Define the time series
+    @variable(m,
+        reconstructed_time_series[c=dft.curves, i=dft.periods, t=dft.timesteps]
+    )
+    @constraint(m,
+        [c=dft.curves, i=dft.periods, t=dft.timesteps],
+        reconstructed_time_series[c,i,t]
+        ==
+        sum(v[i,j]*dft.time_series[c].matrix_full_norm[j,t] for j=dft.periods)
+    )
+
+    # Enforce v < u
+    for i in dft.periods, j in dft.periods
+        @constraint(m,
+            v[i,j] <= u[j]
+        )
+    end
+
+    # User defined number of representative periods
+    @constraint(m, number_periods_eq,
+        sum(u[j] for j in dft.periods) == dft.N_representative_periods
+    )
+
+    # Restrict non-zero weights to selected periods
+    equal_weights = try_get_val(dft.config, "equal_weights", false)
+    if equal_weights == true
+        @constraint(m, single_weight_eq[j in dft.periods],
+            w[j] == u[j] * dft.N_total_periods / dft.N_representative_periods
+        )
+    else
+        @constraint(m, single_weight_eq[j in dft.periods],
+            w[j] <= u[j] * dft.N_total_periods
+        )
+    end
+
+    # Guarantee equivalent yearly duration
+    @constraint(m, total_weight_eq,
+        sum(w[j] for j in dft.periods) == dft.N_total_periods
+    )
+
+    # Minimum weight
+    @debug("minimum weight set to 0.1")
+    @constraint(m, minimum_weight[p in dft.periods],
+        w[p] >= u[p] * 0.1
+    )
+
+    # Objective
+    # Define objective
+    dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
+    ts_weight = try_get_val(dft.config, "time_series_error_weight", 1.0)
+    dc_norm_weight = dft.N_total_periods*length(dft.timesteps)/length(dft.bins)
+
+    @objective(m, Min,
+        sum(
+            dft.WEIGHT_DC[c] *(
+                + dc_weight*dc_norm_weight*sum(
+                    (reconstructed_duration_curve[c,b] - dft.L[c,b])^2
+                    for b in dft.bins
+                )
+                + ts_weight*sum(
+                    (reconstructed_time_series[c,i,t] - dft.time_series[c].matrix_full_norm[i,t])^2
+                    for i in dft.periods, t in dft.timesteps
+                )
+            ) for c in dft.curves
+        )
+    )
+
+    return m
+end
+
 function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     # Model
     m = Model(optimizer_factory)
@@ -301,6 +399,15 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
         @constraint(m,
             v[i,j] <= u[j]
         )
+    end
+
+    linear_comb = try_get_val(
+        dft.config["solver"], "LinearCombination", "sum_to_one"
+    )
+    if linear_comb == "sum_to_one"
+        @constraint(m, [i=P], sum(v[i,j] for j=RP) == 1)
+    elseif linear_comb == "relaxed"
+        nothing
     end
 
     # Choose only N_representative periods
@@ -377,7 +484,10 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
     return m
 end
 
-function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
+function makeReOrderingDaysFinderTool(
+    dft::DaysFinderTool,
+    optimizer_factory
+    )
     println("-" ^ 80)
     println("Re ordering days")
     println("-" ^ 80)
@@ -406,6 +516,7 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
     )
     dft.misc[:v] = v
     dft.misc[:w] = w
+    dft.u = [i in RP ? 1 : 0 for i in dft.periods]
     dft.misc[:u] = dft.u # Indicates that selection has been done
 
     # Enforce same weightings if applicable
@@ -474,7 +585,6 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
     )
 
     # Define objective
-    TSEMD = getTimeSeriesErrorMatrix(dft)
     dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
     ts_weight = try_get_val(dft.config, "time_series_error_weight", 1.0)
     dc_norm_weight = dft.N_total_periods*length(dft.timesteps)/length(dft.bins)
@@ -492,6 +602,29 @@ function makeReOrderingDaysFinderTool(dft::DaysFinderTool, optimizer_factory)
     )
 
     return m
+end
+
+function solveGrowAlgorithmForPeriodSelection(
+    dft::DaysFinderTool,
+    optimizer_factory
+    )
+    RP = Array{Int64,1}()
+    N_representative_periods = dft.N_representative_periods
+    # dft.config["solver"]["Method"] = "reorder"
+    for j = 1:N_representative_periods
+        periodsIterator = [i for i in dft.periods if i ∉ RP]
+        objVals = Array{Float64,1}(undef, length(periodsIterator))
+        for k in 1:length(periodsIterator)
+            dft.rep_periods = sort(vcat(RP, periodsIterator[k]))
+            dft.N_representative_periods = j
+            makeReOrderingDaysFinderTool(dft, optimizer_factory)
+            stat = optimizeDaysFinderTool(dft)
+            objVals[k] = objective_value(dft.m)
+        end
+        sortIdx = sortperm(objVals)
+        RP = sort(vcat(RP, periodsIterator[sortIdx[1]]))
+    end
+    return RP
 end
 
 function optimizeDaysFinderTool(dft::DaysFinderTool)
@@ -623,4 +756,16 @@ function getRandomHotStartForOrderingVariable(dft::DaysFinderTool)
     idx = rand(dft.periods, dft.N_representative_periods - 1)
     v_start_rand[idx,idx] .= 1
     return v_start_rand
+end
+
+function fix_periods!(dft::DaysFinderTool)
+    u_fix = try_get_val(dft.config, "fixed_periods", [])
+    u = dft.misc[:u]
+    @info "Fixing periods $u_fix"
+    for i in 1:length(u_fix)
+        ui = u[u_fix[i]]
+        if typeof(ui) <: JuMP.VariableRef
+            fix(ui, 1, force=true)
+        end
+    end
 end

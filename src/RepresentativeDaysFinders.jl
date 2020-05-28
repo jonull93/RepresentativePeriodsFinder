@@ -53,9 +53,11 @@ module RepresentativeDaysFinders
 
         # Make model
         if dft.config["solver"]["Method"] == "reorder"
+            @debug "Can't fix periods with this solution method"
             makeReOrderingDaysFinderTool(dft, optimizer_factory)
             stat = optimizeDaysFinderTool(dft)
         elseif dft.config["solver"]["Method"] == "iterative_bins"
+            @debug "Can't fix periods with this solution method"
             binsVec = try_get_val(
                 dft.config["solver"], "Bins", [10,20,40]
             )
@@ -84,9 +86,21 @@ module RepresentativeDaysFinders
             end
         elseif dft.config["solver"]["Method"] == "DC_error_only"
             makeDCErrorOnlyDaysFinderToolModel(dft, optimizer_factory)
+            fix_periods!(dft)
             stat = optimizeDaysFinderTool(dft)
         elseif dft.config["solver"]["Method"] == "ordering"
             makeDaysFinderToolModel(dft, optimizer_factory)
+            fix_periods!(dft)
+            stat = optimizeDaysFinderTool(dft)
+        elseif dft.config["solver"]["Method"] == "squared error"
+            makeSquaredErrorDaysFinderToolModel(dft, optimizer_factory)
+            fix_periods!(dft)
+            stat = optimizeDaysFinderTool(dft)
+        elseif dft.config["solver"]["Method"] == "grow algorithm"
+            @debug "Can't fix periods with this solution method"
+            RP = solveGrowAlgorithmForPeriodSelection(dft, optimizer_factory)
+            dft.rep_periods = RP
+            makeReOrderingDaysFinderTool(dft, optimizer_factory)
             stat = optimizeDaysFinderTool(dft)
         else
             error("Please specify solver method")
