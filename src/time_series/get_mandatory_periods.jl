@@ -3,7 +3,7 @@
 #       Technologisch Onderzoek  N.V.) proprietary.                            #
 ################################################################################
 function get_mandatory_periods(ts::TimeSeries, dft::DaysFinderTool)
-    periods = String[]
+    periods = []
     if isdefined(ts, :config) && "mandatory_periods" in keys(ts.config)
         for method in ts.config["mandatory_periods"]
             if method == "max"

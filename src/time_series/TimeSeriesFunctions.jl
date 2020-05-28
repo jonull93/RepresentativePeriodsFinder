@@ -1,14 +1,7 @@
-##################################################################################
-# Author:   Hanspeter Höschle
-# Date:     15/06/2017
-##################################################################################
+###############################################################################
 
-##################################################################################
-# Create basic TimeSeries from config-file
-##################################################################################
-# import RepresentativeDaysFinders: TimeSeries
-# using RepresentativeDaysFinders: DaysFinderTool, calculate_matrix_bins!
-function TimeSeries(dft::DaysFinderTool, config::Dict{Any,Any})
+###############################################################################
+function TimeSeries(dft::DaysFinderTool, config::Dict)
     self = TimeSeries()
     self.config = config
     self.name = config["name"]
@@ -22,17 +15,19 @@ function TimeSeries(dft::DaysFinderTool, config::Dict{Any,Any})
         col = config["source"]["column"]
         csv_file = normpath(joinpath(dft.config["basedir"], config["source"]["csv"]))
         df = CSV.read(csv_file, delim = config["source"]["delimiter"][1])
-        self.data = df[Symbol(col)]
+        self.data = df[!,Symbol(col)]
     end
 
     calculate_matrix_bins!(self, dft)
 
+    normalise_time_series!(self)
+
     return self
 end
-##################################################################################
-# Create diff TimeSeries from existing TimeSeries
-##################################################################################
-function TimeSeries(dft::DaysFinderTool, basic::TimeSeries, method::Symbol=:all_1step)
+###############################################################################
+function TimeSeries(
+    dft::DaysFinderTool, basic::TimeSeries, method::Symbol=:all_1step
+    )
     self = TimeSeries()
     self.time_series_type = :diff
     self.weight = 1
@@ -49,9 +44,7 @@ function TimeSeries(dft::DaysFinderTool, basic::TimeSeries, method::Symbol=:all_
     return self
 end
 
-##################################################################################
-# Create correlation TimeSeries from two TimeSeries
-##################################################################################
+###############################################################################
 function TimeSeries(dft::DaysFinderTool, ts1::TimeSeries, ts2::TimeSeries)
     self = TimeSeries()
     self.time_series_type = :diff
@@ -74,42 +67,44 @@ function calculate_matrix_bins!(self::TimeSeries, dft::DaysFinderTool)
     ##################################################################################
     # Calculate bins and matrices
     ##################################################################################
-    self.matrix_full = reshape(self.data, round(Int,length(self.data) / length(dft.periods)), length(dft.periods))'
+    self.matrix_full = reshape(self.data, round(Int, length(self.data) / length(dft.periods)), length(dft.periods))'
 
-    value_width = (maximum(self.data) - minimum(self.data)) / length(dft.bins)
+    normalise_time_series!(self)
 
-    mini = minimum(self.data)
+    value_width = (maximum(self.data_norm) - minimum(self.data_norm)) / length(dft.bins)
+
+    mini = minimum(self.data_norm)
     bins = [mini; [mini + i * value_width for i in range(1,stop=length(dft.bins))]]
     bins[end] += 0.01
 
     self.matrix_bins = Array{Int}(undef, length(dft.periods), length(bins)-1)
 
-    for p in 1:size(self.matrix_full)[1]
-        self.matrix_bins[p,:] = fit(Histogram, self.matrix_full[p,:], bins, closed=:left).weights'
+    for p in 1:size(self.matrix_full_norm)[1]
+        self.matrix_bins[p,:] = fit(Histogram, self.matrix_full_norm[p,:], bins, closed=:left).weights'
     end
 
-    self.matrix_bins_cumsum = cumsum(sum(self.matrix_bins,dims=1)/length(self.data)*100.,dims=2)[:] # -> L
+    self.matrix_bins_cumsum = cumsum(sum(self.matrix_bins,dims=1)/length(self.data_norm),dims=2)[:] # -> L
 
-    self.matrix_bins = 100. * self.matrix_bins / round(Int,length(self.data)/length(dft.periods))
+    self.matrix_bins = self.matrix_bins / round(Int,length(self.data_norm)/length(dft.periods))
 
     self.matrix_bins_cumsum_day = cumsum(self.matrix_bins, dims=2) # -> A
 end
 
-function weight!(w::Dict{String,Float64}, ts::TimeSeries)
+function weight!(w, ts::TimeSeries)
     w[ts.name] = ts.weight
 end
 
-function area_total!(at::Dict{String,Float64}, ts::TimeSeries)
+function area_total!(at, ts::TimeSeries)
     at[ts.name] = sum(abs.(ts.data))
 end
 
-function area_total_days!(atd::Dict{Tuple{String,String},Float64}, periods::Array{String}, ts::TimeSeries)
+function area_total_days!(atd, periods, ts::TimeSeries)
     for (idx, p) in enumerate(periods)
-        atd[ts.name, p] = sum(abs.(ts.matrix_full[idx, :]))
+        atd[ts.name, p] = sum(abs.(ts.matrix_full_norm[idx, :]))
     end
 end
 
-function cum_bin_end!(a::Dict{Tuple{String,String,String},Float64}, periods::Array{String}, bins::Array{String}, ts::TimeSeries)
+function cum_bin_end!(a, periods, bins, ts::TimeSeries)
     for (idx_p, p) in enumerate(periods)
         for (idx_b, b) in enumerate(bins)
             a[ts.name, p, b] = ts.matrix_bins_cumsum_day[idx_p, idx_b]
@@ -117,8 +112,19 @@ function cum_bin_end!(a::Dict{Tuple{String,String,String},Float64}, periods::Arr
     end
 end
 
-function cum_bin_total!(l::Dict{Tuple{String,String},Float64}, bins::Array{String}, ts::TimeSeries)
+function cum_bin_total!(l, bins, ts::TimeSeries)
     for (idx_b, b) in enumerate(bins)
         l[ts.name, b] = ts.matrix_bins_cumsum[idx_b]
     end
+end
+
+function normalise_time_series!(self::TimeSeries)
+    # Normalise to [0,1]
+    min = minimum(self.data)
+    max = maximum(self.data)
+    self.data_norm = (self.data .- max) ./ (max - min)
+
+    min = minimum(self.matrix_full)
+    max = maximum(self.matrix_full)
+    self.matrix_full_norm = (self.matrix_full .- max) ./ (max - min)
 end

@@ -2,7 +2,6 @@
 # using DataFrames
 # using Interpolations
 
-
 """
     Reads a .csv file downloaded from the ENTSO-E transparency website into a data frame.
 """
