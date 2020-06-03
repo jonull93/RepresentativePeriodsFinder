@@ -44,7 +44,10 @@ module RepresentativeDaysFinders
     ############################################################
     export findRepresentativeDays, ENTSOEcsv2dataframe, writeOutResults, DaysFinderTool, populateDaysFinderTool!, create_plots, makeDaysFinderToolModel, makeReOrderingDaysFinderTool, makeDCErrorOnlyDaysFinderToolModel, optimizeDaysFinderTool
 
-    function findRepresentativeDays(dft::DaysFinderTool, optimizer_factory)
+    function findRepresentativeDays(
+        dft::DaysFinderTool,
+        optimizer_factory=GLPK.Optimizer
+        )
         # Safety measure against having too many periods
         method = try_get_val(dft.config["solver"], "Method", "ordering")
         max_periods = 365
@@ -105,14 +108,26 @@ module RepresentativeDaysFinders
             dft.rep_periods = RP
             makeReOrderingDaysFinderTool(dft, optimizer_factory)
             stat = optimizeDaysFinderTool(dft)
+        elseif dft.config["solver"]["Method"] in ("chronological time period clustering", "hierarchical clustering")
+            timePeriodClustering(dft)
+            stat = MOI.OPTIMAL
         else
             error("Please specify solver method")
         end
 
 
         # write out results
+        # TODO: The checks below could be a bit more robust...
         save_results = try_get_val(dft.config, "save_results", true)
-        if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && has_values(dft.m) && save_results
+        found_solution = (
+            dft.config["solver"]["Method"] in (
+                "chronological time period clustering",
+                "hierarchical clustering"
+                )
+            ||
+            has_values(dft.m)
+        )
+        if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && found_solution && save_results
             writeOutResults(dft)
             if dft.config["create_plots"] == 1
                 create_plots(dft)

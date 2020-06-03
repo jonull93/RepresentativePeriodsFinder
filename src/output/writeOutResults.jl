@@ -49,14 +49,20 @@ function writeOutResults(dft::DaysFinderTool)
     ###########################################################################
     # Objective value and bound to yaml file
     ###########################################################################
-    obj_val = objective_value(dft.m)
-    obj_bound = objective_bound(dft.m)
-    optStatus = Dict(
-        "objective_value" => obj_val,
-        "objective_bound" => obj_bound,
-        "optimality_gap" => (obj_val - obj_bound)/obj_val * 100,
-        "solution_method" => dft.config["solver"]["Method"]
-    )
+    if isdefined(dft, :m)
+        obj_val = objective_value(dft.m)
+        obj_bound = objective_bound(dft.m)
+        optStatus = Dict(
+            "objective_value" => obj_val,
+            "objective_bound" => obj_bound,
+            "optimality_gap" => (obj_val - obj_bound)/obj_val * 100,
+            "solution_method" => dft.config["solver"]["Method"]
+        )
+    else
+        optStatus = Dict(
+            "solution_method" => dft.config["solver"]["Method"]
+        )
+    end
     YAML.write_file(joinpath(result_dir, "optimisation_results.yaml"), optStatus)
 
     return dft

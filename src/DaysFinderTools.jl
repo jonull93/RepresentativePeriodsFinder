@@ -505,7 +505,12 @@ function makeReOrderingDaysFinderTool(
     P = dft.periods # all periods i
 
     # Make ordering variable and weighting expression
-    @variable(m, v[i=P,j=RP] >= 0)
+    if try_get_val(dft.config, "integral_ordering", false)
+        @variable(m, v[i=P,j=RP], Bin)
+    else
+        @variable(m, v[i=P,j=RP] >= 0)
+    end
+
     if try_get_val(dft.config, "integral_weights", false)
         @variable(m, w[j in dft.periods], Int)
     else
@@ -625,6 +630,111 @@ function solveGrowAlgorithmForPeriodSelection(
         RP = sort(vcat(RP, periodsIterator[sortIdx[1]]))
     end
     return RP
+end
+
+function timePeriodClustering(dft::DaysFinderTool)
+    # Notation is based on the following paper:
+    # [1] S. Pineda and J. M. Morales, “Chronological time-period clustering for optimal capacity expansion planning with storage,” IEEE Trans. Power Syst., vol. 33, no. 6, pp. 7162–7170, 2018.
+
+    # DEbugging stuff, ignore or delete
+    # config_file = "/home/u0128861/Desktop/RepDays4Storage/rep-days-4-storage/input_data/Elia_2017.yaml"
+    # dft = DaysFinderTool(config_file)
+    # populateDaysFinderTool!(dft)
+
+    # TODO: Make this faster!!!
+    # TODO: replace the below with a call to try_get_val or something
+    # Make it also just do regular hierarchical clustering
+    type = "chronological time period clustering"
+    # type = "hierarchical clustering"
+    N = dft.N_total_periods # Initial number of clusters / periods
+    NC = dft.N_total_periods # Current number of clusters
+    NCD = dft.N_representative_periods # Desired number of cluster
+    ICM = [i for i in dft.periods] # Set of periods which are the mediod of a cluster -> indices are clusters, elements are periods which are mediods of that cluster
+    IP2C = [i for i in dft.periods] # A set which maps the periods to their clusters -> indices are periods, elements are clusters
+    IC2P = [[i] for i in dft.periods] # A set which maps clusters to their periods -> indices are clusters, periods are elements
+    x = [
+        [
+            dft.time_series[c].matrix_full_norm[i,t]
+            for c in dft.curves, t in dft.timesteps
+        ][:]
+        for i in dft.periods
+    ]
+    xbar = copy(x) # at least initially
+    while NC > NCD
+        if mod(NC, 100) == 0
+            @debug "Number of clusters: $NC"
+        end
+        # Define dissimilarity matrix
+        # Since we only care about the (unordered) pairs, we only define the upper triangle of the matrixs
+        D = fill(Inf, NC, NC)
+        for i in 1:NC
+            if type == "chronological time period clustering"
+                # jstart = max(1, i-1)
+                jstart = i
+                jend = min(NC, i+1)
+            else
+                jstart = i
+                jend = NC
+            end
+            for j in jstart:jend
+                if i != j
+                    num = 2*length(IC2P[i])*length(IC2P[j])
+                    den = length(IC2P[i]) + length(IC2P[j])
+                    D[i,j] = num/den * sum((xbar[i][:] .- xbar[j][:]) .^ 2)
+                end
+            end
+        end
+
+        # Find the two "closest" mediods
+        (val, idx) = findmin(D)
+
+        # Append periods of "second" cluster to the "first" cluster
+        IC2P[idx[1]] = append!(IC2P[idx[1]], IC2P[idx[2]])
+
+        # Now we need to define the cluster mediod
+        # To do this, need the centroid of the cluster and then need to
+        # calculate dissimilarity of each period w.r.t to the cluster centroid
+        # The period in the cluster which minimises this dissimalarity
+        # becomes the next cluster mediod
+
+        # Recalculate the cluster centroid (useful for later as well)
+        sumterm = sum(hcat(x[IC2P[idx[1]][:]]...), dims=2)[:]
+        xbar[idx[1]] = sumterm/length(IC2P[idx[1]])
+
+        # Now calculate the dissimilarity for each element in the cluster
+        DC = [sum((xbar[idx[1]] .- el).^2) for el in x[IC2P[idx[1]][:]]]
+
+        # Find the period which minimises dissimilarity
+        # Set this as the cluster mediod
+        (val, idxClust) = findmin(DC)
+        ICM[idx[1]] = dft.periods[IC2P[idx[1]][idxClust]]
+
+        # Get rid of the "second" cluster in the cluster
+        deleteat!(IC2P, idx[2])
+        deleteat!(xbar, idx[2])
+        deleteat!(ICM, idx[2])
+
+        # Remap the periods to all point to the same cluster
+        # Probably don't even need to do this...
+        for i = 1:length(IC2P)
+            IP2C[IC2P[i][:]] .= i
+        end
+
+        # Decrease number of clusters
+        NC += -1
+    end
+
+    # Save the results
+    dft.u = [i in ICM ? 1 : 0 for i in dft.periods]
+    dft.w = [i in ICM ? length(IC2P[IP2C[i]]) : 0 for i in dft.periods]
+    dft.v = zeros(length(dft.periods), length(dft.periods))
+    for i in dft.periods
+        j =
+        dft.v[i,ICM[IP2C[i]]] = 1
+    end
+    dft.rep_periods = ICM
+    dft.v = dft.v[:, dft.rep_periods]
+    return ICM, IC2P, IP2C
 end
 
 function optimizeDaysFinderTool(dft::DaysFinderTool)
