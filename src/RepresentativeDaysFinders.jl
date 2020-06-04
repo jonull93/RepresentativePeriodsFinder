@@ -62,6 +62,10 @@ module RepresentativeDaysFinders
             @debug "Can't fix periods with this solution method"
             makeReOrderingDaysFinderTool(dft, optimizer_factory)
             stat = optimizeDaysFinderTool(dft)
+        elseif dft.config["solver"]["Method"] == "squared reorder"
+            @debug "Can't fix periods with this solution method"
+            makeReOrderingDaysFinderTool(dft, optimizer_factory)
+            stat = optimizeDaysFinderTool(dft)
         elseif dft.config["solver"]["Method"] == "iterative_bins"
             @debug "Can't fix periods with this solution method"
             binsVec = try_get_val(
@@ -119,6 +123,7 @@ module RepresentativeDaysFinders
         # write out results
         # TODO: The checks below could be a bit more robust...
         save_results = try_get_val(dft.config, "save_results", true)
+        create_plots_bool = get(dft.config, "create_plots", 1)
         found_solution = (
             dft.config["solver"]["Method"] in (
                 "chronological time period clustering",
@@ -129,7 +134,7 @@ module RepresentativeDaysFinders
         )
         if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && found_solution && save_results
             writeOutResults(dft)
-            if dft.config["create_plots"] == 1
+            if create_plots_bool in (1,true)
                 create_plots(dft)
             end
         end

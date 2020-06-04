@@ -405,7 +405,7 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
         dft.config["solver"], "LinearCombination", "sum_to_one"
     )
     if linear_comb == "sum_to_one"
-        @constraint(m, [i=P], sum(v[i,j] for j=RP) == 1)
+        @constraint(m, [i=dft.periods], sum(v[i,j] for j=dft.periods) == 1)
     elseif linear_comb == "relaxed"
         nothing
     end
@@ -609,6 +609,139 @@ function makeReOrderingDaysFinderTool(
     return m
 end
 
+function makeSquaredErrorReOrderingDaysFinderTool(
+    dft::DaysFinderTool,
+    optimizer_factory
+    )
+    println("-" ^ 80)
+    println("Re ordering days")
+    println("-" ^ 80)
+
+    # Make model
+    m = Model(optimizer_factory)
+    dft.m = m
+
+    # Get sets
+    if isdefined(dft, :rep_periods)
+        RP = dft.rep_periods # rep. periods j
+    else
+        error("Representative periods not defined, cannot reorder")
+    end
+    P = dft.periods # all periods i
+
+    # Make ordering variable and weighting expression
+    if try_get_val(dft.config, "integral_ordering", false)
+        @variable(m, v[i=P,j=RP], Bin)
+    else
+        @variable(m, v[i=P,j=RP] >= 0)
+    end
+
+    if try_get_val(dft.config, "integral_weights", false)
+        @variable(m, w[j in dft.periods], Int)
+    else
+        @variable(m, w[j in dft.periods] >= 0)
+    end
+    @constraint(m, [j in RP],
+        w[j] == sum(v[i,j] for i in dft.periods)
+    )
+    dft.misc[:v] = v
+    dft.misc[:w] = w
+    dft.u = [i in RP ? 1 : 0 for i in dft.periods]
+    dft.misc[:u] = dft.u # Indicates that selection has been done
+
+    # Enforce same weightings if applicable
+    enforce_same_weightings = try_get_val(
+        dft.config, "enforce_same_weightings", false
+    )
+    if enforce_same_weightings == true
+        @constraint(m, [j=RP],
+            w[j] == dft.w[j]
+        )
+    end
+
+    # Enforce equal weightings
+    equal_weights = try_get_val(dft.config, "equal_weights", false)
+    if equal_weights == true
+        @constraint(m, single_weight_eq[j in RP],
+            w[j] == u[j] * dft.N_total_periods / dft.N_representative_periods
+        )
+    end
+
+    # Enforce that representative period is selected for it's own period
+    @constraint(m, [j=RP], v[j,j] == 1)
+
+    # Ensure that every day is assigned a linear combination of rep periods
+    linear_comb = try_get_val(
+        dft.config["solver"], "LinearCombination", "sum_to_one"
+    )
+    if linear_comb == "sum_to_one"
+        @constraint(m, [i=P], sum(v[i,j] for j=RP) == 1)
+    elseif linear_comb == "relaxed"
+        nothing
+    end
+
+    # Ensure same yearly duration
+    @constraint(m, sum(v[i,j] for i=P, j=RP) == dft.N_total_periods)
+
+    # Define DC curve
+    @variable(m,
+        reconstructed_duration_curve[c in dft.curves, b in dft.bins] >= 0
+    )
+    @constraint(m, duration_curve_con[c in dft.curves, b in dft.bins],
+        reconstructed_duration_curve[c,b]
+        == sum(w[j] / dft.N_total_periods * dft.A[c,j,b] for j in dft.periods)
+    )
+
+    # Define the time series
+    @variable(m,
+        reconstructed_time_series[c=dft.curves, i=dft.periods, t=dft.timesteps]
+    )
+    @constraint(m,
+        [c=dft.curves, i=dft.periods, t=dft.timesteps],
+        reconstructed_time_series[c,i,t]
+        ==
+        sum(v[i,j]*dft.time_series[c].matrix_full_norm[j,t] for j=dft.periods)
+    )
+
+    # Define error
+    @variable(m, ts_error[c=dft.curves, i=P, t=dft.timesteps] >= 0)
+    @constraint(m,
+    	[c=dft.curves, i=P, t=dft.timesteps],
+    	ts_error[c,i,t] >=
+            + reconstructed_time_series[c,i,t]
+    		- dft.time_series[c].matrix_full_norm[i,t]
+    )
+    @constraint(m,
+    	[c=dft.curves, i=P,t=dft.timesteps],
+    	ts_error[c,i,t] >= -(
+            + reconstructed_time_series[c,i,t]
+    		- dft.time_series[c].matrix_full_norm[i,t]
+        )
+    )
+
+    # Define objective
+    dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
+    ts_weight = try_get_val(dft.config, "time_series_error_weight", 1.0)
+    dc_norm_weight = dft.N_total_periods*length(dft.timesteps)/length(dft.bins)
+
+    @objective(m, Min,
+        sum(
+            dft.WEIGHT_DC[c] *(
+                + dc_weight*dc_norm_weight*sum(
+                    (reconstructed_duration_curve[c,b] - dft.L[c,b])^2
+                    for b in dft.bins
+                )
+                + ts_weight*sum(
+                    (reconstructed_time_series[c,i,t] - dft.time_series[c].matrix_full_norm[i,t])^2
+                    for i in dft.periods, t in dft.timesteps
+                )
+            ) for c in dft.curves
+        )
+    )
+
+    return m
+end
+
 function solveGrowAlgorithmForPeriodSelection(
     dft::DaysFinderTool,
     optimizer_factory
@@ -644,8 +777,7 @@ function timePeriodClustering(dft::DaysFinderTool)
     # TODO: Make this faster!!!
     # TODO: replace the below with a call to try_get_val or something
     # Make it also just do regular hierarchical clustering
-    type = "chronological time period clustering"
-    # type = "hierarchical clustering"
+    type = get(dft.config["solver"], "Method", "hierarchical clustering")
     N = dft.N_total_periods # Initial number of clusters / periods
     NC = dft.N_total_periods # Current number of clusters
     NCD = dft.N_representative_periods # Desired number of cluster
@@ -669,10 +801,9 @@ function timePeriodClustering(dft::DaysFinderTool)
         D = fill(Inf, NC, NC)
         for i in 1:NC
             if type == "chronological time period clustering"
-                # jstart = max(1, i-1)
                 jstart = i
                 jend = min(NC, i+1)
-            else
+            elseif type == "hierarchical clustering"
                 jstart = i
                 jend = NC
             end
@@ -871,7 +1002,7 @@ end
 function fix_periods!(dft::DaysFinderTool)
     u_fix = try_get_val(dft.config, "fixed_periods", [])
     u = dft.misc[:u]
-    @info "Fixing periods $u_fix"
+    length(u_fix) > 0 ? @info("Fixing periods $u_fix") : nothing
     for i in 1:length(u_fix)
         ui = u[u_fix[i]]
         if typeof(ui) <: JuMP.VariableRef

@@ -9,7 +9,7 @@ function writeOutResults(dft::DaysFinderTool)
         weights     = dft.w,
         used_days   = dft.u
     )
-    CSV.write(joinpath(result_dir, "decision_variables.csv"), df_dv, delim=';')
+    CSV.write(joinpath(result_dir, "decision_variables.csv"), df_dv, delim=',')
 
     df_dv_s = deepcopy(sort(df_dv[df_dv[!,:used_days] .> 0, :]))
     CSV.write(joinpath(result_dir, "decision_variables_short.csv"), df_dv_s, delim=';')
@@ -24,7 +24,7 @@ function writeOutResults(dft::DaysFinderTool)
     for ts in values(dft.time_series)
         df_ts[!,Symbol(ts.name)] = ts.matrix_full[period_idx,:]'[:]
     end
-    CSV.write(joinpath(result_dir, "resulting_profiles.csv"), df_ts, delim=';')
+    CSV.write(joinpath(result_dir, "resulting_profiles.csv"), df_ts, delim=',')
 
     ###########################################################################
     # Save the ordering variable
@@ -34,7 +34,7 @@ function writeOutResults(dft::DaysFinderTool)
             dft.v[i,j] for i in dft.periods, j in 1:length(dft.rep_periods)
         ]
         df = DataFrame(v, Symbol.(dft.rep_periods))
-        CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=';')
+        CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=',')
     end
 
     ###########################################################################
