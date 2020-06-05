@@ -792,28 +792,30 @@ function timePeriodClustering(dft::DaysFinderTool)
         for i in dft.periods
     ]
     xbar = copy(x) # at least initially
+
+    # Define dissimilarity matrix
+    # Since we only care about the (unordered) pairs, we only define the upper triangle of the matrixs
+    D = fill(Inf, NC, NC)
+    for i in 1:NC
+        if type == "chronological time period clustering"
+            jstart = i
+            jend = min(NC, i+1)
+        elseif type == "hierarchical clustering"
+            jstart = i
+            jend = NC
+        end
+        for j in jstart:jend
+            if i != j
+                num = 2*length(IC2P[i])*length(IC2P[j])
+                den = length(IC2P[i]) + length(IC2P[j])
+                D[i,j] = num/den * sum((xbar[i][:] .- xbar[j][:]) .^ 2)
+            end
+        end
+    end
+
     while NC > NCD
         if mod(NC, 100) == 0
             @debug "Number of clusters: $NC"
-        end
-        # Define dissimilarity matrix
-        # Since we only care about the (unordered) pairs, we only define the upper triangle of the matrixs
-        D = fill(Inf, NC, NC)
-        for i in 1:NC
-            if type == "chronological time period clustering"
-                jstart = i
-                jend = min(NC, i+1)
-            elseif type == "hierarchical clustering"
-                jstart = i
-                jend = NC
-            end
-            for j in jstart:jend
-                if i != j
-                    num = 2*length(IC2P[i])*length(IC2P[j])
-                    den = length(IC2P[i]) + length(IC2P[j])
-                    D[i,j] = num/den * sum((xbar[i][:] .- xbar[j][:]) .^ 2)
-                end
-            end
         end
 
         # Find the two "closest" mediods
@@ -849,6 +851,30 @@ function timePeriodClustering(dft::DaysFinderTool)
         # Probably don't even need to do this...
         for i = 1:length(IC2P)
             IP2C[IC2P[i][:]] .= i
+        end
+
+        # Also remove that row and column from the dissimilarity matrix
+        D_idx = [i for i in 1:NC if i != idx[2]]
+        D = D[D_idx, D_idx]
+
+        # Recompute the dissimilarity for the new cluster
+        if type == "chronological time period clustering"
+            D_idx = [
+                ()
+            ]
+            jstart = max(1, i-1)
+            jend = min(NC, i+1)
+        elseif type == "hierarchical clustering"
+            error("I haven't fixed this yet!")
+            jstart = 1
+            jend = NC
+        end
+        for (i,j) in D_idx
+            if i != j
+                num = 2*length(IC2P[i])*length(IC2P[j])
+                den = length(IC2P[i]) + length(IC2P[j])
+                D[i,j] = num/den * sum((xbar[i][:] .- xbar[j][:]) .^ 2)
+            end
         end
 
         # Decrease number of clusters
