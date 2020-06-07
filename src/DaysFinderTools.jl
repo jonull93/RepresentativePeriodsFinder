@@ -787,6 +787,8 @@ function timePeriodClustering(dft::DaysFinderTool)
     # Define dissimilarity matrix
     # Since we only care about the (unordered) pairs, we only define the upper triangle of the matrixs
     D = fill(Inf, NC, NC)
+    # NOTE: Can also define D as UpperTriangular
+    # but this leads to 0 entries which is annoying when trying to find the minimum
     for i in 1:NC
         if type == "chronological time period clustering"
             jstart = i
@@ -810,7 +812,32 @@ function timePeriodClustering(dft::DaysFinderTool)
         end
 
         # Find the two "closest" mediods
-        (val, idx) = findmin(D)
+        # This takes up the bulk of the calculation time!
+        if type == "chronological time period clustering"
+            # Only need to search along a diagonal of D!
+            D_vec = [
+                D[i,j] for i in 1:NC-1
+                for j = i + 1
+            ]
+            (val, idx) = findmin(D_vec)
+
+            # Convert this into an index for D (instead of D_vec)
+            idx = CartesianIndex(idx, idx + 1)
+        else
+            # D_vec = [
+            #     D[i,j] for i in 1:NC-1
+            #     for j = i+1:NC
+            # ]
+            # (val, idx) = findmin(D_vec)
+            #
+            # # Longwinded way of converting the indices back
+            # temp = idx[1] .- cumsum(reverse([i for i in 1:NC-1]))
+            # nMinus = findfirst(x -> x < 0, temp)
+            #
+            # # TODO: Doesn't work yet
+            # idx = CartesianIndex(nMinus, NC + temp[nMinus])
+            (val, idx) = findmin(D)
+        end
 
         # Merge the two clusters. Do this by appending the periods of the
         # "second" cluster to that of the "first" cluster
@@ -831,6 +858,8 @@ function timePeriodClustering(dft::DaysFinderTool)
         DC = [sum((xbar[idx[1]] .- el).^2) for el in x[IC2P[idx[1]][:]]]
 
         # Find the period which minimises dissimilarity
+        # TODO: This also probably ends up taking a long time,
+        # but don't think I can speed it up
         (val, idxClust) = findmin(DC)
 
         # Set this as the cluster mediod
@@ -852,23 +881,26 @@ function timePeriodClustering(dft::DaysFinderTool)
         D_idx = [i for i in 1:NC if i != idx[2]]
         D = D[D_idx, D_idx]
 
+        # Decrease number of clusters
+        NC += -1
+
         # Recompute the dissimilarity for the new cluster w.r.t to the other
         # Clusters
         if type == "chronological time period clustering"
-            D_idx = (max(1, idx[1] - 1):idx[1], idx[1]:min(NC, idx[1] + 1))
+            D_idx = (
+                [i for i in max(1, idx[1] - 1):idx[1]],
+                [j for j in idx[1]:min(NC, idx[1] + 1)]
+            )
         elseif type == "hierarchical clustering"
             D_idx = (1:idx[1], idx[1]:NC)
         end
-        for (i,j) in D_idx
+        for i in D_idx[1], j in D_idx[2]
             if i != j
                 num = 2*length(IC2P[i])*length(IC2P[j])
                 den = length(IC2P[i]) + length(IC2P[j])
                 D[i,j] = num/den * sum((xbar[i][:] .- xbar[j][:]) .^ 2)
             end
         end
-
-        # Decrease number of clusters
-        NC += -1
     end
 
     # Save the results
