@@ -629,7 +629,7 @@ function makeSquaredErrorReOrderingDaysFinderTool(
     end
     P = dft.periods # all periods i
 
-    # Make ordering variable and weighting expression
+    # Make ordering and weighting variable
     if try_get_val(dft.config, "integral_ordering", false)
         @variable(m, v[i=P,j=RP], Bin)
     else
@@ -683,45 +683,39 @@ function makeSquaredErrorReOrderingDaysFinderTool(
     # Ensure same yearly duration
     @constraint(m, sum(v[i,j] for i=P, j=RP) == dft.N_total_periods)
 
-    # Define DC curve
-    @variable(m,
-        reconstructed_duration_curve[c in dft.curves, b in dft.bins] >= 0
-    )
-    @constraint(m, duration_curve_con[c in dft.curves, b in dft.bins],
-        reconstructed_duration_curve[c,b]
-        == sum(w[j] / dft.N_total_periods * dft.A[c,j,b] for j in dft.periods)
-    )
-
-    # Define the time series
-    @variable(m,
-        reconstructed_time_series[c=dft.curves, i=dft.periods, t=dft.timesteps]
-    )
-    @constraint(m,
-        [c=dft.curves, i=dft.periods, t=dft.timesteps],
-        reconstructed_time_series[c,i,t]
-        ==
-        sum(v[i,j]*dft.time_series[c].matrix_full_norm[j,t] for j=dft.periods)
-    )
-
-    # Define error
-    @variable(m, ts_error[c=dft.curves, i=P, t=dft.timesteps] >= 0)
-    @constraint(m,
-    	[c=dft.curves, i=P, t=dft.timesteps],
-    	ts_error[c,i,t] >=
-            + reconstructed_time_series[c,i,t]
-    		- dft.time_series[c].matrix_full_norm[i,t]
-    )
-    @constraint(m,
-    	[c=dft.curves, i=P,t=dft.timesteps],
-    	ts_error[c,i,t] >= -(
-            + reconstructed_time_series[c,i,t]
-    		- dft.time_series[c].matrix_full_norm[i,t]
-        )
-    )
-
-    # Define objective
+    # Get DC and TS weights
     dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
     ts_weight = try_get_val(dft.config, "time_series_error_weight", 1.0)
+
+    # Define DC curve
+    if dc_weight > 0
+        @variable(m,
+            reconstructed_duration_curve[c in dft.curves, b in dft.bins] >= 0
+        )
+        @constraint(m, duration_curve_con[c in dft.curves, b in dft.bins],
+            reconstructed_duration_curve[c,b]
+            == sum(w[j] / dft.N_total_periods * dft.A[c,j,b] for j in dft.periods)
+        )
+    else
+        reconstructed_duration_curve = EmptyContainer(Float64)
+    end
+
+    # Define the time series
+    if ts_weight > 0
+        @variable(m,
+            reconstructed_time_series[c=dft.curves, i=dft.periods, t=dft.timesteps]
+        )
+        @constraint(m,
+            [c=dft.curves, i=dft.periods, t=dft.timesteps],
+            reconstructed_time_series[c,i,t]
+            ==
+            sum(v[i,j]*dft.time_series[c].matrix_full_norm[j,t] for j=dft.periods)
+        )
+    else
+        reconstructed_time_series = EmptyContainer(Float64)
+    end
+
+    # Define objective
     dc_norm_weight = dft.N_total_periods*length(dft.timesteps)/length(dft.bins)
 
     @objective(m, Min,
@@ -774,9 +768,6 @@ function timePeriodClustering(dft::DaysFinderTool)
     # dft = DaysFinderTool(config_file)
     # populateDaysFinderTool!(dft)
 
-    # TODO: Make this faster!!!
-    # TODO: replace the below with a call to try_get_val or something
-    # Make it also just do regular hierarchical clustering
     type = get(dft.config["solver"], "Method", "hierarchical clustering")
     N = dft.N_total_periods # Initial number of clusters / periods
     NC = dft.N_total_periods # Current number of clusters
@@ -786,40 +777,43 @@ function timePeriodClustering(dft::DaysFinderTool)
     IC2P = [[i] for i in dft.periods] # A set which maps clusters to their periods -> indices are clusters, periods are elements
     x = [
         [
-            dft.time_series[c].matrix_full_norm[i,t]
+            dft.WEIGHT_DC[c] * dft.time_series[c].matrix_full_norm[i,t]
             for c in dft.curves, t in dft.timesteps
         ][:]
         for i in dft.periods
-    ]
+    ] # Cluster features vector
     xbar = copy(x) # at least initially
+
+    # Define dissimilarity matrix
+    # Since we only care about the (unordered) pairs, we only define the upper triangle of the matrixs
+    D = fill(Inf, NC, NC)
+    for i in 1:NC
+        if type == "chronological time period clustering"
+            jstart = i
+            jend = min(NC, i+1)
+        elseif type == "hierarchical clustering"
+            jstart = i
+            jend = NC
+        end
+        for j in jstart:jend
+            if i != j
+                num = 2*length(IC2P[i])*length(IC2P[j])
+                den = length(IC2P[i]) + length(IC2P[j])
+                D[i,j] = num/den * sum((xbar[i][:] .- xbar[j][:]) .^ 2)
+            end
+        end
+    end
+
     while NC > NCD
         if mod(NC, 100) == 0
             @debug "Number of clusters: $NC"
-        end
-        # Define dissimilarity matrix
-        # Since we only care about the (unordered) pairs, we only define the upper triangle of the matrixs
-        D = fill(Inf, NC, NC)
-        for i in 1:NC
-            if type == "chronological time period clustering"
-                jstart = i
-                jend = min(NC, i+1)
-            elseif type == "hierarchical clustering"
-                jstart = i
-                jend = NC
-            end
-            for j in jstart:jend
-                if i != j
-                    num = 2*length(IC2P[i])*length(IC2P[j])
-                    den = length(IC2P[i]) + length(IC2P[j])
-                    D[i,j] = num/den * sum((xbar[i][:] .- xbar[j][:]) .^ 2)
-                end
-            end
         end
 
         # Find the two "closest" mediods
         (val, idx) = findmin(D)
 
-        # Append periods of "second" cluster to the "first" cluster
+        # Merge the two clusters. Do this by appending the periods of the
+        # "second" cluster to that of the "first" cluster
         IC2P[idx[1]] = append!(IC2P[idx[1]], IC2P[idx[2]])
 
         # Now we need to define the cluster mediod
@@ -828,16 +822,18 @@ function timePeriodClustering(dft::DaysFinderTool)
         # The period in the cluster which minimises this dissimalarity
         # becomes the next cluster mediod
 
-        # Recalculate the cluster centroid (useful for later as well)
+        # Recalculate the cluster centroid
         sumterm = sum(hcat(x[IC2P[idx[1]][:]]...), dims=2)[:]
         xbar[idx[1]] = sumterm/length(IC2P[idx[1]])
 
-        # Now calculate the dissimilarity for each element in the cluster
+        # Find the merged clusters mediod as follows:
+        # Calculate the dissimilarity for each element in the cluster
         DC = [sum((xbar[idx[1]] .- el).^2) for el in x[IC2P[idx[1]][:]]]
 
         # Find the period which minimises dissimilarity
-        # Set this as the cluster mediod
         (val, idxClust) = findmin(DC)
+
+        # Set this as the cluster mediod
         ICM[idx[1]] = dft.periods[IC2P[idx[1]][idxClust]]
 
         # Get rid of the "second" cluster in the cluster
@@ -849,6 +845,26 @@ function timePeriodClustering(dft::DaysFinderTool)
         # Probably don't even need to do this...
         for i = 1:length(IC2P)
             IP2C[IC2P[i][:]] .= i
+        end
+
+        # Now we update the dissimilarity matrix for the next iteration
+        # Remove second cluster row and column from the dissimilarity matrix
+        D_idx = [i for i in 1:NC if i != idx[2]]
+        D = D[D_idx, D_idx]
+
+        # Recompute the dissimilarity for the new cluster w.r.t to the other
+        # Clusters
+        if type == "chronological time period clustering"
+            D_idx = (max(1, idx[1] - 1):idx[1], idx[1]:min(NC, idx[1] + 1))
+        elseif type == "hierarchical clustering"
+            D_idx = (1:idx[1], idx[1]:NC)
+        end
+        for (i,j) in D_idx
+            if i != j
+                num = 2*length(IC2P[i])*length(IC2P[j])
+                den = length(IC2P[i]) + length(IC2P[j])
+                D[i,j] = num/den * sum((xbar[i][:] .- xbar[j][:]) .^ 2)
+            end
         end
 
         # Decrease number of clusters
