@@ -890,12 +890,12 @@ function timePeriodClustering(dft::DaysFinderTool)
             j_index = i_index .- 1
         elseif type == "hierarchical clustering"
             i_index = vcat(
-                [idx[1] for i = 1:NC-idx[1]],
-                [i for i = idx[1]:-1:1]
+                [idx[1] for i = 1:idx[1]-1],
+                [i for i = idx[1]:NC]
             )
             j_index = vcat(
-                [j for j = 1:NC-idx[1]],
-                [NC-idx[1] for j = idx[1]:-1:1]
+                [j for j = 1:idx[1]-1],
+                [idx[1] for j = idx[1]:NC]
             )
         end
         @assert length(i_index) == length(j_index)
