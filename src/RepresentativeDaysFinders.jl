@@ -19,6 +19,7 @@ module RepresentativeDaysFinders
     using Cbc # For tests
     using GLPK # For tests
     using Gurobi # For tests
+    using LinearAlgebra
 
 
     include("time_series/TimeSeries.jl")
