@@ -870,7 +870,6 @@ function timePeriodClustering(dft::DaysFinderTool)
         deleteat!(ICM, idx[2])
 
         # Remap the periods to all point to the same cluster
-        # Probably don't even need to do this...
         for i = 1:length(IC2P)
             IP2C[IC2P[i][:]] .= i
         end
@@ -883,11 +882,15 @@ function timePeriodClustering(dft::DaysFinderTool)
         # Decrease number of clusters
         NC += -1
 
+        # Change idx[1] in case it was the last cluster
+        NC < idx[1] ? idx = CartesianIndex(NC,idx[2]) : nothing
+
         # Recompute the dissimilarity for the new cluster w.r.t to the other
         # Clusters
         if type == "chronological time period clustering"
             i_index = [i for i in max(1, idx[1] - 1):min(NC,idx[1])]
-            j_index = i_index .- 1
+            j_index = max.(1, i_index .- 1)
+            # Double check that
         elseif type == "hierarchical clustering"
             i_index = vcat(
                 [idx[1] for i = 1:idx[1]-1],
@@ -902,6 +905,11 @@ function timePeriodClustering(dft::DaysFinderTool)
         D_idx = [(i_index[k],j_index[k]) for k = 1:length(i_index)]
         for (i,j) in D_idx
             if i != j
+                if i <= 0 || j <= 0
+                    @show i_index
+                    @show j_index
+                    @show NC
+                end
                 num = 2*length(IC2P[i])*length(IC2P[j])
                 den = length(IC2P[i]) + length(IC2P[j])
                 if type == "hierarchical clustering"
