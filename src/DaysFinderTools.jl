@@ -842,7 +842,7 @@ function timePeriodClustering(dft::DaysFinderTool)
 
         # Merge the two clusters. Do this by appending the periods of the
         # "second" cluster to that of the "first" cluster
-        @show @elapsed IC2P[idx[1]] = append!(IC2P[idx[1]], IC2P[idx[2]])
+        IC2P[idx[1]] = append!(IC2P[idx[1]], IC2P[idx[2]])
 
         # Now we need to define the cluster mediod
         # To do this, need the centroid of the cluster and then need to
