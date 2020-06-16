@@ -933,7 +933,7 @@ function timePeriodClustering(dft::DaysFinderTool)
         j =
         dft.v[i,ICM[IP2C[i]]] = 1
     end
-    dft.rep_periods = ICM
+    dft.rep_periods = sort(ICM)
     dft.v = dft.v[:, dft.rep_periods]
     return ICM, IC2P, IP2C
 end

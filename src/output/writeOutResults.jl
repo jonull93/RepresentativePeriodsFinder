@@ -33,7 +33,9 @@ function writeOutResults(dft::DaysFinderTool)
         v = [
             dft.v[i,j] for i in dft.periods, j in 1:length(dft.rep_periods)
         ]
-        df = DataFrame(v, Symbol.(dft.rep_periods))
+        permIdx = sortperm(dft.rep_periods)
+        v = v[:,permIdx]
+        df = DataFrame(v, Symbol.(dft.rep_periods[permIdx]))
         CSV.write(joinpath(result_dir, "ordering_variable.csv"), df, delim=',')
     end
 
