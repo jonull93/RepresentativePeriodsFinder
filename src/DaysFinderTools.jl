@@ -869,7 +869,7 @@ function timePeriodClustering(dft::DaysFinderTool)
         deleteat!(xbar, idx[2])
         deleteat!(ICM, idx[2])
 
-        # Remap the periods to all point to the same cluster
+        # Update the Periods2Cluster set
         for i = 1:length(IC2P)
             IP2C[IC2P[i][:]] .= i
         end
@@ -909,6 +909,7 @@ function timePeriodClustering(dft::DaysFinderTool)
                     @show i_index
                     @show j_index
                     @show NC
+                    return error("Invalid indexing somehow")
                 end
                 num = 2*length(IC2P[i])*length(IC2P[j])
                 den = length(IC2P[i]) + length(IC2P[j])
