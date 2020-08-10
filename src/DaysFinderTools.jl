@@ -819,6 +819,8 @@ function timePeriodClustering(dft::DaysFinderTool)
     # 4. Using Float32 instead of Float64
     # 5. Can also try out @simd apparently?
 
+    intermediatePeriods = get(dft.config, "solver", "intermediatePeriods", [])
+
     while NC > NCD
         if mod(NC, 100) == 0
             @debug "Number of clusters: $NC"
@@ -924,19 +926,38 @@ function timePeriodClustering(dft::DaysFinderTool)
                 end
             end
         end
+
+        if NC in intermediatePeriods
+            calculate_rep_periods_from_clusters!(dft, ICM, IC2P, IP2C)
+            @warn "Currently I overwrite the saved stuff, ish sad"
+            writeOutResults(
+                dft, joinpath(dft.config["result_dir"], NC)
+            )
+        end
     end
 
     # Save the results
+    calculate_rep_periods_from_clusters!(dft)
+    return ICM, IC2P, IP2C
+end
+
+function calculate_rep_periods_from_clusters!(
+        dft::DaysFinderTool,
+        ICM,
+        IC2P,
+        IP2C
+    )
     dft.u = [i in ICM ? 1 : 0 for i in dft.periods]
     dft.w = [i in ICM ? length(IC2P[IP2C[i]]) : 0 for i in dft.periods]
     dft.v = zeros(length(dft.periods), length(dft.periods))
     for i in dft.periods
-        j =
+        j = # I'm pretty sure this line is unnecessary
         dft.v[i,ICM[IP2C[i]]] = 1
     end
     dft.rep_periods = sort(ICM)
-    dft.v = dft.v[:, dft.rep_periods]
-    return ICM, IC2P, IP2C
+    dft.v = v[:, dft.rep_periods]
+    @warn "Modified dft, make sure this doesn't bugger up the clustering"
+    return dft
 end
 
 function optimizeDaysFinderTool(dft::DaysFinderTool)

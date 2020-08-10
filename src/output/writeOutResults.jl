@@ -1,5 +1,10 @@
-function writeOutResults(dft::DaysFinderTool)
-    result_dir = normpath(joinpath(dft.config["basedir"], dft.config["result_dir"]))
+function writeOutResults(
+        dft::DaysFinderTool,
+        relResultDir = dft.config["result_dir"],
+    )
+    result_dir = normpath(
+        joinpath(dft.config["basedir"], relResultDir)
+    )
     if !isdir(result_dir)
         mkpath(result_dir)
     end
