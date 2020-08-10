@@ -819,12 +819,14 @@ function timePeriodClustering(dft::DaysFinderTool)
     # 4. Using Float32 instead of Float64
     # 5. Can also try out @simd apparently?
 
-    intermediatePeriods = get(dft.config, "solver", "intermediatePeriods", [])
+    intermediatePeriods = get(dft.config["solver"], "intermediatePeriods", [])
 
     while NC > NCD
         if mod(NC, 100) == 0
             @debug "Number of clusters: $NC"
         end
+
+        @show NC
 
         # Find the two "closest" mediods
         # This takes up the bulk of the calculation time!
@@ -931,13 +933,13 @@ function timePeriodClustering(dft::DaysFinderTool)
             calculate_rep_periods_from_clusters!(dft, ICM, IC2P, IP2C)
             @warn "Currently I overwrite the saved stuff, ish sad"
             writeOutResults(
-                dft, joinpath(dft.config["result_dir"], NC)
+                dft, joinpath(dft.config["result_dir"], string(NC))
             )
         end
     end
 
     # Save the results
-    calculate_rep_periods_from_clusters!(dft)
+    calculate_rep_periods_from_clusters!(dft, ICM, IC2P, IP2C)
     return ICM, IC2P, IP2C
 end
 
@@ -955,7 +957,7 @@ function calculate_rep_periods_from_clusters!(
         dft.v[i,ICM[IP2C[i]]] = 1
     end
     dft.rep_periods = sort(ICM)
-    dft.v = v[:, dft.rep_periods]
+    dft.v = dft.v[:, dft.rep_periods]
     @warn "Modified dft, make sure this doesn't bugger up the clustering"
     return dft
 end
