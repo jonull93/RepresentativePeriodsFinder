@@ -826,8 +826,6 @@ function timePeriodClustering(dft::DaysFinderTool)
             @debug "Number of clusters: $NC"
         end
 
-        @show NC
-
         # Find the two "closest" mediods
         # This takes up the bulk of the calculation time!
         if type == "chronological time period clustering"
