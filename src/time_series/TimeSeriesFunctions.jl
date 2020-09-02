@@ -119,12 +119,20 @@ function cum_bin_total!(l, bins, ts::TimeSeries)
 end
 
 function normalise_time_series!(self::TimeSeries)
-    # Normalise to [0,1]
-    min = minimum(self.data)
-    max = maximum(self.data)
-    self.data_norm = (self.data .- max) ./ (max - min)
+    # Normalise to [0,-1]
+    # TODO: Change this normalisation value, though scared that clustering
+    # will break if I do
+    minVal = minimum(self.data)
+    maxVal = maximum(self.data)
+    self.data_norm = (self.data .- maxVal) ./ (maxVal - minVal)
 
-    min = minimum(self.matrix_full)
+    minVal = minimum(self.matrix_full)
     max = maximum(self.matrix_full)
-    self.matrix_full_norm = (self.matrix_full .- max) ./ (max - min)
+    self.matrix_full_norm = (self.matrix_full .- maxVal) ./ (max - minVal)
+
+    # Get rid of NaNs
+    nanIndex = findall(isnan, self.matrix_full_norm)
+    self.matrix_full_norm[nanIndex] .= 0
+    nanIndex = findall(isnan, self.data_norm)
+    self.data_norm[nanIndex] .= 0
 end
