@@ -60,15 +60,12 @@ module RepresentativeDaysFinders
 
         # Make model
         if dft.config["solver"]["Method"] == "reorder"
-            @debug "Can't fix periods with this solution method"
             makeReOrderingDaysFinderTool(dft, optimizer_factory)
             stat = optimizeDaysFinderTool(dft)
         elseif dft.config["solver"]["Method"] == "squared reorder"
-            @debug "Can't fix periods with this solution method"
             makeReOrderingDaysFinderTool(dft, optimizer_factory)
             stat = optimizeDaysFinderTool(dft)
         elseif dft.config["solver"]["Method"] == "iterative_bins"
-            @debug "Can't fix periods with this solution method"
             binsVec = try_get_val(
                 dft.config["solver"], "Bins", [10,20,40]
             )

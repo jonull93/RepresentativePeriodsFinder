@@ -405,6 +405,8 @@ function makeDaysFinderToolModel(dft::DaysFinderTool, optimizer_factory)
         dft.config["solver"], "LinearCombination", "sum_to_one"
     )
     if linear_comb == "sum_to_one"
+        # TODO: this is actually exactly the same as the first constraint...
+        # Can probably drop it!
         @constraint(m, [i=dft.periods], sum(v[i,j] for j=dft.periods) == 1)
     elseif linear_comb == "relaxed"
         nothing
@@ -786,7 +788,7 @@ function timePeriodClustering(dft::DaysFinderTool)
 
     # Define dissimilarity matrix
     # Since we only care about the (unordered) pairs, we only define the upper triangle of the matrixs
-    D = fill(Inf, NC, NC)
+    D = fill(Inf32, NC, NC)
     # NOTE: Can also define D as UpperTriangular
     # but this leads to 0 entries which is annoying when
     # trying to find the minimum
@@ -811,9 +813,22 @@ function timePeriodClustering(dft::DaysFinderTool)
         D = LowerTriangular(1 ./ D)
     end
 
+    # Mandatory periods enforcement
+    @show mandatoryPeriods = get(dft.config["solver"], "mandatoryPeriods", [])
+    replaceVal = type == "hierarchical clustering" ? Float32(0.0) : nothing
+    replaceVal = type == "chronological time period clustering" ? Inf32 : nothing
+    for i in mandatoryPeriods
+        D[i,:] .= replaceVal
+    end
+    for j in mandatoryPeriods
+        D[:,j] .= replaceVal
+    end
+    @show NCD = NCD - length(mandatoryPeriods)
+    @show NC = NC - length(mandatoryPeriods)
+
     # TODO: Other possible performance boosts:
     # 1. Changing the order of the for loops to be j then i ->
-    # Would need to change to LowerTriangular
+    # be careful with this though.
     # 2. Using @inbounds -> avoids check in the array bounds when running
     # 3. Using Threads.@threads (might not speed things up though)
     # 4. Using Float32 instead of Float64
@@ -829,17 +844,17 @@ function timePeriodClustering(dft::DaysFinderTool)
         # Find the two "closest" mediods
         # This takes up the bulk of the calculation time!
         if type == "chronological time period clustering"
-            # TODO: Check this! Probably wrong
             # Only need to search along a diagonal of D!
+
             D_vec = [
-                @inbounds D[j+1,j] for j in 1:NC-1
+                @inbounds D[j+1,j] for j in 1:NC-1 # ≈ 0.1 secs
             ]
-            (val, idx) = findmin(D_vec)
+            (val, idx) = findmin(D_vec) # ≈ 10^-5 secs
 
             # Convert this into an index for D (instead of D_vec)
-            idx = CartesianIndex(idx + 1, idx)
+            idx = CartesianIndex(idx + 1, idx) # ≈ 0.1 secs
         else
-            (val, idx) = findmax(D)
+            (val, idx) = findmax(D) # ≈ 0.5 secs
         end
 
         # Merge the two clusters. Do this by appending the periods of the
@@ -889,18 +904,20 @@ function timePeriodClustering(dft::DaysFinderTool)
 
         # Recompute the dissimilarity for the new cluster w.r.t to the other
         # Clusters
+        # TODO: fix the filtering on the mandatoryPeriods, offset by 1
         if type == "chronological time period clustering"
-            i_index = [i for i in max(1, idx[1] - 1):min(NC,idx[1])]
+            i_index = [
+                i for i in max(1, idx[1] - 1):min(NC,idx[1]) if all(IC2P[i] .∉ mandatoryPeriods)
+            ]
             j_index = max.(1, i_index .- 1)
-            # Double check that
         elseif type == "hierarchical clustering"
             i_index = vcat(
                 [idx[1] for i = 1:idx[1]-1],
-                [i for i = idx[1]:NC]
+                [i for i = idx[1]:NC if all(IC2P[i] .∉ mandatoryPeriods)]
             )
             j_index = vcat(
                 [j for j = 1:idx[1]-1],
-                [idx[1] for j = idx[1]:NC]
+                [idx[1] for j = idx[1]:NC if all(IC2P[i] .∉ mandatoryPeriods)]
             )
         end
         @assert length(i_index) == length(j_index)
