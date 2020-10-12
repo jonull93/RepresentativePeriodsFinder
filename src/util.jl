@@ -26,3 +26,16 @@ end
 function getVariableValue(x::Array{VariableRef,2})
     return value.(x)
 end
+
+function get_number_of_clusters_of_adjacent_values(x::AbstractVector)
+    y = sort(x)
+    numAdj = 1
+    for j in 2:length(y)
+        if y[j-1] + 1 == y[j]
+            numAdj += 0
+        else
+            numAdj += 1
+        end
+    end
+    return numAdj
+end

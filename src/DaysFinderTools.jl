@@ -835,16 +835,21 @@ function timePeriodClustering(dft::DaysFinderTool)
 
     # Correct for mandatory periods
     NCD = NCD - length(mandatoryPeriods)
-    @assert iszero(NCD) == false error("Can't run clustering if all periods are fixed.")
-        # TODO: could eventually replace this with a reasonable default.
-        # TODO: currently mandatory periods don't represent other periods!
-        # could be annoying in the future
-    @assert NCD > length(mandatoryPeriods) error(
-        """
-        Please allow for at least $(NCD - length(mandatoryPeriods) + 1) periods
-        to be determined by the clustering algorithm
-        """
-    )
+    @assert iszero(NCD) == false "Can't run clustering if all periods are fixed."
+    # TODO: could eventually replace this with a reasonable default.
+    # TODO: currently mandatory periods don't represent other periods!
+    # could be annoying in the future
+    ermsg = "Please allow for at least 1 period to be determined by the clustering algorithm."
+    @assert NCD > 0 eval(ermsg)
+    numAdj = get_number_of_clusters_of_adjacent_values(mandatoryPeriods)
+    if type == "chronological time period clustering"
+        ermsg =
+            """
+            Too many periods fixed for this method. Please remove at least
+            $(NCD - numAdj + 2) periods (I think...) 
+            """
+        @assert NCD > numAdj + 2 eval(ermsg)
+    end
 
     # Get intermediate periods
     intermediatePeriods = get(dft.config["solver"], "intermediatePeriods", Int64[])
