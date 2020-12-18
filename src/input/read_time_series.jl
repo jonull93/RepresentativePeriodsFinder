@@ -1,6 +1,3 @@
-# function add_all_time_series!(pf)
-#     for ts_name in diff(config[""], 
-
 function add_time_series!(pf::PeriodsFinder, ts_name::String)
 
     ts_dict = pf.config["time_series"]
@@ -12,23 +9,31 @@ function add_time_series!(pf::PeriodsFinder, ts_name::String)
         pf.config["base_dir"],
         config_get(ts_dict[ts_name], ts_dict["default"], "source", "")
     )
-    column = get(ts_dict[ts_name], "value_column", "")
+    val_col = get(ts_dict[ts_name], "value_column", "")
     delim = config_get(ts_dict[ts_name], ts_dict["default"], "delim", ',')[1]
+    timestamp_col = get(ts_dict[ts_name], "timestamp_column", "")
+    format = config_get(ts_dict[ts_name], ts_dict["default"], "format", "")
+    types = Dict(val_col => Float64, timestamp_col => DateTime)
+    df = CSV.read(source, DataFrame; delim=delim, 
+        types = Dict(val_col => Float64), dateformat=format
+    )
 
-    df = CSV.read(source, DataFrame; delim=delim)
-
-    timestamp = get(ts_dict[ts_name], "timestamp_column", "")
-
-    if isempty(timestamp)
+    if isempty(timestamp_col)
         # Assume an hourly resolution starting year 1970 for one year
         start_date = DateTime(1970, 1, 1)
         end_date = start_date + Hour(size(df,1) - 1)
         timestamps = start_date:Hour(1):end_date
-        pf.time_series[ts_name] = TimeArray(timestamps, df[!,column])
+        pf.time_series[ts_name] = TimeArray(timestamps, Array(df[!,val_col]))
     else
-        format = config_get(ts_dict[ts_name], ts_dict["default"], "format", "")
-        timestamps = DateTime.(df[!,timestamp], format)
-        pf.time_series[ts_name] = TimeArray(timestamps, df[!,column])
+        data = eltype(df[!,val_col])[]
+        timestamps = DateTime[]
+        for row in eachrow(df)
+            if ismissing(row[timestamp_col]) == false
+                push!(data, row[val_col])
+                push!(timestamps, row[timestamp_col])
+            end
+        end
+        pf.time_series[ts_name] = TimeArray(timestamps, data)
     end
 
     return pf.time_series[ts_name]

@@ -75,15 +75,6 @@ function check_temporal_consistency(df::DataFrame, resultion::Float64, format::S
     return sorted_df
 end
 
-function makeinterpolator(df::DataFrame)
-    # make array and interpolation grid filtering out missing values
-    y = [j for j in df[:,2] if !ismissing(j)]
-    grid = [i for (i,j) in zip(df[:,1], df[:,2]) if !ismissing(j)]
-
-    # Make interpolation object
-    return itp = LinearInterpolation(grid, y, extrapolation_bc=Flat())
-end
-
 """
     Fills in any missing values in the data frame using linear interpolation.
 """

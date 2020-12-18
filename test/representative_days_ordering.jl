@@ -23,7 +23,7 @@ dft.config["result_dir"] = joinpath("..", "results", "rep_days_order") # Where t
 dft.config["solver"]["Method"] = "ordering"
 
 # Populate the days finder tool. This adds the time series to it.
-populate_days_finder!(dft)
+populate_entries!(dft)
 
 # Now we can find the representative days
 find_representative_periods(dft,

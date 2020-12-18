@@ -14,7 +14,7 @@ dft.config["solver"]["Method"] = "DC_error_only" # This is the original rep days
 dft.config["integral_weights"]=false
 
 # Populate the days finder tool. This adds the time series to it.
-populate_days_finder!(dft)
+populate_entries!(dft)
 
 # Howto fix #num_max_periods in your data:
 num_max_periods = 30

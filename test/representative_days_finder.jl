@@ -13,7 +13,7 @@ dft.config["result_dir"] = joinpath("..", "results", "rep_hours_finder") # Where
 dft.config["solver"]["Method"] = "DC_error_only" # This is the original rep days finder methodology
 
 # Populate the days finder tool. This adds the time series to it.
-populate_days_finder!(dft)
+populate_entries!(dft)
 
 # Now we can find the representative days
 find_representative_periods(dft,

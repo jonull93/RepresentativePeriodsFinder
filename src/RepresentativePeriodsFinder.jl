@@ -40,9 +40,10 @@ module RepresentativePeriodsFinder
     # # Utility
     include("util/EmptyContainer.jl")
     include("util/util.jl")
+    include("util/get.jl")
 
     # Exported methods
-    export find_representative_periods, ENTSOEcsv2dataframe, writeOutResults, PeriodsFinder, populate_days_finder!, create_plots, makePeriodsFinderModel, makeReOrderingPeriodsFinder, makeDCErrorOnlyPeriodsFinderModel, optimizePeriodsFinder
+    export find_representative_periods, ENTSOEcsv2dataframe, writeOutResults, PeriodsFinder, populate_entries!, create_plots, makePeriodsFinderModel, makeReOrderingPeriodsFinder, makeDCErrorOnlyPeriodsFinderModel, optimizePeriodsFinder
 
     # function find_representative_periods(
     #     dft::PeriodsFinder,
@@ -87,7 +88,7 @@ module RepresentativePeriodsFinder
     #                         objective_value(dft.m)
     #                 end
     #             end
-    #             populate_days_finder!(dft)
+    #             populate_entries!(dft)
     #             makePeriodsFinderModel(dft, optimizer_factory)
     #             stat = optimizePeriodsFinder(dft)
     #         end

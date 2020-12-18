@@ -4,8 +4,7 @@ representative_periods: 8
 timesteps_per_period: 24
 
 # Time series 
-used_resolution: 1 # Should be greater than 1
-interpolation_approach: "linear" # What to do for missing values
+used_resolution: 1 # Should be greater than 1 (?)
 
 method:
   options: # Method agnostic options
@@ -31,38 +30,45 @@ method:
         function: "(x,y) -> sum((x .- y).^2)"
         weight: 0.5
   
+  clustering:
+    type: "hierarchical"
+    force_adjacent: true # true for chronological time period clustering
 
 
 # Output options
 save_results: true
-result_dir: '../results/forgot_to_specify_dir'
+result_dir: '../results/rep_periods' # Relative to this file
 create_plots: true
 
 # Specify csv files for time series and other options
 time_series:
-  default: # These values will be used unless overwritten elsewhere
+  default: # These values will be used unless specified in the entries below
     source: "time_series.csv" # Path must be relative to this file
     delim: ';'
     timestamp: "Timestamp" # optional
     weight: 1
+    silence_warnings: false # If true, won't throw error msgs when reading csv
+    interpolation_type: "linear" # or constant
   
   Residual Load:
     source: "residual_load.csv"
     value_column: "Residual Load [MW]"
-    timestamp_column: "Timestep"
+    timestamp_column: "Timestamp"
     format: "yyyy-mm-dd HH:MM:SS"
     start: '2017-01-01 00:00:00'
     end: '2017-12-31 23:00:00'
 
   Load:
-    value_column: 'Load'
+    value_column: "Load"
     mandatory_periods: [max]
+    start: 1 
+    end: 8760
 
   LFW:
-    value_column: 'LFW'
+    value_column: "LFW"
     delim: ';'
     weight: 1
 
   LFS:
-    value_column: 'LFS'
+    value_column: "LFS"
     weight: 1

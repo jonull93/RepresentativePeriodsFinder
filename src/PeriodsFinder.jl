@@ -60,7 +60,7 @@ mutable struct PeriodsFinder
         pf.time_series = Dict{String,TimeArray}()
 
         if populate_entries == true
-            pf = populate_days_finder!(pf)
+            pf = populate_entries!(pf)
         end
 
         return pf
@@ -77,79 +77,80 @@ mutable struct PeriodsFinder
     end
 end
 
-function populate_days_finder!(self::PeriodsFinder)
-    pad = 3
-
-    ##################################################################################
-    # Initialize the TimeSeries
-    ##################################################################################
-    self.time_series = Dict()
-    self.curves = Array{String,1}()
-    for ts_config in self.config["time_series"]
-        println("-"^100)
-
-        ts = TimeSeries(self, ts_config)
-        addTimeSeries!(self, ts)
-
-        println("$(ts.name) added")
-
-        ##################################################################################
-        # Dynamics profiles
-        ##################################################################################
-        if self.config["dynamics_method"] == "all_1step"
-            println("-"^100)
-
-            ts_diff = TimeSeries(self, ts, :all_1step)
-            addTimeSeries!(self, ts_diff)
-
-            println("$(ts_diff.name) added")
-        end
+function populate_entries!(pf::PeriodsFinder)
+   
+    S = get_set_of_time_series(pf)
+    for ts_name in S
+        add_time_series!(pf, ts_name)
+        interpolate_missing_values!(pf, ts_name)
     end
+    # pf.time_series = Dict()
+    # pf.curves = Array{String,1}()
+    # for ts_config in pf.config["time_series"]
+    #     println("-"^100)
 
-    ##################################################################################
-    # Parameters
-    ##################################################################################
-    self.WEIGHT_DC                  = Dict()
-    self.A                          = Dict()
-    self.L                          = Dict()
+    #     ts = TimeSeries(pf, ts_config)
+    #     addTimeSeries!(pf, ts)
 
-    self.AREA_TOTAL                 = Dict()
-    self.AREA_TOTAL_DAY             = Dict()
+    #     println("$(ts.name) added")
 
-    self.N_representative_periods   = try_get_val(self.config, "number_days", 8)
-    self.N_total_periods            = try_get_val(self.config, "number_days_total", 365)
+    #     ##################################################################################
+    #     # Dynamics profiles
+    #     ##################################################################################
+    #     if pf.config["dynamics_method"] == "all_1step"
+    #         println("-"^100)
 
-    ##################################################################################
-    # Sets
-    ##################################################################################
-    self.bins =     ["b" * string(b, pad=pad) for b in range(1, stop=self.config["number_bins"])]
+    #         ts_diff = TimeSeries(pf, ts, :all_1step)
+    #         addTimeSeries!(pf, ts_diff)
 
-    lenP = self.N_total_periods
-    self.periods = 1:lenP
+    #         println("$(ts_diff.name) added")
+    #     end
+    # end
 
-    # TODO: this should just be timeseries length / N_periods
-    # But this makes an assumption on the length of the timeseries, so eh...
-    lenT = try_get_val(self.config, "timesteps_per_period", 24)
-    self.timesteps = 1:lenT
+    # ##################################################################################
+    # # Parameters
+    # ##################################################################################
+    # pf.WEIGHT_DC                  = Dict()
+    # pf.A                          = Dict()
+    # pf.L                          = Dict()
 
-    ##################################################################################
-    # Correlation
-    ##################################################################################
-    if self.config["correlation_method"] == "all"
-        ts_basic = [ts.name for ts in values(self.time_series) if ts.time_series_type == :basic]
-        for combi in combinations(ts_basic, 2)
-            println("-"^100)
-            ts1 = self.time_series[combi[1]]
-            ts2 = self.time_series[combi[2]]
-            ts = TimeSeries(self, ts1, ts2)
-            addTimeSeries!(self, ts)
+    # pf.AREA_TOTAL                 = Dict()
+    # pf.AREA_TOTAL_DAY             = Dict()
 
-            println("$(ts.name) added")
-        end
-    end
+    # pf.N_representative_periods   = try_get_val(pf.config, "number_days", 8)
+    # pf.N_total_periods            = try_get_val(pf.config, "number_days_total", 365)
 
-    # misc dictionary
-    self.misc = Dict()
+    # ##################################################################################
+    # # Sets
+    # ##################################################################################
+    # pf.bins =     ["b" * string(b, pad=pad) for b in range(1, stop=pf.config["number_bins"])]
 
-    return self
+    # lenP = pf.N_total_periods
+    # pf.periods = 1:lenP
+
+    # # TODO: this should just be timeseries length / N_periods
+    # # But this makes an assumption on the length of the timeseries, so eh...
+    # lenT = try_get_val(pf.config, "timesteps_per_period", 24)
+    # pf.timesteps = 1:lenT
+
+    # ##################################################################################
+    # # Correlation
+    # ##################################################################################
+    # if pf.config["correlation_method"] == "all"
+    #     ts_basic = [ts.name for ts in values(pf.time_series) if ts.time_series_type == :basic]
+    #     for combi in combinations(ts_basic, 2)
+    #         println("-"^100)
+    #         ts1 = pf.time_series[combi[1]]
+    #         ts2 = pf.time_series[combi[2]]
+    #         ts = TimeSeries(pf, ts1, ts2)
+    #         addTimeSeries!(pf, ts)
+
+    #         println("$(ts.name) added")
+    #     end
+    # end
+
+    # # misc dictionary
+    # pf.misc = Dict()
+
+    return pf
 end
