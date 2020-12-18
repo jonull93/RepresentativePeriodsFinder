@@ -1,4 +1,4 @@
-# RepresentativeDaysFinders.jl
+# RepresentativePeriodsFinder.jl
 
 
 A Julia Module to  
@@ -39,7 +39,7 @@ To upgrade to the most recent version of `representativedaysfinder.jl`, run
 
 
 ```julia
-(v1.1) pkg> up RepresentativeDaysFinders
+(v1.1) pkg> up RepresentativePeriodsFinder
 ```
 
 ### Usage
@@ -47,7 +47,7 @@ To upgrade to the most recent version of `representativedaysfinder.jl`, run
 Run:
 
 ```julia
-using RepresentativeDaysFinders
+using RepresentativePeriodsFinder
 using JuMP
 using GLPK
 
@@ -55,7 +55,7 @@ using GLPK
 
 config_file = normpath(joinpath(@__DIR__, "scenarios", "DE_DK_2015_1.yaml"))
 
-findRepresentativeDays(config_file, with_optimizer(GLPK.Optimizer; presolve=true, msg_lev=GLPK.MSG_ALL))
+find_representative_periods(config_file, with_optimizer(GLPK.Optimizer; presolve=true, msg_lev=GLPK.MSG_ALL))
 ```
 ## Trouble shooting
 If issues with GR-engine occur just build GR package:
@@ -72,7 +72,7 @@ julia> cd("<path_to_git_clone>")
 ```
 If you add packages now they're added to the `Project.toml` file.
 
-If you edit or create a function and want to test it (without killing Julia, starting it again and running `using RepresentativeDaysFinders`), simply run / execute that function (or the entire file, e.g. `TimeSeries.jl`). 
+If you edit or create a function and want to test it (without killing Julia, starting it again and running `using RepresentativePeriodsFinder`), simply run / execute that function (or the entire file, e.g. `TimeSeries.jl`). 
 
 ## Documentation
 

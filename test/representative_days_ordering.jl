@@ -1,6 +1,6 @@
-using RepresentativeDaysFinders
+using RepresentativePeriodsFinder
 using JuMP
-using Gurobi
+using Cbc
 
 timeLimitVal = 60 # in seconds
 config_file = normpath(joinpath(@__DIR__, "input_data", "Elia_2017.yaml"))
@@ -9,7 +9,7 @@ config_file = normpath(joinpath(@__DIR__, "input_data", "Elia_2017.yaml"))
 mult = 8
 timeLimitVal = timeLimitVal*mult^2 # Just to be on the safe side
 
-dft = DaysFinderTool(config_file)
+dft = PeriodsFinder(config_file)
 dft.config["number_days"] = 8*mult # Number of periods to choose
 dft.config["number_days_total"] = 365*mult # Number of periods in year
 dft.config["timesteps_per_period"] = Int(24//mult) # Number of timesteps per period
@@ -23,12 +23,12 @@ dft.config["result_dir"] = joinpath("..", "results", "rep_days_order") # Where t
 dft.config["solver"]["Method"] = "ordering"
 
 # Populate the days finder tool. This adds the time series to it.
-populateDaysFinderTool!(dft)
+populate_days_finder!(dft)
 
 # Now we can find the representative days
-findRepresentativeDays(dft,
-    RepresentativeDaysFinders.optimizer_with_attributes(
-        Gurobi.Optimizer, "TimeLimit" => timeLimitVal
+find_representative_periods(dft,
+    RepresentativePeriodsFinder.optimizer_with_attributes(
+        Cbc.Optimizer, "TimeLimit" => timeLimitVal
     )
 )
 

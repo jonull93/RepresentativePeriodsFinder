@@ -1,7 +1,7 @@
 ###############################################################################
 
 ###############################################################################
-function TimeSeries(dft::DaysFinderTool, config::Dict)
+function TimeSeries(dft::PeriodsFinder, config::Dict)
     self = TimeSeries()
     self.config = config
     self.name = config["name"]
@@ -13,7 +13,7 @@ function TimeSeries(dft::DaysFinderTool, config::Dict)
     ##################################################################################
     if "csv" in keys(config["source"])
         col = config["source"]["column"]
-        csv_file = normpath(joinpath(dft.config["basedir"], config["source"]["csv"]))
+        csv_file = normpath(joinpath(dft.config["base_dir"], config["source"]["csv"]))
         df = CSV.read(csv_file, delim = config["source"]["delimiter"][1])
         self.data = df[!,Symbol(col)]
     end
@@ -26,7 +26,7 @@ function TimeSeries(dft::DaysFinderTool, config::Dict)
 end
 ###############################################################################
 function TimeSeries(
-    dft::DaysFinderTool, basic::TimeSeries, method::Symbol=:all_1step
+    dft::PeriodsFinder, basic::TimeSeries, method::Symbol=:all_1step
     )
     self = TimeSeries()
     self.time_series_type = :diff
@@ -45,7 +45,7 @@ function TimeSeries(
 end
 
 ###############################################################################
-function TimeSeries(dft::DaysFinderTool, ts1::TimeSeries, ts2::TimeSeries)
+function TimeSeries(dft::PeriodsFinder, ts1::TimeSeries, ts2::TimeSeries)
     self = TimeSeries()
     self.time_series_type = :diff
     self.weight = 1
@@ -63,7 +63,7 @@ function TimeSeries(dft::DaysFinderTool, ts1::TimeSeries, ts2::TimeSeries)
     return self
 end
 
-function calculate_matrix_bins!(self::TimeSeries, dft::DaysFinderTool)
+function calculate_matrix_bins!(self::TimeSeries, dft::PeriodsFinder)
     ##################################################################################
     # Calculate bins and matrices
     ##################################################################################

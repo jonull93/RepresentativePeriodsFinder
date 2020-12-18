@@ -1,10 +1,10 @@
-using RepresentativeDaysFinders
+using RepresentativePeriodsFinder
 using JuMP
-using Gurobi
+using Cbc
 timeLimitVal = 60*1 # in seconds
 config_file = normpath(joinpath(@__DIR__, "Elia_2017.yaml"))
 
-dft = DaysFinderTool(config_file)
+dft = PeriodsFinder(config_file)
 dft.config["number_days"] = 100 # Number of periods to choose
 dft.config["number_days_total"] = 8760 # Number of periods in year
 dft.config["timesteps_per_period"] = 1 # Number of timesteps per period
@@ -14,7 +14,7 @@ dft.config["solver"]["Method"] = "DC_error_only" # This is the original rep days
 dft.config["integral_weights"]=false
 
 # Populate the days finder tool. This adds the time series to it.
-populateDaysFinderTool!(dft)
+populate_days_finder!(dft)
 
 # Howto fix #num_max_periods in your data:
 num_max_periods = 30
@@ -23,10 +23,10 @@ dft.config["fixed_periods"] = max_ix[1:num_max_periods]
 
 
 # Make the model first
-optimizer_factory = RepresentativeDaysFinders.optimizer_with_attributes(
-    Gurobi.Optimizer, "TimeLimit" => timeLimitVal
+optimizer_factory = RepresentativePeriodsFinder.optimizer_with_attributes(
+    Cbc.Optimizer, "TimeLimit" => timeLimitVal
 )
-RepresentativeDaysFinders.makeDCErrorOnlyDaysFinderToolModel(
+RepresentativePeriodsFinder.makeDCErrorOnlyPeriodsFinderModel(
     dft, optimizer_factory
 )
 
@@ -40,7 +40,7 @@ for ix in max_ix
 end
 
 # Optimise here
-stat = optimizeDaysFinderTool(dft)
+stat = optimizePeriodsFinder(dft)
 
 # Write out the results
 writeOutResults(dft)

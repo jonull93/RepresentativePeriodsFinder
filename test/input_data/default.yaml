@@ -1,0 +1,68 @@
+# Properties of the set of representative periods
+total_periods: 365
+representative_periods: 8
+timesteps_per_period: 24
+
+# Time series 
+used_resolution: 1 # Should be greater than 1
+interpolation_approach: "linear" # What to do for missing values
+
+method:
+  options: # Method agnostic options
+    mandatory_periods: 
+  
+  optimisation:
+    integral_weights: false
+    integral_ordering: true
+    equal_weights: false
+    
+    time_series_error:
+      weight: 0.5
+      type: "squared" # Or squared
+    duration_curve_error:
+      weight: 0.5
+      number_bins: 40
+      type: "squared" # Or squared
+    ordering_error:
+      ord_err_1:
+        function: "(x,y) -> sum(abs.( (sort(x) .- sort(y) ))"
+        weight: 0.5
+      ord_err_2:
+        function: "(x,y) -> sum((x .- y).^2)"
+        weight: 0.5
+  
+
+
+# Output options
+save_results: true
+result_dir: '../results/forgot_to_specify_dir'
+create_plots: true
+
+# Specify csv files for time series and other options
+time_series:
+  default: # These values will be used unless overwritten elsewhere
+    source: "time_series.csv" # Path must be relative to this file
+    delim: ';'
+    timestamp: "Timestamp" # optional
+    weight: 1
+  
+  Residual Load:
+    source: "residual_load.csv"
+    value_column: "Residual Load [MW]"
+    timestamp_column: "Timestep"
+    format: "yyyy-mm-dd HH:MM:SS"
+    start: '2017-01-01 00:00:00'
+    end: '2017-12-31 23:00:00'
+
+  Load:
+    value_column: 'Load'
+    mandatory_periods: [max]
+
+  LFW:
+    value_column: 'LFW'
+    delim: ';'
+    weight: 1
+
+  LFS:
+    value_column: 'LFS'
+    weight: 1

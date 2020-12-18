@@ -2,8 +2,8 @@
 #       The content of this file is VITO (Vlaamse Instelling voor              #
 #       Technologisch Onderzoek  N.V.) proprietary.                            #
 ################################################################################
-function create_plots(dft::DaysFinderTool)
-    result_dir = normpath(joinpath(dft.config["basedir"], dft.config["result_dir"], "plots"))
+function create_plots(dft::PeriodsFinder)
+    result_dir = normpath(joinpath(dft.config["base_dir"], dft.config["result_dir"], "plots"))
     if !isdir(result_dir)
         mkdir(result_dir)
     end
