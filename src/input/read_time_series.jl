@@ -19,7 +19,7 @@ function add_time_series!(pf::PeriodsFinder, ts_name::String)
     )
 
     if isempty(timestamp_col)
-        # Assume an hourly resolution starting year 1970 for one year
+        @debug "Assume an hourly resolution starting year 1970 for $ts_name"
         start_date = DateTime(1970, 1, 1)
         end_date = start_date + Hour(size(df,1) - 1)
         timestamps = start_date:Hour(1):end_date
@@ -31,6 +31,8 @@ function add_time_series!(pf::PeriodsFinder, ts_name::String)
             if ismissing(row[timestamp_col]) == false
                 push!(data, row[val_col])
                 push!(timestamps, row[timestamp_col])
+            else
+                continue # Replace this with an assumption on the date and time!
             end
         end
         pf.time_series[ts_name] = TimeArray(timestamps, data)

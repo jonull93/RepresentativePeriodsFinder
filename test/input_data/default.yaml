@@ -1,10 +1,8 @@
-# Properties of the set of representative periods
+# Properties of the set of the time periods
 total_periods: 365
 representative_periods: 8
 timesteps_per_period: 24
-
-# Time series 
-used_resolution: 1 # Should be greater than 1 (?)
+sampling_time: "Hour(1)" # This is a DateTime format - for quarter hours, Hour(0.25)
 
 method:
   options: # Method agnostic options
@@ -49,6 +47,7 @@ time_series:
     weight: 1
     silence_warnings: false # If true, won't throw error msgs when reading csv
     interpolation_type: "linear" # or constant
+    sampling_time: "Hour(1)" # Only necessary if a timestamp is not given
   
   Residual Load:
     source: "residual_load.csv"
