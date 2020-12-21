@@ -38,9 +38,10 @@ module RepresentativePeriodsFinder
     # include("output/write_out_results.jl")
 
     # # Utility
-    include("util/EmptyContainer.jl")
+    # include("util/EmptyContainer.jl")
     include("util/util.jl")
     include("util/get.jl")
+    include("util/types.jl")
 
     # Exported methods
     export find_representative_periods, ENTSOEcsv2dataframe, writeOutResults, PeriodsFinder, populate_entries!, create_plots, makePeriodsFinderModel, makeReOrderingPeriodsFinder, makeDCErrorOnlyPeriodsFinderModel, optimizePeriodsFinder

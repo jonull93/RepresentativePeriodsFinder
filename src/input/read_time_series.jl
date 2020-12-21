@@ -1,4 +1,4 @@
-function add_time_series!(pf::PeriodsFinder, ts_name::String)
+function read_time_series(pf::PeriodsFinder, ts_name::String)
 
     ts_dict = pf.config["time_series"]
 
@@ -14,16 +14,23 @@ function add_time_series!(pf::PeriodsFinder, ts_name::String)
     timestamp_col = get(ts_dict[ts_name], "timestamp_column", "")
     format = config_get(ts_dict[ts_name], ts_dict["default"], "format", "")
     types = Dict(val_col => Float64, timestamp_col => DateTime)
-    df = CSV.read(source, DataFrame; delim=delim, 
-        types = Dict(val_col => Float64), dateformat=format
-    )
+
+    if isempty(format) == false
+        df = CSV.read(source, DataFrame; delim=delim, 
+            types=types, dateformat=format
+        )
+    else
+        df = CSV.read(source, DataFrame; delim=delim, types=types)
+    end
+    # return df = CSV.read(source, DataFrame)
 
     if isempty(timestamp_col)
         @debug "Assume an hourly resolution starting year 1970 for $ts_name"
         start_date = DateTime(1970, 1, 1)
         end_date = start_date + Hour(size(df,1) - 1)
         timestamps = start_date:Hour(1):end_date
-        pf.time_series[ts_name] = TimeArray(timestamps, Array(df[!,val_col]))
+        data = Array(df[!,val_col])
+        # ta = TimeArray(timestamps, [:value], meta)
     else
         data = eltype(df[!,val_col])[]
         timestamps = DateTime[]
@@ -32,13 +39,29 @@ function add_time_series!(pf::PeriodsFinder, ts_name::String)
                 push!(data, row[val_col])
                 push!(timestamps, row[timestamp_col])
             else
-                continue # Replace this with an assumption on the date and time!
+                continue # Replace this with an assumption on the date and time?
             end
         end
-        pf.time_series[ts_name] = TimeArray(timestamps, data)
+        # ta = TimeArray(timestamps, data, [:value], meta)
     end
 
-    return pf.time_series[ts_name]
+    metaDict = Dict(
+        k => v for (k,v) in merge(ts_dict[ts_name], ts_dict["default"])
+    )
+    metaDict["name"] = ts_name
+    if haskey(metaDict, "start")
+        start = metaDict["start"]
+        if typeof(start) <: Int
+            start = timestamps[start]
+        else
+            start = DateTime(start, dateformat"$format")
+        end
+    else
+        start = timestamps[1]
+    end
+    metaDict["start"] = start
+
+    return ta = TimeArray(timestamps, data, [:value], metaDict)
 
     # pf.time_series[ts_name] = readtimearray(source; kwargs...)
 

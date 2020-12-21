@@ -1,4 +1,18 @@
 """
+    FloatTimeArray = TimeArray{Float64,1,Date,Array{Float64,1}}
+
+The concrete TimeArray type used in PeriodsFinder.
+"""
+FloatTimeArray = TimeArray{Float64,1,Date,Array{Float64,1}}
+
+"""
+    MissingFloatTimeArray = TimeArray{T,1,DateTime,A} where T <: Union{Missing, Float64}, A <: Array{Union{Missing, Float64},1}
+
+The concrete TimeArray type before processing.
+"""
+MissingFloatTimeArray = TimeArray{T,1,DateTime,A} where T <: Union{Missing, Float64} where A <: Array{Union{Missing, Float64},1}
+
+"""
     mutable struct EmptyContainer{T}
         x::T
 

@@ -799,11 +799,23 @@ version = "1.2.2"
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+[[TimeFrames]]
+deps = ["Dates", "Test"]
+git-tree-sha1 = "168631df303a1b26c7d33db6a463f8a9da3a3fdf"
+uuid = "51948d2b-02eb-5b28-9840-c902cc6821c9"
+version = "0.2.0"
+
 [[TimeSeries]]
 deps = ["Dates", "DelimitedFiles", "DocStringExtensions", "RecipesBase", "Reexport", "Statistics", "Tables"]
-git-tree-sha1 = "eb242b337953eeaba269ab1398687e57165bfc13"
+git-tree-sha1 = "4ed14eea13048fc8b9702252f685ebbf0e5616f8"
 uuid = "9e3dc215-6440-5c97-bce1-76c03772f85e"
-version = "0.20.0"
+version = "0.19.1"
+
+[[TimeSeriesResampler]]
+deps = ["Dates", "Statistics", "Test", "TimeFrames", "TimeSeries"]
+git-tree-sha1 = "761e91145ee1433b0a8bc0363502c8bace3f21f1"
+uuid = "209c9289-0e93-5bc3-a9c6-3b517a31ee3c"
+version = "0.2.0"
 
 [[TimeZones]]
 deps = ["Dates", "EzXML", "Mocking", "Pkg", "Printf", "RecipesBase", "Serialization", "Unicode"]

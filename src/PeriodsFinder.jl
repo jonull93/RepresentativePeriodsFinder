@@ -81,7 +81,7 @@ function populate_entries!(pf::PeriodsFinder)
    
     S = get_set_of_time_series(pf)
     for ts_name in S
-        add_time_series!(pf, ts_name)
+        read_time_series(pf, ts_name)
         interpolate_missing_values!(pf, ts_name)
     end
     # pf.time_series = Dict()
