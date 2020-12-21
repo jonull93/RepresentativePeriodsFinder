@@ -17,6 +17,25 @@ function config_get(d1::AbstractDict, d2::AbstractDict, k::String, default::Any)
     end
 end
 
+function recursive_get(d, args...)
+    if length(args) > 2
+        if haskey(d, args[1])
+            recursive_get(d[args[1]], args[2:end]...)
+        else 
+            return args[end]
+        end
+    else
+        return d[args[1]]
+    end
+end
+
+function normalize_values(A, lb=-1.0, ub=1.0)
+    @show max_val = maximum(A)
+    @show min_val = minimum(A)
+    A = (A .- min_val) ./ (max_val - min_val) .* (ub - lb) .+ lb
+    return replace(A, NaN => 0.0)
+end
+
 function getVariableValue(x::JuMP.Containers.DenseAxisArray)
     return value.(x).data
 end

@@ -1,7 +1,6 @@
-###############################################################################
-# Author:   Hanspeter Höschle
-# Date:     15/06/2017
-###############################################################################
+"""
+    PeriodsFinder(config_file::String; populate_entries::Bool=false)
+"""
 mutable struct PeriodsFinder
     ###########################################################################
     # Configuration
@@ -12,9 +11,9 @@ mutable struct PeriodsFinder
     ###########################################################################
     # Inputs
     ###########################################################################
-    time_series::Dict{String,TimeArray}
+    time_series::Dict{String,FloatTimeArray}
     x::Dict{String,Array{Float64,2}} # Normalised time series in matrix format
-    inputs::Dict{Any,Any} # Any other inputs (sets, parameters, etc)
+    inputs::Dict{Tuple,Any} # Any saved inputs (sets, parameters, etc)
 
     ###########################################################################
     # Sets
@@ -49,8 +48,14 @@ mutable struct PeriodsFinder
     # Results
     ###########################################################################
     u::Array{Int64,1} # Selection variable
-    w::Array{Float64,1} # Weight variable
-    v::Array{Float64,2} # Ordering variable (not always defined)
+    w::Array{Float64,1} # Weight variable (can also be integer)
+    v::Array{Float64,2} # Ordering variable (not always defined, can be float)
+
+    function PeriodsFinder()
+        pf = new()
+        pf.config = Dict{Any,Any}()
+        pf.time_series = Dict{String,TimeArray}()
+    end
 
     function PeriodsFinder(config_file::String; populate_entries::Bool=false)
         pf = new()
@@ -78,12 +83,28 @@ mutable struct PeriodsFinder
 end
 
 function populate_entries!(pf::PeriodsFinder)
-   
-    S = get_set_of_time_series(pf)
+    S = get_set_of_time_series_names(pf)
+    
     for ts_name in S
-        read_time_series(pf, ts_name)
-        interpolate_missing_values!(pf, ts_name)
+        @info "Adding $ts_name..."
+        ta = read_time_series(pf, ts_name)
+        if haskey(meta(ta), "interpolation_type")
+            interpolate_missing_values!(pf, ta)
+        end
+        if haskey(meta(ta), "resample") && meta(ta)["resample"] == true
+            resample!(pf, ta)
+        end
+        pf.time_series[ts_name] = TimeArray(
+            DateTime.(timestamp(ta)), Float64.(values(ta)), 
+            colnames(ta), meta(ta)
+        )
+        # TODO: 
+        # 1) Create correlation time series (and weights)
+        # 2) Create ramping time series (and weights)
     end
+       
+    pf.x = Dict{String,Array{Float64,2}}()
+
     # pf.time_series = Dict()
     # pf.curves = Array{String,1}()
     # for ts_config in pf.config["time_series"]

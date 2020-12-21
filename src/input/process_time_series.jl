@@ -64,9 +64,7 @@ function resample!(pf::PeriodsFinder, ta::TimeArray)
     interpolation_type = get(meta(ta), "interpolation_type", "linear")
     itp = make_interpolator(ta, interpolation_type)
 
-    sampling_time = eval(
-        Meta.parse(get(pf.config, "sampling_time", "Hour(1)"))
-    )
+    sampling_time = get_sampling_time(pf)
     new_timestamps = timestamps[1]:sampling_time:timestamps[end]
     n_total = length(new_timestamps)
     start_time = timestamps[1]
@@ -184,7 +182,7 @@ function get_contributing_time_slices(
         t_start::DateTime, t_end::DateTime,
         timestamps::Array{DateTime,1}
     )
-    @show tslices = timestamps[idx_start:idx_end]
+    tslices = timestamps[idx_start:idx_end]
     weights = Millisecond[]
     t = DateTime[]
     for i in 1:length(tslices) - 1

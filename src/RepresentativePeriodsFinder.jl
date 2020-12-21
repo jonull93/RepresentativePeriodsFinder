@@ -21,27 +21,24 @@ module RepresentativePeriodsFinder
     using LinearAlgebra                     # -> for e.g. transpose()
     using NamedTupleTools                   # -> for easy creation of NamedTuples
 
-    # # PeriodsFinder type
+    # Utility
+    include("util/types.jl")
     include("PeriodsFinder.jl")
+    include("util/util.jl")
+    include("util/get.jl")
 
-    # # Input and data processing
+    # Input and data processing
     include("input/read_time_series.jl")
     include("input/process_time_series.jl")
     include("input/load_periods_finder.jl")
 
-    # # Period finding methods
+    # Period finding methods
     # include("methods/optimisation")
     # include("methods/clustering")
 
-    # # Outputs and results
+    # Outputs and results
     # include("output/create_plots.jl")
     # include("output/write_out_results.jl")
-
-    # # Utility
-    # include("util/EmptyContainer.jl")
-    include("util/util.jl")
-    include("util/get.jl")
-    include("util/types.jl")
 
     # Exported methods
     export find_representative_periods, ENTSOEcsv2dataframe, writeOutResults, PeriodsFinder, populate_entries!, create_plots, makePeriodsFinderModel, makeReOrderingPeriodsFinder, makeDCErrorOnlyPeriodsFinderModel, optimizePeriodsFinder

@@ -28,7 +28,7 @@ method:
         function: "(x,y) -> sum((x .- y).^2)"
         weight: 0.5
   
-  clustering:
+  clustering: # Only one method (opt or clust) can be specified!
     type: "hierarchical"
     force_adjacent: true # true for chronological time period clustering
 
@@ -41,8 +41,9 @@ create_plots: true
 # Specify csv files for time series and other options
 time_series:
   default: # These values will be used unless specified in the entries below
-    source: "time_series.csv" # Path must be relative to this file
-    delim: ';'
+    source: "time_series.csv"
+    csv_options: # These are passed to CSV.read
+        delim: ";"
     timestamp: "Timestamp" # optional
     weight: 1 # weight of time series in objective / clustering
     silence_warnings: false # If true, won't throw error msgs when reading csv
@@ -51,10 +52,17 @@ time_series:
   
   Residual Load:
     source: "residual_load.csv"
+    csv_options: 
+      dateformat: "yyyy-mm-dd HH:MM:SS"
+      # delim: ";"
+      missingstring: "#N/A"
+      # missingstrings: ["NA", "N/A", "na"] # Careful with the plural!
+      silencewarnings: true
     value_column: "Residual Load [MW]"
     timestamp_column: "Timestamp"
-    format: "yyyy-mm-dd HH:MM:SS"
-    start: '2017-01-01 00:00:00'
+    
+    start: "2017-01-01 00:00:00"
+    resample: true # or false or don't specify
 
   Load:
     value_column: "Load"

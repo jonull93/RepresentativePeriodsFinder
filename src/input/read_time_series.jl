@@ -16,22 +16,24 @@ function read_time_series(pf::PeriodsFinder, ts_name::String)
     )
     val_col = get(ts_dict[ts_name], "value_column", "")
     timestamp_col = get(ts_dict[ts_name], "timestamp_column", "")
-    delim = config_get(ts_dict[ts_name], ts_dict["default"], "delim", ',')[1]
-    format = config_get(ts_dict[ts_name], ts_dict["default"], "format", "")
-    types = Dict(val_col => Float64, timestamp_col => DateTime)
-
-    if isempty(format) == false
-        df = CSV.read(source, DataFrame; delim=delim, 
-            types=types, dateformat=format
-        )
-    else
-        df = CSV.read(source, DataFrame; delim=delim, types=types)
+    csv_options = Dict()
+    for name in ("default", ts_name)
+        if haskey(ts_dict[name], "csv_options") && typeof(ts_dict[name]["csv_options"]) <: Dict
+            merge!(csv_options, ts_dict[name]["csv_options"])
+        end
     end
+    csv_options = Dict{Symbol,Any}(
+        Symbol(k) => get(csv_options, k, "") 
+        for (k,v) in csv_options if isempty(v) == false
+    )
+    csv_options[:types] = Dict(val_col => Float64, timestamp_col => DateTime)
+    csv_options = namedtuple(collect(csv_options))
+    df = CSV.read(source, DataFrame; csv_options...)
 
     if isempty(timestamp_col)
         @debug "Assume an hourly resolution starting year 1970 for $ts_name"
         start_date = DateTime(1970, 1, 1)
-        end_date = start_date + Hour(size(df,1) - 1)
+        end_date = start_date + Hour(size(df, 1) - 1)
         timestamps = start_date:Hour(1):end_date
         data = Array(df[!,val_col])
     else
@@ -48,7 +50,7 @@ function read_time_series(pf::PeriodsFinder, ts_name::String)
     end
 
     metaDict = Dict(
-        k => v for (k,v) in merge(ts_dict[ts_name], ts_dict["default"])
+        k => v for (k, v) in merge(ts_dict[ts_name], ts_dict["default"])
     )
     metaDict["name"] = ts_name
     if haskey(metaDict, "start")
@@ -56,7 +58,7 @@ function read_time_series(pf::PeriodsFinder, ts_name::String)
         if typeof(start) <: Int
             start = timestamps[start]
         else
-            start = DateTime(start, dateformat"$format")
+            start = DateTime(start, DateFormat(csv_options[:dateformat]))
         end
     else
         start = timestamps[1]

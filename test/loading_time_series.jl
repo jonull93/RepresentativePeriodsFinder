@@ -7,6 +7,9 @@ pf = PeriodsFinder(config_file)
 ta = RepresentativePeriodsFinder.read_time_series(pf, "Load")
 ta = RepresentativePeriodsFinder.interpolate_missing_values!(pf, ta)
 ta = RepresentativePeriodsFinder.resample!(pf, ta)
+
+ta = RepresentativePeriodsFinder.read_time_series(pf, "Residual Load")
+
 # ta = RepresentativePeriodsFinder.adjust_length!(pf, ta)
 
 pf.config["time_series"]["Missing Values"] = Dict(
