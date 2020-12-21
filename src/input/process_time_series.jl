@@ -107,25 +107,6 @@ function resample!(pf::PeriodsFinder, ta::TimeArray)
     return ta = TimeArray(new_timestamps, data, colnames(ta), meta(ta))
 end
 
-# function adjust_length!(pf::PeriodsFinder, ta::TimeArray)
-#     ts_name = meta(ta)["name"]
-#     ta = pf.time_series[ts_name]
-#     ts_dict = pf.config["time_series"]
-
-#     # TODO: Assert that the time series has the correct sampling time
-#     # Maybe by storing this in ta.meta?
-
-#     sampling_time_ts = meta(ta)["sampling_time"] # ::String
-#     sampling_time_ts = eval(Meta.parse(sampling_time_ts)) # ::DateTime
-#     n_total = get_total_number_of_time_steps(pf)
-#     start_time = meta(ta)["sampling_type"]
-#     start_time = ismissing(start_time) ? timestamp(ta[1])[1] : nothing
-#     end_time = start_time + n_total * sampling_time_ts
-#     new_timestamps = start_time:sampling_time_ts:end_time
-
-#     return ta = ta[new_timestamps]
-# end
-
 """
     make_interpolator(ta::TimeArray, interpolation_type::String)
 
@@ -160,7 +141,11 @@ function time_to_grid_val(t_init::DateTime, t::DateTime)
 end
 
 """
-
+    get_contributing_time_slices(
+        idx_start::Int64, idx_end::Int64,
+        t_start::DateTime, t_end::DateTime,
+        timestamps::Array{DateTime,1}
+    )
 Get the time slices contributing to the current time slice as well as their contribution (i.e. weights).
 
 # Example

@@ -1,3 +1,8 @@
+"""
+    read_time_series(pf::PeriodsFinder, ts_name::String)
+
+Reads a time series based on data in `pf.config[ts_name]`.
+"""
 function read_time_series(pf::PeriodsFinder, ts_name::String)
 
     ts_dict = pf.config["time_series"]
@@ -10,8 +15,8 @@ function read_time_series(pf::PeriodsFinder, ts_name::String)
         config_get(ts_dict[ts_name], ts_dict["default"], "source", "")
     )
     val_col = get(ts_dict[ts_name], "value_column", "")
-    delim = config_get(ts_dict[ts_name], ts_dict["default"], "delim", ',')[1]
     timestamp_col = get(ts_dict[ts_name], "timestamp_column", "")
+    delim = config_get(ts_dict[ts_name], ts_dict["default"], "delim", ',')[1]
     format = config_get(ts_dict[ts_name], ts_dict["default"], "format", "")
     types = Dict(val_col => Float64, timestamp_col => DateTime)
 
@@ -22,7 +27,6 @@ function read_time_series(pf::PeriodsFinder, ts_name::String)
     else
         df = CSV.read(source, DataFrame; delim=delim, types=types)
     end
-    # return df = CSV.read(source, DataFrame)
 
     if isempty(timestamp_col)
         @debug "Assume an hourly resolution starting year 1970 for $ts_name"
@@ -30,7 +34,6 @@ function read_time_series(pf::PeriodsFinder, ts_name::String)
         end_date = start_date + Hour(size(df,1) - 1)
         timestamps = start_date:Hour(1):end_date
         data = Array(df[!,val_col])
-        # ta = TimeArray(timestamps, [:value], meta)
     else
         data = eltype(df[!,val_col])[]
         timestamps = DateTime[]
@@ -42,7 +45,6 @@ function read_time_series(pf::PeriodsFinder, ts_name::String)
                 continue # Replace this with an assumption on the date and time?
             end
         end
-        # ta = TimeArray(timestamps, data, [:value], meta)
     end
 
     metaDict = Dict(
