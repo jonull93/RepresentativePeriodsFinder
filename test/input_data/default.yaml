@@ -1,43 +1,3 @@
-# Properties of the set of the time periods
-total_periods: 365
-representative_periods: 8
-timesteps_per_period: 24
-sampling_time: "Hour(1)" # This is a DateTime format - for quarter hours, Hour(0.25)
-
-method:
-  options: # Method agnostic options
-    mandatory_periods: 
-  
-  optimisation:
-    integral_weights: false
-    integral_ordering: true
-    equal_weights: false
-    
-    time_series_error:
-      weight: 0.5
-      type: "squared" # Or squared
-    duration_curve_error:
-      weight: 0.5
-      number_bins: 40
-      type: "squared" # Or squared
-    ordering_error:
-      ord_err_1:
-        function: "(x,y) -> sum(abs.( (sort(x) .- sort(y) ))"
-        weight: 0.5
-      ord_err_2:
-        function: "(x,y) -> sum((x .- y).^2)"
-        weight: 0.5
-  
-  clustering: # Only one method (opt or clust) can be specified!
-    type: "hierarchical"
-    force_adjacent: true # true for chronological time period clustering
-
-
-# Output options
-save_results: true
-result_dir: '../results/rep_periods' # Relative to this file
-create_plots: true
-
 # Specify csv files for time series and other options
 time_series:
   default: # These values will be used unless specified in the entries below
@@ -77,3 +37,45 @@ time_series:
   LFS:
     value_column: "LFS"
     weight: 1
+
+
+method:
+  options: # Method agnostic options
+    mandatory_periods: [8]  
+    total_periods: 365
+    representative_periods: 8
+    timesteps_per_period: 24
+    sampling_time: "Hour(1)" # This is a DateTime format - for quarter hours, Hour(0.25)
+    ordering_error: # aka dissimilarity metric for hierarchical clustering
+      ord_err_1:
+        function: "(x,y) -> sum(abs.( (sort(x) .- sort(y) )))"
+        weight: 0.0
+      ord_err_2:
+        function: "(x,y) -> sum((x .- y).^2)"
+        weight: 1.0
+  
+  optimization:
+    integral_weights: false
+    integral_ordering: true
+    equal_weights: false
+    
+    time_series_error:
+      weight: 0.5
+      type: "squared" # Or squared
+    duration_curve_error:
+      weight: 0.5
+      number_bins: 40
+      type: "squared" # Or squared
+  
+  clustering: # Only one method (opt or clust) can be specified!
+    type: "hierarchical"
+    force_adjacent: true # true for chronological time period clustering
+    intermediary_periods: [] # specify intermediary results to save
+
+
+# Output options
+results:
+  save_results: true
+  # Options for exactly what to save here
+  result_dir: '../results/rep_periods' # Relative to this file
+  create_plots: true

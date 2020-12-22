@@ -10,6 +10,7 @@ function read_time_series(pf::PeriodsFinder, ts_name::String)
     @assert ts_name in keys(ts_dict)
     @assert ts_name != "default" "Name `default` is reserved"
 
+    # Read in .csv file
     source = joinpath(
         pf.config["base_dir"],
         config_get(ts_dict[ts_name], ts_dict["default"], "source", "")
@@ -30,6 +31,31 @@ function read_time_series(pf::PeriodsFinder, ts_name::String)
     csv_options = namedtuple(collect(csv_options))
     df = CSV.read(source, DataFrame; csv_options...)
 
+    # Checks
+    for col in filter(!isempty, [val_col, timestamp_col])
+        standard_err_string = """
+
+        Options passed to CSV.read: $csv_options
+
+        Head of data frame: $(first(df, 5))
+
+        Tail of data frame: $(last(df, 5))
+        """
+
+        @assert col in names(df) """ 
+        "$col" not a column name in $source. 
+        $standard_err_string
+        """
+
+        col_type = eltype(df[!,col])
+        req_type = Union{Missing,csv_options[:types][col]}
+        @assert col_type <: req_type """
+        "$col" is of type $(col_type) and not $(req_type). 
+        $standard_err_string
+        """
+    end
+
+    # Data for TimeArray type
     if isempty(timestamp_col)
         @debug "Assume an hourly resolution starting year 1970 for $ts_name"
         start_date = DateTime(1970, 1, 1)

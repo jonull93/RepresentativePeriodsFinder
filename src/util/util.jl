@@ -30,8 +30,8 @@ function recursive_get(d, args...)
 end
 
 function normalize_values(A, lb=-1.0, ub=1.0)
-    @show max_val = maximum(A)
-    @show min_val = minimum(A)
+    max_val = maximum(A)
+    min_val = minimum(A)
     A = (A .- min_val) ./ (max_val - min_val) .* (ub - lb) .+ lb
     return replace(A, NaN => 0.0)
 end
@@ -56,6 +56,9 @@ function getVariableValue(x::Array{VariableRef,2})
     return value.(x)
 end
 
+import Base.length
+Base.length(expr::JuMP.GenericAffExpr) = 1
+
 function get_number_of_clusters_of_adjacent_values(x::AbstractVector)
     y = sort(x)
     numAdj = 1
@@ -67,6 +70,22 @@ function get_number_of_clusters_of_adjacent_values(x::AbstractVector)
         end
     end
     return numAdj
+end
+
+"""
+    @fetch x, y, ... = d
+
+Assign mapping of :x and :y in `d` to `x` and `y` respectively.
+"""
+macro fetch(expr)
+    (expr isa Expr && expr.head == :(=)) || error("please use @fetch with the assignment operator (=)")
+    keys, dict = expr.args
+    values = if keys isa Expr
+        Expr(:tuple, [:($dict[$(Expr(:quote, k))]) for k in keys.args]...)
+    else
+        :($dict[$(Expr(:quote, keys))])
+    end
+    esc(Expr(:(=), keys, values))
 end
 
 # function get_mandatory_periods(ts::TimeSeries, dft::PeriodsFinder)

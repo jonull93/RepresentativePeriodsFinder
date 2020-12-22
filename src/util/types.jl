@@ -20,18 +20,16 @@ Returns a specified value `x` no matter the indexing.
 """
 mutable struct EmptyContainer{T}
 
-    x::T # Determines what kind of zero value you return
+    x::T
+
+    EmptyContainer{T}(x) where T <: Any = new(x)
 
     function EmptyContainer()
         EmptyContainer(nothing)
     end
 
     function Base.getindex(ec::EmptyContainer, args...)
-        if ec.returnType <: Nothing
-            return nothing
-        else
-            return zero(ec.returnType)
-        end
+        return ec.x
     end
 
     function Base.print(io::IO, ec::EmptyContainer)

@@ -1,3 +1,314 @@
+function make_periods_finder_model!(
+        pf::PeriodsFinder, optimizer_factory=Cbc.Optimizer
+    )
+    m = pf.m = JuMP.Model(optimizer_factory)
+    m.ext = Dict(
+        :variables => Dict{Symbol,Any}(),
+        :constraints => Dict{Symbol,Any}(),
+        :expressions => Dict{Symbol,Any}(),
+        :objective => nothing # Redefine later
+    )
+    opt = pf.config["method"]["optimization"] # optimization specifc options
+
+    # Strict variables
+    make_selection_variable!(pf, m)
+    make_weighting_variable!(pf, m)
+    make_ordering_variable!(pf, m)
+
+    # Dependent error variables
+    make_duration_curve_error_variable!(pf, m)
+    make_time_series_error_variable!(pf, m)
+
+    # Fix variables
+    fix_selection_variable!(pf, m)
+
+    # Constraints
+    limit_number_of_selected_periods!(pf, m)
+    restrict_non_zero_weights_to_selected_periods!(pf, m)
+    enforce_yearly_equivalent_duration!(pf, m)
+    restrict_non_zero_orderings_to_selected_periods!(pf, m)
+    restrict_linear_combination_of_representative_periods!(pf, m)
+    enforce_minimum_weight!(pf, m)
+
+    # Errors
+    if haskey(opt, "duration_curve_error") # else is 0
+        define_duration_curve_error_variable!(pf, m)
+    end
+    if haskey(opt, "time_series_error") # else is 0
+        define_time_series_error_variable!(pf, m)
+    end
+
+    # Objective
+    formulate_objective!(pf, m)
+
+    return m
+end
+
+function make_selection_variable!(pf::PeriodsFinder, m::JuMP.Model)
+    periods = get_set_of_periods(pf)
+    return m.ext[:variables][:u] = [
+        @variable(m, binary=true, base_name="u_$p") for p in periods
+    ]
+end
+
+function make_weighting_variable!(pf::PeriodsFinder, m::JuMP.Model)
+    periods = get_set_of_periods(pf)
+    opt = pf.config["method"]["optimization"]
+    integer_bool = get(opt, "integral_weights", false)
+    return m.ext[:variables][:w] = [
+        @variable(m, integer=integer_bool, base_name="w_$p", lower_bound=0.0) 
+        for p in periods
+    ]
+end
+
+function make_ordering_variable!(pf::PeriodsFinder, m::JuMP.Model)
+    periods = get_set_of_periods(pf)
+    opt = pf.config["method"]["optimization"]
+    bin_bool = get(opt, "binary_ordering", false)
+    return m.ext[:variables][:v] = [
+        @variable(m, binary=bin_bool, base_name="v_{$i$j}", lower_bound=0.0) 
+        for i in periods, j in periods
+    ]
+end
+
+function make_duration_curve_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
+    S = get_set_of_time_series_names(pf)
+    return m.ext[:variables][:duration_curve_error] = Dict(
+        s => EmptyContainer{Float64}(0.0) for s in S
+    )
+end
+
+function make_time_series_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
+    S = get_set_of_time_series_names(pf)
+    return m.ext[:variables][:time_series_error] = Dict(
+        s => EmptyContainer{Float64}(0.0) for s in S
+    )
+end
+
+function fix_selection_variable!(pf::PeriodsFinder, m::JuMP.Model)
+    u = m.ext[:variables][:u]
+    periods = get_set_of_periods(pf)
+    mandatory_periods = get_set_of_mandatory_periods(pf)
+    for p in mandatory_periods
+        if typeof(u[p]) <: JuMP.VariableRef
+            fix(u[p], true, force=true)
+        end
+    end
+    return u
+end
+
+function limit_number_of_selected_periods!(
+        pf::PeriodsFinder, m::JuMP.Model
+    )
+    periods = get_set_of_periods(pf)
+    N_rep = get_number_of_representative_periods(pf)
+    u = m.ext[:variables][:u]
+    return m.ext[:constraints][:limit_num_periods] = 
+        @constraint(m,
+            sum(u[j] for j in periods) <= N_rep
+        )
+end
+
+function restrict_non_zero_weights_to_selected_periods!(
+        pf::PeriodsFinder, m::JuMP.Model
+    )
+    opt = pf.config["method"]["optimization"]
+    equal_weights_bool = get(opt, "equal_weights", false)
+    N_total = get_number_of_periods(pf)
+    N_rep = get_number_of_representative_periods(pf)
+    periods = get_set_of_periods(pf)
+    u = m.ext[:variables][:u]
+    w = m.ext[:variables][:w]
+    if equal_weights_bool == true
+        con = [
+            @constraint(m, w[p] == u[p] * N_total / N_rep)
+            for p in periods
+        ]
+    else
+        con = [
+            @constraint(m, w[p] <= u[p] * N_total)
+            for p in periods
+        ]
+    end
+    return m.ext[:constraints][:restrict_non_zero_weights] = con
+end
+
+function enforce_yearly_equivalent_duration!(pf::PeriodsFinder, m::JuMP.Model)
+    periods = get_set_of_periods(pf)
+    N_total = get_number_of_periods(pf)
+    w = m.ext[:variables][:w]
+    return m.ext[:constraints][:equivalent_yearly_duration] = @constraint(m,
+        sum(w[p] for p in periods) == N_total
+    )
+end
+
+function restrict_non_zero_orderings_to_selected_periods!(
+        pf::PeriodsFinder, m::JuMP.Model
+    )
+    periods = get_set_of_periods(pf)
+    u = m.ext[:variables][:u]
+    v = m.ext[:variables][:v]
+    con = [@constraint(m, v[i,j] <= u[j]) for i in periods, j in periods]
+    return m.ext[:constraints][:restrict_ordering] = con
+end
+
+function restrict_linear_combination_of_representative_periods!(
+        pf::PeriodsFinder, m::JuMP.Model
+    )
+    opt = pf.config["method"]["optimization"]
+    linear_comb = get(opt, "linear_combination_representative_periods", "sum_to_one")
+    periods = get_set_of_periods(pf)
+    v = m.ext[:variables][:v]
+    if linear_comb == "sum_to_one"
+        con = [
+            @constraint(m, sum(v[i,j] for j in periods) == 1)
+            for i in periods
+        ]
+        return m.ext[:constraints][:linear_combination_representative_periods] = con
+    end
+end
+
+function enforce_minimum_weight!(pf::PeriodsFinder, m::JuMP.Model)
+    opt = pf.config["method"]["optimization"]
+    periods = get_set_of_periods(pf)
+    min_weight = get(opt, "minimum_weight", 0.0)
+    w = m.ext[:variables][:w]
+    u = m.ext[:variables][:u]
+    return m.ext[:constraints][:minimum_weight] = [
+        @constraint(m, w[p] >= u[p] * min_weight)
+        for p in periods
+    ]
+end
+
+function define_duration_curve_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
+    return nothing
+end
+
+function define_time_series_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
+    return nothing
+end
+
+function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
+    opt = pf.config["method"]["optimization"]
+    ordering_errors = get_set_of_ordering_errors(pf)
+    objective_term_weights = get_error_term_weights(pf)
+    time_series_weights = get_time_series_weights(pf)
+    periods = get_set_of_periods(pf)
+    S = get_set_of_time_series_names(pf)
+
+    ordering_error_expressions = Dict{String,Any}(
+        ord_err => ordering_error_expression!(pf, m, ord_err)
+        for ord_err in ordering_errors
+    )
+
+    duration_curve_error = m.ext[:variables][:duration_curve_error]
+    time_series_error = m.ext[:variables][:time_series_error]
+
+    # @assert keys(objective_term_weights) == keys(objective_term_indices) == keys(objective_terms)
+
+    obj = @objective(m, Min, 
+        sum(
+            time_series_weights[s] * (
+                + objective_term_weights["duration_curve_error"] * sum(
+                    duration_curve_error[s][p] for p in periods
+                )
+                + objective_term_weights["time_series_error"] * sum(
+                    time_series_error[s][i,j] for i in periods, j in periods
+                )
+                + sum(
+                    objective_term_weights[ord_err] * sum(
+                        ordering_error_expressions[ord_err][s][i,j]
+                        for i in periods, j in periods
+                    )
+                    for ord_err in ordering_errors
+                )
+            )
+            for s in S
+        )
+    )
+    # for ot in keys(objective_terms), s in S
+    #     for idx in Iterators.product(objective_term_indices[ot]...)
+    #         try
+    #             objective_term_weights[ot] * time_series_weights[s] * objective_terms[ot][s][idx...]
+    #         catch e
+    #             @show ot
+    #             @show s
+    #             @show idx
+    #             @show objective_terms[ot][s][idx...]
+    #             @show objective_term_weights[ot]
+    #             @show time_series_weights[s]
+    #             throw(e)
+    #         end
+    #     end
+    # end
+
+    return m.ext[:objective] = obj
+end
+
+function ordering_error_expression!(
+        pf::PeriodsFinder, m::JuMP.Model, err_name::String
+    )
+    errorfunc = pf.inputs[:ordering_error_functions][err_name] 
+    periods = get_set_of_periods(pf)
+    S = get_set_of_time_series_names(pf)
+    x = get_normalised_time_series_values(pf)
+    v = m.ext[:variables][:v]
+
+    # @show errorfunc( [1,2], [2,3])
+
+    ord_err_expr = Dict(
+        s => [
+            @expression(m, v[i,j] * errorfunc(x[s][i,:], x[s][j,:]))
+            for i in periods, j in periods
+        ]
+        for s in S
+    )
+
+    @assert all([all(length.(ord_err_expr[s]) .== 1) for s in S]) "$err_name must return scalar value."
+    
+    return m.ext[:expressions][Symbol(err_name)] = ord_err_expr
+end
+
+function optimize_periods_finder_model!(pf::PeriodsFinder, m::JuMP.Model)
+    optimize!(pf.m)
+    stat = termination_status(pf.m)
+
+    # Write results to pf if optimal
+    if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && has_values(pf.m)
+        # Save selection variable as is
+        pf.u = round.(getVariableValue(pf.misc[:u]))
+
+        # Save representative periods and their mapping
+        pf.rep_periods = [
+            idx for (idx, val) in enumerate(pf.u) if val > 0
+        ]
+
+        # NOTE: length(pf.rep_periods) != pf.N_representative_periods necessarily! Could be that optimiser chose less days than it was allowed to.
+
+        # Transform w variable to be correct length if needs be
+        w = getVariableValue(pf.misc[:w])
+        if length(w) == length(pf.rep_periods)
+            pf.w = zeros(pf.N_total_periods)
+            pf.w[pf.rep_periods] = w
+        else
+            pf.w = w
+        end
+
+        # Only save the non-zero columns of v
+        v = getVariableValue(pf.misc[:v])
+        if size(v, 2) != length(pf.rep_periods)
+            pf.v = v[:,pf.rep_periods]
+        else
+            pf.v = v
+        end
+    else
+        @show stat
+    end
+
+    # Return solution status
+    return stat
+end
+
 function makeDCErrorOnlyPeriodsFinderModel(
     dft::PeriodsFinder, optimizer_factory
     )
@@ -167,6 +478,8 @@ function makeSquaredErrorPeriodsFinderModel(
 
     return m
 end
+
+optimize_periods_finder_model!(pf::PeriodsFinder) = optimize_periods_finder_model!(pf, pf.m)
 
 function makePeriodsFinderModel(dft::PeriodsFinder, optimizer_factory)
     # Model
@@ -571,29 +884,6 @@ function makeSquaredErrorReOrderingPeriodsFinder(
     return m
 end
 
-function solveGrowAlgorithmForPeriodSelection(
-    dft::PeriodsFinder,
-    optimizer_factory
-    )
-    RP = Array{Int64,1}()
-    N_representative_periods = dft.N_representative_periods
-    # dft.config["solver"]["Method"] = "reorder"
-    for j = 1:N_representative_periods
-        periodsIterator = [i for i in dft.periods if i ∉ RP]
-        objVals = Array{Float64,1}(undef, length(periodsIterator))
-        for k in 1:length(periodsIterator)
-            dft.rep_periods = sort(vcat(RP, periodsIterator[k]))
-            dft.N_representative_periods = j
-            makeReOrderingPeriodsFinder(dft, optimizer_factory)
-            stat = optimizePeriodsFinder(dft)
-            objVals[k] = objective_value(dft.m)
-        end
-        sortIdx = sortperm(objVals)
-        RP = sort(vcat(RP, periodsIterator[sortIdx[1]]))
-    end
-    return RP
-end
-
 function optimizePeriodsFinder(dft::PeriodsFinder)
     optimize!(dft.m)
     stat = termination_status(dft.m)
@@ -732,3 +1022,4 @@ function fix_periods!(dft::PeriodsFinder)
         end
     end
 end
+

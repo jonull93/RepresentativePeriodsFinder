@@ -70,7 +70,7 @@ function writeOutResults(
             "solution_method" => dft.config["solver"]["Method"]
         )
     end
-    YAML.write_file(joinpath(result_dir, "optimisation_results.yaml"), optStatus)
+    YAML.write_file(joinpath(result_dir, "optimization_results.yaml"), optStatus)
 
     return dft
 end

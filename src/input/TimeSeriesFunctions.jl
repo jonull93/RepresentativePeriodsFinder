@@ -63,33 +63,6 @@ function TimeSeries(dft::PeriodsFinder, ts1::TimeSeries, ts2::TimeSeries)
     return self
 end
 
-function calculate_matrix_bins!(self::TimeSeries, dft::PeriodsFinder)
-    ##################################################################################
-    # Calculate bins and matrices
-    ##################################################################################
-    self.matrix_full = reshape(self.data, round(Int, length(self.data) / length(dft.periods)), length(dft.periods))'
-
-    normalise_time_series!(self)
-
-    value_width = (maximum(self.data_norm) - minimum(self.data_norm)) / length(dft.bins)
-
-    mini = minimum(self.data_norm)
-    bins = [mini; [mini + i * value_width for i in range(1,stop=length(dft.bins))]]
-    bins[end] += 0.01
-
-    self.matrix_bins = Array{Int}(undef, length(dft.periods), length(bins)-1)
-
-    for p in 1:size(self.matrix_full_norm)[1]
-        self.matrix_bins[p,:] = fit(Histogram, self.matrix_full_norm[p,:], bins, closed=:left).weights'
-    end
-
-    self.matrix_bins_cumsum = cumsum(sum(self.matrix_bins,dims=1)/length(self.data_norm),dims=2)[:] # -> L
-
-    self.matrix_bins = self.matrix_bins / round(Int,length(self.data_norm)/length(dft.periods))
-
-    self.matrix_bins_cumsum_day = cumsum(self.matrix_bins, dims=2) # -> A
-end
-
 function weight!(w, ts::TimeSeries)
     w[ts.name] = ts.weight
 end
@@ -104,6 +77,7 @@ function area_total_days!(atd, periods, ts::TimeSeries)
     end
 end
 
+# This one creates the A paramater!
 function cum_bin_end!(a, periods, bins, ts::TimeSeries)
     for (idx_p, p) in enumerate(periods)
         for (idx_b, b) in enumerate(bins)

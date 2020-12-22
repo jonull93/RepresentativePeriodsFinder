@@ -197,3 +197,14 @@ function get_contributing_time_slices(
     end
     return (t, weights)
 end
+
+
+
+function cum_bin_end!(A, bins, periods, ta::FloatTimeArray)
+    ts_name = meta(ta)["name"]
+    for p in periods
+        for b in bins
+            a[p, b] = ts.matrix_bins_cumsum_day[idx_p, idx_b]
+        end
+    end
+end

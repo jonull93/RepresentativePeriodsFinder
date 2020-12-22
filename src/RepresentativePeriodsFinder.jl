@@ -20,6 +20,7 @@ module RepresentativePeriodsFinder
     using Cbc                               # -> free solver for tests
     using LinearAlgebra                     # -> for e.g. transpose()
     using NamedTupleTools                   # -> for easy creation of NamedTuples
+    using MathOptInterface                  # -> for solver queries
 
     # Utility
     include("util/types.jl")
@@ -33,15 +34,15 @@ module RepresentativePeriodsFinder
     include("input/load_periods_finder.jl")
 
     # Period finding methods
-    # include("methods/optimisation")
-    # include("methods/clustering")
+    include("methods/optimization.jl")
+    include("methods/clustering.jl")
 
     # Outputs and results
     # include("output/create_plots.jl")
     # include("output/write_out_results.jl")
 
     # Exported methods
-    export find_representative_periods, ENTSOEcsv2dataframe, writeOutResults, PeriodsFinder, populate_entries!, create_plots, makePeriodsFinderModel, makeReOrderingPeriodsFinder, makeDCErrorOnlyPeriodsFinderModel, optimizePeriodsFinder
+    export find_representative_periods, ENTSOEcsv2dataframe, writeOutResults, PeriodsFinder, populate_entries!, create_plots, makePeriodsFinderModel, makeReOrderingPeriodsFinder, makeDCErrorOnlyPeriodsFinderModel, optimizePeriodsFinder, make_periods_finder_model!
 
     # function find_representative_periods(
     #     dft::PeriodsFinder,

@@ -13,7 +13,7 @@ mutable struct PeriodsFinder
     ###########################################################################
     time_series::Dict{String,FloatTimeArray}
     x::Dict{String,Array{Float64,2}} # Normalised time series in matrix format
-    inputs::Dict{Tuple,Any} # Any saved inputs (sets, parameters, etc)
+    inputs::Dict{Any,Any} # Any saved inputs (sets, parameters, etc)
 
     ###########################################################################
     # Sets
@@ -40,14 +40,14 @@ mutable struct PeriodsFinder
     # AREA_ERROR_TOLERANCE::Dict              # tolerance parameter for area constraint
 
     ###########################################################################
-    # Optimisation model
+    # optimization model
     ###########################################################################
     m::JuMP.Model
 
     ###########################################################################
     # Results
     ###########################################################################
-    u::Array{Int64,1} # Selection variable
+    u::Array{Bool,1}    # Selection variable
     w::Array{Float64,1} # Weight variable (can also be integer)
     v::Array{Float64,2} # Ordering variable (not always defined, can be float)
 
@@ -104,6 +104,16 @@ function populate_entries!(pf::PeriodsFinder)
     end
        
     pf.x = Dict{String,Array{Float64,2}}()
+
+    # Instantiate inputs
+    ord_err_names = get_set_of_ordering_errors(pf)
+    pf.inputs = Dict(
+        :ordering_error_functions => Dict{String,Function}(
+            ord_err => get_ordering_error_function(pf, ord_err)
+            for ord_err in ord_err_names
+            # Do this now to avoid "new world" issues
+        )
+    )
 
     # pf.time_series = Dict()
     # pf.curves = Array{String,1}()
