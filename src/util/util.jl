@@ -75,7 +75,7 @@ end
 """
     @fetch x, y, ... = d
 
-Assign mapping of :x and :y in `d` to `x` and `y` respectively.
+Assign mapping of `:x` and `:y` in `d` to `x` and `y` respectively.
 """
 macro fetch(expr)
     (expr isa Expr && expr.head == :(=)) || error("please use @fetch with the assignment operator (=)")
@@ -86,6 +86,23 @@ macro fetch(expr)
         :($dict[$(Expr(:quote, keys))])
     end
     esc(Expr(:(=), keys, values))
+end
+
+"""
+    @assign x, y, ... = d
+
+Assign variables `x` and `y` to entries `:x` and `:y` in `d` respectively.
+"""
+
+macro assign(expr)
+    (expr isa Expr && expr.head == :(=)) || error("please use @fetch with the assignment operator (=)")
+    variables, dict = expr.args
+    dictkeys = if variables isa Expr
+        Expr(:tuple, [:($dict[$(Expr(:quote, k))]) for k in variables.args]...)
+    else
+        :($dict[$(Expr(:quote, variables))])
+    end
+    return esc(Expr(:(=), dictkeys, variables))
 end
 
 # function get_mandatory_periods(ts::TimeSeries, dft::PeriodsFinder)
