@@ -12,3 +12,6 @@ delete!(pf.config["method"]["optimization"], "duration_curve_error")
 
 # Make optimisation model
 m = RepresentativePeriodsFinder.make_periods_finder_model!(pf)
+
+# Optimise it
+RepresentativePeriodsFinder.optimize_periods_finder_model!(pf, m)

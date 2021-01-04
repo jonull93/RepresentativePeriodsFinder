@@ -16,30 +16,6 @@ mutable struct PeriodsFinder
     inputs::Dict{Any,Any} # Any saved inputs (sets, parameters, etc)
 
     ###########################################################################
-    # Sets
-    ###########################################################################
-    # bins::Array                     # Set of bins
-    # curves::Array{String,1}         # Set of duration curves
-    # periods::Array{Int64,1}         # Set of potential representative periods
-    # rep_periods::Array{Int64,1}     # Set of chosen representative periods - list of integers
-    # timesteps::UnitRange            # Set of timesteps per potential period
-
-    ###########################################################################
-    # Parameters
-    ###########################################################################
-    # N_representative_periods::Int   # Number of representative periods to select
-    # N_total_periods::Int            # Total number of repetitions required 
-                                      # to scale up the duration of a single 
-                                      # representative period to one year
-
-    # WEIGHT_DC::Dict                         # Relative importance of approximating duration curve c
-    A::Dict                                 # Share of the time of day d during which the lowest value of the range corresponding to bin b of duration curve c is exceeded
-    L::Dict                   # Share of the time during which the values of a time series with corresponding duration curve c exceed the lowest value of the range corresponding to bin b
-    # AREA_TOTAL::Dict                        # Total area under the DC of time series c
-    # AREA_TOTAL_DAY::Dict      # Total area under time series with DC c per day
-    # AREA_ERROR_TOLERANCE::Dict              # tolerance parameter for area constraint
-
-    ###########################################################################
     # optimization model
     ###########################################################################
     m::JuMP.Model

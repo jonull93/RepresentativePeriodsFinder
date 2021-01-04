@@ -44,6 +44,38 @@ function make_periods_finder_model!(
     return m
 end
 
+function optimize_periods_finder_model!(pf::PeriodsFinder, m::JuMP.Model)
+    optimize!(pf.m)
+    stat = termination_status(pf.m)
+
+    if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && has_values(pf.m)
+        # Save selection variable as is
+        pf.u = round.(getVariableValue(pf.m.ext[:variables][:u]))
+
+        # Only save non-zero entries of w and v
+        rep_periods = get_representative_periods(pf)
+        w = getVariableValue(pf.m.ext[:variables][:w])
+        if length(w) == length(rep_periods)
+            pf.w = zeros(pf.N_total_periods)
+            pf.w[pf.rep_periods] = w
+        else
+            pf.w = w
+        end
+
+        v = getVariableValue(pf.m.ext[:variables][:v])
+        if size(v, 2) != length(rep_periods)
+            pf.v = v[:,pf.rep_periods]
+        else
+            pf.v = v
+        end
+    else
+        @show stat
+    end
+
+    # Return solution status
+    return stat
+end
+
 function make_selection_variable!(pf::PeriodsFinder, m::JuMP.Model)
     periods = get_set_of_periods(pf)
     return m.ext[:variables][:u] = [
@@ -267,46 +299,6 @@ function ordering_error_expression!(
     @assert all([all(length.(ord_err_expr[s]) .== 1) for s in S]) "$err_name must return scalar value."
     
     return m.ext[:expressions][Symbol(err_name)] = ord_err_expr
-end
-
-function optimize_periods_finder_model!(pf::PeriodsFinder, m::JuMP.Model)
-    optimize!(pf.m)
-    stat = termination_status(pf.m)
-
-    # Write results to pf if optimal
-    if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && has_values(pf.m)
-        # Save selection variable as is
-        pf.u = round.(getVariableValue(pf.misc[:u]))
-
-        # Save representative periods and their mapping
-        pf.rep_periods = [
-            idx for (idx, val) in enumerate(pf.u) if val > 0
-        ]
-
-        # NOTE: length(pf.rep_periods) != pf.N_representative_periods necessarily! Could be that optimiser chose less days than it was allowed to.
-
-        # Transform w variable to be correct length if needs be
-        w = getVariableValue(pf.misc[:w])
-        if length(w) == length(pf.rep_periods)
-            pf.w = zeros(pf.N_total_periods)
-            pf.w[pf.rep_periods] = w
-        else
-            pf.w = w
-        end
-
-        # Only save the non-zero columns of v
-        v = getVariableValue(pf.misc[:v])
-        if size(v, 2) != length(pf.rep_periods)
-            pf.v = v[:,pf.rep_periods]
-        else
-            pf.v = v
-        end
-    else
-        @show stat
-    end
-
-    # Return solution status
-    return stat
 end
 
 function makeDCErrorOnlyPeriodsFinderModel(

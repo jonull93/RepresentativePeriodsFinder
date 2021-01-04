@@ -4,13 +4,15 @@ function get_set_of_time_series_names(pf::PeriodsFinder)
 end
 
 function get_set_of_time_series(pf::PeriodsFinder)
-    return [k => v for (k,v) in pf.time_series if k != "default"]::Vector{String}
+    S = [k => v for (k,v) in pf.time_series if k != "default"]
+    return S::Vector{Pair{String,FloatTimeArray}}
 end
 
 function get_set_of_bins(pf::PeriodsFinder)
-    return 1:recursive_get(pf.config, 
+    bins = 1:recursive_get(pf.config, 
         "method", "optimization", "duration_curve_error", "number_bins", 40
-    )::UnitRange{Int64}
+    )
+    return bins::UnitRange{Int64}
 end
 
 function get_set_of_mandatory_periods(pf::PeriodsFinder)
@@ -19,7 +21,8 @@ function get_set_of_mandatory_periods(pf::PeriodsFinder)
 end
 
 function get_set_of_periods(pf::PeriodsFinder)
-    return 1:get_number_of_periods(pf)::UnitRange{Int64}
+    periods = 1:get_number_of_periods(pf)
+    return periods::UnitRange{Int64}
 end
 
 function get_set_of_representative_periods(pf::PeriodsFinder)
@@ -103,6 +106,10 @@ function get_ordering_error_function(pf::PeriodsFinder, err_name::String)
     ord_err_opt = opt_general["ordering_error"]
     return errorfunc = 
         eval(Meta.parse(ord_err_opt[err_name]["function"], raise=true))
+end
+
+function get_abspath_to_result_dir(pf::PeriodsFinder)
+    rel_dir = recursive_get(pf.config, "results", "result_dir", "plots")
 end
 
 # Parameters

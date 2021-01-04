@@ -15,6 +15,7 @@ module RepresentativePeriodsFinder
     using JuMP                              # -> optimization suite
     using Interpolations                    # -> interpolating time series
     using Plots; gr()                       # -> output plots
+    using Gadfly; gr()                      # -> output plots
     using JSON                              # -> output config file
     using SparseArrays                      # -> for the (sparse) ordering variable
     using Cbc                               # -> free solver for tests
@@ -24,7 +25,7 @@ module RepresentativePeriodsFinder
 
     # Utility
     include("util/types.jl")
-    include("PeriodsFinder.jl")
+    include("util/PeriodsFinder.jl")
     include("util/util.jl")
     include("util/get.jl")
 
@@ -38,11 +39,21 @@ module RepresentativePeriodsFinder
     include("methods/clustering.jl")
 
     # Outputs and results
-    # include("output/create_plots.jl")
+    include("output/create_plots.jl")
     # include("output/write_out_results.jl")
 
     # Exported methods
-    export find_representative_periods, ENTSOEcsv2dataframe, writeOutResults, PeriodsFinder, populate_entries!, create_plots, makePeriodsFinderModel, makeReOrderingPeriodsFinder, makeDCErrorOnlyPeriodsFinderModel, optimizePeriodsFinder, make_periods_finder_model!
+    export PeriodsFinder, populate_entries!, 
+    find_representative_periods,
+    optimize_periods_finder_model!, make_periods_finder_model!,
+    cluster_periods!,
+    create_plots, write_out_results
+
+    function find_representative_periods!(pf::PeriodsFinder,
+            optimizer_factory=Cbc.Optimizer
+        )
+        return nothing
+    end
 
     # function find_representative_periods(
     #     dft::PeriodsFinder,
