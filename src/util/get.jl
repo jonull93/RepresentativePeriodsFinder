@@ -17,7 +17,9 @@ end
 
 function get_set_of_mandatory_periods(pf::PeriodsFinder)
     # TODO: fix this
-    return Int64[]
+    mandatory_periods = Int64[]
+    @assert length(mandatory_periods) <= get_number_of_representative_periods(pf) 
+    return mandatory_periods
 end
 
 function get_set_of_periods(pf::PeriodsFinder)
@@ -25,11 +27,22 @@ function get_set_of_periods(pf::PeriodsFinder)
     return periods::UnitRange{Int64}
 end
 
+function get_set_of_time_steps(pf::PeriodsFinder)
+    periods = 1:get_number_of_time_steps_per_period(pf)
+    return periods::UnitRange{Int64}
+end
+
+"""
+    get_set_of_representative_periods(pf::PeriodsFinder)
+
+If representative periods have not been defined yet, returns `get_set_of_periods`.
+"""
 function get_set_of_representative_periods(pf::PeriodsFinder)
-    if isdefined(pf, :u)
-        return [p for p in u if p == 1]
+    if isdefined(pf, :u) && isempty(pf.u) == false &&
+            length(pf.u) == get_number_of_periods(pf)
+        return [index for (index,value) in enumerate(pf.u) if value == true]
     else
-        return nothing
+        return get_set_of_periods(pf)
     end
 end
 
@@ -45,27 +58,29 @@ end
 # Simple parameters
 function get_total_number_of_time_steps(pf::PeriodsFinder)
     opt = pf.config["method"]["options"]
-    return opt["total_periods"] * opt["timesteps_per_period"]
+    return opt["total_periods"] * opt["time_steps_per_period"]
 end
 
 function get_number_of_representative_periods(pf::PeriodsFinder)
     opt = pf.config["method"]["options"]
-    return opt["representative_periods"]
+    return opt["representative_periods"]::Int64
 end
 
 function get_number_of_periods(pf::PeriodsFinder)
     opt = pf.config["method"]["options"]
-    return opt["total_periods"]
+    return opt["total_periods"]::Int64
 end
 
-function get_number_of_timesteps_per_period(pf::PeriodsFinder)
+function get_number_of_time_steps_per_period(pf::PeriodsFinder)
     opt = pf.config["method"]["options"]
-    return opt["timesteps_per_period"]
+    return opt["time_steps_per_period"]::Int64
 end
 
 function get_sampling_time(pf::PeriodsFinder)
     opt = pf.config["method"]["options"]
-    return eval(Meta.parse(get(opt, "sampling_time", "Hour(1)")))
+    st = get(opt, "sampling_time", Hour(1))
+    typeof(st) <: AbstractString ? st = eval(Meta.parse(st)) : nothing
+    return st::TimePeriod
 end
 
 function get_bin_interval_values(pf::PeriodsFinder, ts_name::String)
@@ -110,6 +125,13 @@ end
 
 function get_abspath_to_result_dir(pf::PeriodsFinder)
     rel_dir = recursive_get(pf.config, "results", "result_dir", "plots")
+    return abspath(joinpath(pf.config["base_dir"], rel_dir))
+end
+
+function get_selection_method(pf::PeriodsFinder)
+    methods = [k for k in keys(pf.config["method"]) if k != "options"]
+    @assert length(methods) == 1 "Remove either clustering or optimisation entry in .yaml config file."
+    return first(methods) 
 end
 
 # Parameters
@@ -140,7 +162,7 @@ function get_normalised_time_series_values(pf::PeriodsFinder, ta::FloatTimeArray
         vec = normalize_values(vec)
 
         npt = get_number_of_periods(pf)
-        ntpp = get_number_of_timesteps_per_period(pf)
+        ntpp = get_number_of_time_steps_per_period(pf)
         return x_ts = permutedims(reshape(vec, ntpp, npt), (2,1))
     else
         return pf.x[ts_name]
@@ -167,7 +189,7 @@ end
 
 function get_discretised_duration_curve(pf::PeriodsFinder)
     L = Dict(
-        ts_name => get_duration_curve_parameter(pf, ts_name)
+        ts_name => get_discretised_duration_curve(pf, ts_name)
         for ts_name in get_set_of_time_series_names(pf)
     )
     return @assign L = pf.inputs
@@ -183,7 +205,7 @@ function get_duration_curve_parameter(pf::PeriodsFinder, ts_name::String)
     np = get_number_of_periods(pf)
     A = normalize_values(
         cumsum(histogram_per_period, dims=2),
-        -1/np, 1/np
+        -1, 1
     )
     return A
 end
@@ -217,9 +239,11 @@ function get_histogram_per_period(pf::PeriodsFinder,ts_name::String)
         for p in periods, b in bins
     ]
 
-    @assert all(sum(histogram_per_period, dims=2) .== get_number_of_timesteps_per_period(pf::PeriodsFinder))
+    @assert all(sum(histogram_per_period, dims=2) .== get_number_of_time_steps_per_period(pf::PeriodsFinder))
 
-    return pf.inputs[:histogram_per_period][ts_name] = histogram_per_period
+    return recursive_set(pf.inputs, :histogram_per_period, 
+        ts_name, histogram_per_period
+    )
 end
 
 function get_histogram_per_period(pf::PeriodsFinder)
@@ -227,5 +251,9 @@ function get_histogram_per_period(pf::PeriodsFinder)
         ts_name => get_histogram_per_period(pf, ts_name)
         for ts_name in get_set_of_time_series_names(pf)
     )
-    return @assign histograms_per_period = pf.inputs
+    return @assign histograms_per_period = pf.inputs 
+end
+
+function get_synthetic_time_series(pf::PeriodsFinder, ts_name::String)
+
 end

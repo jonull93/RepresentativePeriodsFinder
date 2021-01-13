@@ -41,10 +41,10 @@ time_series:
 
 method:
   options: # Method agnostic options
-    mandatory_periods: [8]  
+    mandatory_periods: [8]
     total_periods: 365
     representative_periods: 8
-    timesteps_per_period: 24
+    time_steps_per_period: 24
     sampling_time: "Hour(1)" # This is a DateTime format - for quarter hours, Hour(0.25)
     ordering_error: # aka dissimilarity metric for hierarchical clustering
       ord_err_1:
@@ -56,16 +56,16 @@ method:
   
   optimization:
     integral_weights: false
-    integral_ordering: true
+    binary_ordering: true
     equal_weights: false
     
     time_series_error:
       weight: 0.5
-      type: "squared" # Or squared
+      type: "absolute" # Or "absolute"
     duration_curve_error:
       weight: 0.5
       number_bins: 40
-      type: "squared" # Or squared
+      type: "absolute" # Or "absolute"
   
   clustering: # Only one method (opt or clust) can be specified!
     type: "hierarchical"
@@ -77,5 +77,5 @@ method:
 results:
   save_results: true
   # Options for exactly what to save here
-  result_dir: '../results/rep_periods' # Relative to this file
+  result_dir: '../results' # Relative to this file
   create_plots: true

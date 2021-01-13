@@ -1,4 +1,4 @@
-function timePeriodClustering(dft::PeriodsFinder)
+function time_period_clustering(dft::PeriodsFinder)
     # Notation is based on the following paper:
     # [1] S. Pineda and J. M. Morales, “Chronological time-period clustering for optimal capacity expansion planning with storage,” IEEE Trans. Power Syst., vol. 33, no. 6, pp. 7162–7170, 2018.
 
@@ -12,7 +12,7 @@ function timePeriodClustering(dft::PeriodsFinder)
     x = [
         [
             Float32(dft.WEIGHT_DC[c] * dft.time_series[c].matrix_full_norm[i,t])
-            for c in dft.curves, t in dft.timesteps
+            for c in dft.curves, t in dft.time_steps
         ][:]
         for i in dft.periods
     ] # Cluster features vector

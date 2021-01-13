@@ -17,6 +17,17 @@ function config_get(d1::AbstractDict, d2::AbstractDict, k::String, default::Any)
     end
 end
 
+function mkrootdirs(dir::String)
+    dirVec = split(dir, "/")
+    dd = "/"
+    for d in dirVec[2:end]
+        dd = joinpath(dd, d)
+        if isdir(dd) == false
+            mkdir(dd)
+        end
+    end
+end
+
 function recursive_get(d, args...)
     if length(args) > 2
         if haskey(d, args[1])
@@ -29,6 +40,16 @@ function recursive_get(d, args...)
     end
 end
 
+function recursive_set(d, args...)
+    if length(args) > 1
+        if haskey(d, args[1]) == false
+            d[args[1]] = typeof(d)()
+        end
+        recursive_set(d[args[1]], args[2:end]...)
+    end
+    return last(args)
+end
+
 function normalize_values(A, lb=-1.0, ub=1.0)
     max_val = maximum(A)
     min_val = minimum(A)
@@ -36,25 +57,12 @@ function normalize_values(A, lb=-1.0, ub=1.0)
     return replace(A, NaN => 0.0)
 end
 
-function getVariableValue(x::JuMP.Containers.DenseAxisArray)
-    return value.(x).data
-end
+var_value(x::JuMP.Containers.DenseAxisArray) = value.(x).data
+var_value(x::JuMP.Containers.SparseAxisArray) = value.(x).data
+var_value(x::AbstractArray) = x
+var_value(x::Array{VariableRef,1}) = value.(x)
+var_value(x::Array{VariableRef,2}) = value.(x)
 
-function getVariableValue(x::JuMP.Containers.SparseAxisArray)
-    return value.(x).data
-end
-
-function getVariableValue(x::AbstractArray)
-    return x
-end
-
-function getVariableValue(x::Array{VariableRef,1})
-    return value.(x)
-end
-
-function getVariableValue(x::Array{VariableRef,2})
-    return value.(x)
-end
 
 import Base.length
 Base.length(expr::JuMP.GenericAffExpr) = 1
@@ -93,7 +101,6 @@ end
 
 Assign variables `x` and `y` to entries `:x` and `:y` in `d` respectively.
 """
-
 macro assign(expr)
     (expr isa Expr && expr.head == :(=)) || error("please use @fetch with the assignment operator (=)")
     variables, dict = expr.args

@@ -1,7 +1,7 @@
 function make_periods_finder_model!(
-        pf::PeriodsFinder, optimizer_factory=Cbc.Optimizer
+        pf::PeriodsFinder, optimizer=Cbc.Optimizer
     )
-    m = pf.m = JuMP.Model(optimizer_factory)
+    m = pf.m = JuMP.Model(optimizer)
     m.ext = Dict(
         :variables => Dict{Symbol,Any}(),
         :constraints => Dict{Symbol,Any}(),
@@ -16,8 +16,19 @@ function make_periods_finder_model!(
     make_ordering_variable!(pf, m)
 
     # Dependent error variables
-    make_duration_curve_error_variable!(pf, m)
-    make_time_series_error_variable!(pf, m)
+    if haskey(opt, "duration_curve_error")
+        make_duration_curve_error_variable!(pf, m)
+        define_duration_curve_error_variable!(pf, m)
+    else # else set to 0
+        m.ext[:variables][:duration_curve_error] = EmptyContainer{Float64}(0.0)
+    end
+
+    if haskey(opt, "time_series_error")
+        make_time_series_error_variable!(pf, m)
+        define_time_series_error_variable!(pf, m)
+    else # else set to 0
+        m.ext[:variables][:time_series_error] = EmptyContainer{Float64}(0.0)
+    end
 
     # Fix variables
     fix_selection_variable!(pf, m)
@@ -30,43 +41,40 @@ function make_periods_finder_model!(
     restrict_linear_combination_of_representative_periods!(pf, m)
     enforce_minimum_weight!(pf, m)
 
-    # Errors
-    if haskey(opt, "duration_curve_error") # else is 0
-        define_duration_curve_error_variable!(pf, m)
-    end
-    if haskey(opt, "time_series_error") # else is 0
-        define_time_series_error_variable!(pf, m)
-    end
-
     # Objective
     formulate_objective!(pf, m)
 
     return m
 end
 
-function optimize_periods_finder_model!(pf::PeriodsFinder, m::JuMP.Model)
+function optimize_periods_finder_model!(pf::PeriodsFinder, m::JuMP.Model = pf.m)
     optimize!(pf.m)
     stat = termination_status(pf.m)
 
     if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && has_values(pf.m)
         # Save selection variable as is
-        pf.u = round.(getVariableValue(pf.m.ext[:variables][:u]))
+        pf.u = round.(var_value((pf.m.ext[:variables][:u])))
 
-        # Only save non-zero entries of w and v
-        rep_periods = get_representative_periods(pf)
-        w = getVariableValue(pf.m.ext[:variables][:w])
+        # Save all entries of w
+        rep_periods = get_set_of_representative_periods(pf)
+        w = var_value(pf.m.ext[:variables][:w])
         if length(w) == length(rep_periods)
-            pf.w = zeros(pf.N_total_periods)
-            pf.w[pf.rep_periods] = w
-        else
+            pf.w = zeros(get_number_of_periods(pf))
+            pf.w[rep_periods] = w
+        elseif length(w) == get_number_of_periods(pf)
             pf.w = w
+        else
+            error("Length of w, $(length(w)) is unexpected.")
         end
 
-        v = getVariableValue(pf.m.ext[:variables][:v])
+        # Only save non-zero entries v to save space
+        v = var_value(pf.m.ext[:variables][:v])
         if size(v, 2) != length(rep_periods)
-            pf.v = v[:,pf.rep_periods]
-        else
+            pf.v = v[:,rep_periods]
+        elseif size(v, 2) == length(rep_periods)
             pf.v = v
+        else
+            error("Size of v, $(size(v)) is unexpected.")
         end
     else
         @show stat
@@ -76,44 +84,56 @@ function optimize_periods_finder_model!(pf::PeriodsFinder, m::JuMP.Model)
     return stat
 end
 
+
+
 function make_selection_variable!(pf::PeriodsFinder, m::JuMP.Model)
-    periods = get_set_of_periods(pf)
-    return m.ext[:variables][:u] = [
-        @variable(m, binary=true, base_name="u_$p") for p in periods
-    ]
+    rep_periods = get_set_of_representative_periods(pf)
+    mandatory_periods = get_set_of_mandatory_periods(pf)
+    if length(rep_periods) == length(mandatory_periods)
+        return m.ext[:variables][:u] = mandatory_periods
+    else
+        return m.ext[:variables][:u] = @variable(m, 
+            [j in rep_periods], binary=true, base_name="u"
+        )
+    end
 end
 
 function make_weighting_variable!(pf::PeriodsFinder, m::JuMP.Model)
-    periods = get_set_of_periods(pf)
+    rep_periods = get_set_of_representative_periods(pf)
     opt = pf.config["method"]["optimization"]
     integer_bool = get(opt, "integral_weights", false)
-    return m.ext[:variables][:w] = [
-        @variable(m, integer=integer_bool, base_name="w_$p", lower_bound=0.0) 
-        for p in periods
-    ]
+    return m.ext[:variables][:w] = @variable(m, 
+        [j in rep_periods], integer=integer_bool, 
+        base_name="w", lower_bound=0.0
+    )
 end
 
 function make_ordering_variable!(pf::PeriodsFinder, m::JuMP.Model)
     periods = get_set_of_periods(pf)
+    rep_periods = get_set_of_representative_periods(pf)
     opt = pf.config["method"]["optimization"]
     bin_bool = get(opt, "binary_ordering", false)
-    return m.ext[:variables][:v] = [
-        @variable(m, binary=bin_bool, base_name="v_{$i$j}", lower_bound=0.0) 
-        for i in periods, j in periods
-    ]
+    return m.ext[:variables][:v] = @variable(m, 
+        [i in periods, j in rep_periods], 
+        binary=bin_bool, base_name="v", lower_bound=0.0
+    )
 end
 
 function make_duration_curve_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
     S = get_set_of_time_series_names(pf)
-    return m.ext[:variables][:duration_curve_error] = Dict(
-        s => EmptyContainer{Float64}(0.0) for s in S
+    bins = get_set_of_bins(pf)
+    return m.ext[:variables][:duration_curve_error] = @variable(m,
+        [s in S, b in bins], base_name = "dc_err", lower_bound = 0.0
     )
 end
 
 function make_time_series_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
     S = get_set_of_time_series_names(pf)
-    return m.ext[:variables][:time_series_error] = Dict(
-        s => EmptyContainer{Float64}(0.0) for s in S
+    rep_periods = get_set_of_representative_periods(pf)
+    time_steps = get_set_of_time_steps(pf)
+    return m.ext[:variables][:time_series_error] = @variable(m,
+        [s in S, i in rep_periods, t in time_steps], 
+        base_name = "dc_err", lower_bound = 0.0
     )
 end
 
@@ -121,23 +141,27 @@ function fix_selection_variable!(pf::PeriodsFinder, m::JuMP.Model)
     u = m.ext[:variables][:u]
     periods = get_set_of_periods(pf)
     mandatory_periods = get_set_of_mandatory_periods(pf)
-    for p in mandatory_periods
-        if typeof(u[p]) <: JuMP.VariableRef
+    if eltype(u) <: JuMP.VariableRef
+        for p in mandatory_periods
             fix(u[p], true, force=true)
         end
     end
     return u
 end
 
+function set_selection_variable_initial_guess(pf::PeriodsFinder, m::JuMP.Model)
+    # TODO: fill in
+end
+
 function limit_number_of_selected_periods!(
         pf::PeriodsFinder, m::JuMP.Model
     )
-    periods = get_set_of_periods(pf)
+    rep_periods = get_set_of_representative_periods(pf)
     N_rep = get_number_of_representative_periods(pf)
     u = m.ext[:variables][:u]
     return m.ext[:constraints][:limit_num_periods] = 
         @constraint(m,
-            sum(u[j] for j in periods) <= N_rep
+            sum(u[j] for j in rep_periods) <= N_rep
         )
 end
 
@@ -148,29 +172,29 @@ function restrict_non_zero_weights_to_selected_periods!(
     equal_weights_bool = get(opt, "equal_weights", false)
     N_total = get_number_of_periods(pf)
     N_rep = get_number_of_representative_periods(pf)
-    periods = get_set_of_periods(pf)
+    rep_periods = get_set_of_representative_periods(pf)
     u = m.ext[:variables][:u]
     w = m.ext[:variables][:w]
     if equal_weights_bool == true
         con = [
-            @constraint(m, w[p] == u[p] * N_total / N_rep)
-            for p in periods
+            @constraint(m, w[j] == u[j] * N_total / N_rep)
+            for j in rep_periods
         ]
     else
         con = [
-            @constraint(m, w[p] <= u[p] * N_total)
-            for p in periods
+            @constraint(m, w[j] <= u[j] * N_total)
+            for j in rep_periods
         ]
     end
     return m.ext[:constraints][:restrict_non_zero_weights] = con
 end
 
 function enforce_yearly_equivalent_duration!(pf::PeriodsFinder, m::JuMP.Model)
-    periods = get_set_of_periods(pf)
+    rep_periods = get_set_of_periods(pf)
     N_total = get_number_of_periods(pf)
     w = m.ext[:variables][:w]
     return m.ext[:constraints][:equivalent_yearly_duration] = @constraint(m,
-        sum(w[p] for p in periods) == N_total
+        sum(w[j] for j in rep_periods) == N_total
     )
 end
 
@@ -178,9 +202,10 @@ function restrict_non_zero_orderings_to_selected_periods!(
         pf::PeriodsFinder, m::JuMP.Model
     )
     periods = get_set_of_periods(pf)
+    rep_periods = get_set_of_representative_periods(pf)
     u = m.ext[:variables][:u]
     v = m.ext[:variables][:v]
-    con = [@constraint(m, v[i,j] <= u[j]) for i in periods, j in periods]
+    con = [@constraint(m, v[i,j] <= u[j]) for i in periods, j in rep_periods]
     return m.ext[:constraints][:restrict_ordering] = con
 end
 
@@ -189,43 +214,77 @@ function restrict_linear_combination_of_representative_periods!(
     )
     opt = pf.config["method"]["optimization"]
     linear_comb = get(opt, "linear_combination_representative_periods", "sum_to_one")
-    periods = get_set_of_periods(pf)
-    v = m.ext[:variables][:v]
     if linear_comb == "sum_to_one"
+        periods = get_set_of_periods(pf)
+        rep_periods = get_set_of_representative_periods(pf)
+        v = m.ext[:variables][:v]
         con = [
-            @constraint(m, sum(v[i,j] for j in periods) == 1)
+            @constraint(m, sum(v[i,j] for j in rep_periods) == 1)
             for i in periods
         ]
         return m.ext[:constraints][:linear_combination_representative_periods] = con
     end
+    return nothing
 end
 
 function enforce_minimum_weight!(pf::PeriodsFinder, m::JuMP.Model)
     opt = pf.config["method"]["optimization"]
-    periods = get_set_of_periods(pf)
+    rep_periods = get_set_of_representative_periods(pf)
     min_weight = get(opt, "minimum_weight", 0.0)
-    w = m.ext[:variables][:w]
-    u = m.ext[:variables][:u]
+    @fetch w, u = m.ext[:variables]
     return m.ext[:constraints][:minimum_weight] = [
-        @constraint(m, w[p] >= u[p] * min_weight)
-        for p in periods
+        @constraint(m, w[j] >= u[j] * min_weight)
+        for j in rep_periods
     ]
 end
 
 function define_duration_curve_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
-    return nothing
+    dc_err_opt = pf.config["method"]["optimization"]["duration_curve_error"]
+    type = get(dc_err_opt, "type", "squared")
+    S = get_set_of_time_series_names(pf)
+    bins = get_set_of_bins(pf)
+    rep_periods = get_set_of_representative_periods(pf)
+    A = get_duration_curve_parameter(pf)
+    L = get_discretised_duration_curve(pf)
+    N_total = get_number_of_periods(pf)
+    @fetch duration_curve_error, w = m.ext[:variables]
+    if type == "squared"
+        duration_curve_error = @constraint(m,
+            [s in S, b in bins],
+            duration_curve_error[s][b] == 
+            sum(w[j] / N_total * A[s][j,b] for j in rep_periods)
+        )
+    elseif type == "absolute"
+        duration_curve_error_eq1 = @constraint(m, 
+            [s in S, b in bins],
+            duration_curve_error[s,b] >= + L[s][b] - sum(
+                w[j] / N_total * A[s][j,b] for j in rep_periods
+            )
+        )
+        duration_curve_error_eq2 = @constraint(m, 
+            [s in S, b in bins],
+            duration_curve_error[s,b] >= - L[s][b] + sum(
+                w[j] / N_total * A[s][j,b] for j in rep_periods
+            )
+        )
+        @assign duration_curve_error_eq1, duration_curve_error_eq2 = m.ext[:constraints]
+    end
+    return m
 end
 
 function define_time_series_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
-    return nothing
+    return m
 end
 
 function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
     opt = pf.config["method"]["optimization"]
+    dc_err_type = recursive_get(opt, "duration_curve_error", "type", "absolute")
     ordering_errors = get_set_of_ordering_errors(pf)
     objective_term_weights = get_error_term_weights(pf)
     time_series_weights = get_time_series_weights(pf)
     periods = get_set_of_periods(pf)
+    rep_periods = get_set_of_representative_periods(pf)
+    bins = get_set_of_bins(pf)
     S = get_set_of_time_series_names(pf)
 
     ordering_error_expressions = Dict{String,Any}(
@@ -233,8 +292,8 @@ function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
         for ord_err in ordering_errors
     )
 
-    duration_curve_error = m.ext[:variables][:duration_curve_error]
-    time_series_error = m.ext[:variables][:time_series_error]
+    @fetch duration_curve_error, time_series_error = m.ext[:variables]
+    dc_err_func(x) = dc_err_type == "absolute" ? x^2 : x
 
     # @assert keys(objective_term_weights) == keys(objective_term_indices) == keys(objective_terms)
 
@@ -242,10 +301,10 @@ function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
         sum(
             time_series_weights[s] * (
                 + objective_term_weights["duration_curve_error"] * sum(
-                    duration_curve_error[s][p] for p in periods
+                    dc_err_func(duration_curve_error[s,b]) for b in bins
                 )
                 + objective_term_weights["time_series_error"] * sum(
-                    time_series_error[s][i,j] for i in periods, j in periods
+                    time_series_error[s,i,j] for i in periods, j in rep_periods
                 )
                 + sum(
                     objective_term_weights[ord_err] * sum(
@@ -282,6 +341,7 @@ function ordering_error_expression!(
     )
     errorfunc = pf.inputs[:ordering_error_functions][err_name] 
     periods = get_set_of_periods(pf)
+    rep_periods = get_set_of_representative_periods(pf)
     S = get_set_of_time_series_names(pf)
     x = get_normalised_time_series_values(pf)
     v = m.ext[:variables][:v]
@@ -291,7 +351,7 @@ function ordering_error_expression!(
     ord_err_expr = Dict(
         s => [
             @expression(m, v[i,j] * errorfunc(x[s][i,:], x[s][j,:]))
-            for i in periods, j in periods
+            for i in periods, j in rep_periods
         ]
         for s in S
     )
@@ -359,7 +419,7 @@ function makeDCErrorOnlyPeriodsFinderModel(
 
     # Objective
     dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
-    dc_norm_weight = dft.N_total_periods * length(dft.timesteps) / length(dft.bins)
+    dc_norm_weight = dft.N_total_periods * length(dft.time_steps) / length(dft.bins)
     obj = @expression(m,
         sum(
             dft.WEIGHT_DC[c] * (
@@ -403,10 +463,10 @@ function makeSquaredErrorPeriodsFinderModel(
 
     # Define the time series
     @variable(m,
-        reconstructed_time_series[c=dft.curves, i=dft.periods, t=dft.timesteps]
+        reconstructed_time_series[c=dft.curves, i=dft.periods, t=dft.time_steps]
     )
     @constraint(m,
-        [c = dft.curves, i = dft.periods, t = dft.timesteps],
+        [c = dft.curves, i = dft.periods, t = dft.time_steps],
         reconstructed_time_series[c,i,t]
         ==
         sum(v[i,j] * dft.time_series[c].matrix_full_norm[j,t] for j = dft.periods)
@@ -451,7 +511,7 @@ function makeSquaredErrorPeriodsFinderModel(
     # Define objective
     dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
     ts_weight = try_get_val(dft.config, "time_series_error_weight", 1.0)
-    dc_norm_weight = dft.N_total_periods * length(dft.timesteps) / length(dft.bins)
+    dc_norm_weight = dft.N_total_periods * length(dft.time_steps) / length(dft.bins)
 
     @objective(m, Min,
         sum(
@@ -462,7 +522,7 @@ function makeSquaredErrorPeriodsFinderModel(
                 )
                 + ts_weight * sum(
                     (reconstructed_time_series[c,i,t] - dft.time_series[c].matrix_full_norm[i,t])^2
-                    for i in dft.periods, t in dft.timesteps
+                    for i in dft.periods, t in dft.time_steps
                 )
             ) for c in dft.curves
         )
@@ -470,8 +530,6 @@ function makeSquaredErrorPeriodsFinderModel(
 
     return m
 end
-
-optimize_periods_finder_model!(pf::PeriodsFinder) = optimize_periods_finder_model!(pf, pf.m)
 
 function makePeriodsFinderModel(dft::PeriodsFinder, optimizer_factory)
     # Model
@@ -709,20 +767,20 @@ function makeReOrderingPeriodsFinder(
 
     # Make expression for the reconstructed time series
     reconstructed_time_series = @expression(m,
-        [c = dft.curves, i = P, t = dft.timesteps],
+        [c = dft.curves, i = P, t = dft.time_steps],
         sum(v[i,j] * dft.time_series[c].matrix_full_norm[j,t] for j = RP)
     )
 
     # Define error
-    @variable(m, ts_error[c=dft.curves, i=P, t=dft.timesteps] >= 0)
+    @variable(m, ts_error[c=dft.curves, i=P, t=dft.time_steps] >= 0)
     @constraint(m,
-    	[c = dft.curves, i = P, t = dft.timesteps],
+    	[c = dft.curves, i = P, t = dft.time_steps],
     	ts_error[c,i,t] >=
             + reconstructed_time_series[c,i,t]
     		- dft.time_series[c].matrix_full_norm[i,t]
     )
     @constraint(m,
-    	[c = dft.curves, i = P,t = dft.timesteps],
+    	[c = dft.curves, i = P,t = dft.time_steps],
     	ts_error[c,i,t] >= -(
             + reconstructed_time_series[c,i,t]
     		- dft.time_series[c].matrix_full_norm[i,t]
@@ -732,7 +790,7 @@ function makeReOrderingPeriodsFinder(
     # Define objective
     dc_weight = try_get_val(dft.config, "duration_curve_error_weight", 1.0)
     ts_weight = try_get_val(dft.config, "time_series_error_weight", 1.0)
-    dc_norm_weight = dft.N_total_periods * length(dft.timesteps) / length(dft.bins)
+    dc_norm_weight = dft.N_total_periods * length(dft.time_steps) / length(dft.bins)
 
     @objective(m, Min,
         sum(
@@ -740,7 +798,7 @@ function makeReOrderingPeriodsFinder(
                 + dc_weight * dc_norm_weight * sum(
                     duration_curve_error[c,b] for b in dft.bins
                 ) + ts_weight * sum(
-                    ts_error[c,i,t] for i in P, t in dft.timesteps
+                    ts_error[c,i,t] for i in P, t in dft.time_steps
                 )
             ) for c in dft.curves
         )
@@ -843,10 +901,10 @@ function makeSquaredErrorReOrderingPeriodsFinder(
     # Define the time series
     if ts_weight > 0
         @variable(m,
-            reconstructed_time_series[c=dft.curves, i=dft.periods, t=dft.timesteps]
+            reconstructed_time_series[c=dft.curves, i=dft.periods, t=dft.time_steps]
         )
         @constraint(m,
-            [c = dft.curves, i = dft.periods, t = dft.timesteps],
+            [c = dft.curves, i = dft.periods, t = dft.time_steps],
             reconstructed_time_series[c,i,t]
             ==
             sum(v[i,j] * dft.time_series[c].matrix_full_norm[j,t] for j = dft.periods)
@@ -856,7 +914,7 @@ function makeSquaredErrorReOrderingPeriodsFinder(
     end
 
     # Define objective
-    dc_norm_weight = dft.N_total_periods * length(dft.timesteps) / length(dft.bins)
+    dc_norm_weight = dft.N_total_periods * length(dft.time_steps) / length(dft.bins)
 
     @objective(m, Min,
         sum(
@@ -867,7 +925,7 @@ function makeSquaredErrorReOrderingPeriodsFinder(
                 )
                 + ts_weight * sum(
                     (reconstructed_time_series[c,i,t] - dft.time_series[c].matrix_full_norm[i,t])^2
-                    for i in dft.periods, t in dft.timesteps
+                    for i in dft.periods, t in dft.time_steps
                 )
             ) for c in dft.curves
         )
@@ -929,7 +987,7 @@ function getTimeSeriesErrorMatrix(dft::PeriodsFinder)
             c => [
                 sum(errorfunc.(+ dft.time_series[c].matrix_full_norm[p,t]
                     - dft.time_series[c].matrix_full_norm[pp,t]
-                    for t in dft.timesteps))
+                    for t in dft.time_steps))
                 for p in dft.periods, pp in dft.periods
             ] for c in dft.curves
         )
@@ -939,7 +997,7 @@ function getTimeSeriesErrorMatrix(dft::PeriodsFinder)
                 errorfunc.(sum(
                     + dft.time_series[c].matrix_full_norm[p,t]
                     - dft.time_series[c].matrix_full_norm[pp,t]
-                    for t in dft.timesteps
+                    for t in dft.time_steps
                 ))
                 for p in dft.periods, pp in dft.periods
             ] for c in dft.curves

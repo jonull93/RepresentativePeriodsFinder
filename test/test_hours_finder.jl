@@ -7,7 +7,7 @@ config_file = normpath(joinpath(@__DIR__, "Elia_2017.yaml"))
 dft = PeriodsFinder(config_file)
 dft.config["number_days"] = 100 # Number of periods to choose
 dft.config["number_days_total"] = 8760 # Number of periods in year
-dft.config["timesteps_per_period"] = 1 # Number of timesteps per period
+dft.config["time_steps_per_period"] = 1 # Number of time_steps per period
 dft.config["result_dir"] = joinpath(@__DIR__, "results_rep_hours_finder") # Where to save results - this directory is relative to the .yaml file
 # Specifying an absolute directory (e.g C://Users/me/Desktop/results) should also work, but won't work on Mac or Linux (if you're using Windows).
 dft.config["solver"]["Method"] = "DC_error_only" # This is the original rep days finder methodology

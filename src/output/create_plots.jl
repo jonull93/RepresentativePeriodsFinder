@@ -1,54 +1,56 @@
-function create_plots(pf::PeriodsFinder)
-    result_dir = normpath(
-        joinpath(
-            pf.config["base_dir"], pf.config[""]["result_dir"], "plots"
-        )
+"""
+    create_plots(pf::PeriodsFinder, result_dir::String)
+
+Creates plots of original and aggregated duration curves and a heatmap of the ordering variable `v` if applicable and saves them in `result_dir`.
+"""
+function create_plots(pf::PeriodsFinder,
+        result_dir::String = get_abspath_to_result_dir(pf)
     )
-    !isdir(result_dir) && mkdir(result_dir)
+    mkrootdirs(result_dir)
+    rep_periods = get_set_of_representative_periods(pf)
+    periods = get_set_of_periods(pf)
+    weights = pf.w[rep_periods]
+    ntp = get_number_of_time_steps_per_period(pf)
 
-    w = [pf.w[k] for k in sort([k for k in keys(pf.w)])]
-    u = [pf.u[k] for k in sort([k for k in keys(pf.u)])]
-
-    periods_with_weight = [i for (i,k) in enumerate(sort([k for k in keys(pf.w)])) if pf.w[k]>0]
-    weights = [ww for ww in w if ww > 0]
-
-    for ts in values(pf.time_series)
+    for (ts_name, ts) in get_set_of_time_series(pf)
 
         # Original
-        x = [x for x in range(1,stop=length(ts.data_norm))/length(ts.data_norm)*100.]
-        y = sort(ts.data_norm, rev=true)
-        plot(x, y, xlim=(0, 100), dpi=300, size = (1000, 1000/28*21), label="original")
+        norm_val = get_normalised_time_series_values(pf, ts_name)
+        nt = get_total_number_of_time_steps(pf)
+        x = [x for x in range(1,stop=nt) / nt * 100.0]
+        y = sort(norm_val[:], rev=true)
+        p = Plots.plot(
+            x, y, xlim=(0, 100), dpi=300, size = (800, 800/28*21), 
+            label="Original"
+        )
 
         # Reduced
-        y = ts.matrix_full_norm[periods_with_weight,:]'[:]
-        x = (weights * ones(1, size(ts.matrix_full_norm)[2]))'[:] / length(ts.data_norm) * 100.
-        df2 = sort(DataFrame(x=x, y=y, legend="reduced"), [:y], rev=true)
-        df2[!,:x] = cumsum(df2[!,:x])
-        Plots.plot!(df2.x, df2.y, label="reduced")
+        y = norm_val[rep_periods,:]'[:]
+        x = (weights * ones(1, ntp))'[:] / nt * 100.0
+        df = sort(DataFrame(x=x, y=y, legend="reduced"), :y, rev=true)
+        df[!,:x] = cumsum(df[!,:x])
 
-        xaxis!("Duration [-]", 0:10:100)
+        Plots.plot!(p, df.x, df.y, label="Aggregated", title=ts_name)
+        xaxis!("Duration [%]", 0:10:100)
         yaxis!("Curve [-]")
-        title!(ts.name)
 
-        file_pdf = joinpath(result_dir, "$(ts.name).pdf")
-
+        file_pdf = joinpath(result_dir, "$(ts_name).svg")
         savefig(file_pdf)
     end
-    #######################################################################
-    # Show heatmap of sorting variable
-    #######################################################################
-    if any(values(pf.v) .> 0) && all(size(pf.v) .< 1000)
-        v = zeros(length.([pf.periods,pf.periods])...)
-        v[:, pf.rep_periods] = pf.v
+
+    # Heatmap of ordering variable v, if v isn't too big
+    if isdefined(pf, :v) && any(values(pf.v) .> 0) && all(size(pf.v) .< 1000)
+        v = zeros(length.([periods, periods])...)
+        v[:, rep_periods] = pf.v
         p = Plots.heatmap(
             v,
             ylabel = "Sum = Ordering of periods",
             xlabel = "Sum = Weighting of rep. period",
             title = "Diagonal = Selection of rep. period",
             aspect_ratio=:equal,
-            xlim=[minimum(pf.periods),maximum(pf.periods)],
-            ylim=[minimum(pf.periods),maximum(pf.periods)],
+            xlim=[minimum(periods), maximum(periods)],
+            ylim=[minimum(periods), maximum(periods)],
         )
-        savefig(p, joinpath(result_dir, "ordering_heatmap.pdf"))
+        savefig(p, joinpath(result_dir, "ordering_heatmap.svg"))
     end
 end

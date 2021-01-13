@@ -25,7 +25,8 @@ mutable struct PeriodsFinder
     ###########################################################################
     u::Array{Bool,1}    # Selection variable
     w::Array{Float64,1} # Weight variable (can also be integer)
-    v::Array{Float64,2} # Ordering variable (not always defined, can be float)
+    v::Array{T,2} where T <: Union{Bool,Float64} # Ordering variable (not always defined, can be float)
+    # TODO: redefine v so it's Union{Bool,Float64} to potentially save memort
 
     function PeriodsFinder()
         pf = new()
@@ -36,6 +37,7 @@ mutable struct PeriodsFinder
     function PeriodsFinder(config_file::String; populate_entries::Bool=false)
         pf = new()
         pf.config_file = config_file
+        @assert isfile(config_file)
         pf.config = YAML.load(open(config_file))
         pf.config["base_dir"] = dirname(config_file)
         pf.time_series = Dict{String,TimeArray}()
@@ -137,8 +139,8 @@ function populate_entries!(pf::PeriodsFinder)
 
     # # TODO: this should just be timeseries length / N_periods
     # # But this makes an assumption on the length of the timeseries, so eh...
-    # lenT = try_get_val(pf.config, "timesteps_per_period", 24)
-    # pf.timesteps = 1:lenT
+    # lenT = try_get_val(pf.config, "time_steps_per_period", 24)
+    # pf.time_steps = 1:lenT
 
     # ##################################################################################
     # # Correlation

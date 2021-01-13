@@ -15,7 +15,6 @@ module RepresentativePeriodsFinder
     using JuMP                              # -> optimization suite
     using Interpolations                    # -> interpolating time series
     using Plots; gr()                       # -> output plots
-    using Gadfly; gr()                      # -> output plots
     using JSON                              # -> output config file
     using SparseArrays                      # -> for the (sparse) ordering variable
     using Cbc                               # -> free solver for tests
@@ -40,7 +39,7 @@ module RepresentativePeriodsFinder
 
     # Outputs and results
     include("output/create_plots.jl")
-    # include("output/write_out_results.jl")
+    include("output/write_out_results.jl")
 
     # Exported methods
     export PeriodsFinder, populate_entries!, 
@@ -49,115 +48,84 @@ module RepresentativePeriodsFinder
     cluster_periods!,
     create_plots, write_out_results
 
-    function find_representative_periods!(pf::PeriodsFinder,
-            optimizer_factory=Cbc.Optimizer
+    # Some useful numbers
+    max_periods = 365 # Number of periods before warning
+    clust_options = (
+        "chronological time period clustering",
+        "hierarchical clustering"
+    )
+
+    """
+        find_representative_periods
+
+    Finds representative periods for a given set of time series, optionally ordering these as well.
+
+    # Arguments
+    One of the following must be specified:
+    * `config_file::String` contains location of the `.yaml` configuration file.
+    * `pf::PeriodsFinder` can be created as `PeriodsFinder(config_file)`.
+    
+    # Keyword Arguments
+    * `optimizer::MOI.OptimizerWithAttributes` e.g. `Cbc.Optimizer`.
+    * `reset::Bool=true` if `true` forces new representative periods to be found, else if `false` representative periods are ordered throughout the year. Only applicable if the selected method is `optimization`.
+
+    # Examples
+    ```julia
+    config_file = "config.yaml"
+    find_representative_periods(config_file)
+
+    pf = PeriodsFinder(config_file)
+    pf.u = rand(Bool, N_total) # Randomly select days
+    find_representative_periods(pf, optimizer=Gurobi.Optimizer, reset=false)
+
+    find_representative_periods(config_file, pf) # throws an error!
+    ```
+    """
+    find_representative_periods
+
+    function find_representative_periods(pf::PeriodsFinder;
+            optimizer=nothing,
+            reset::Bool=true
         )
-        return nothing
+        reset && (pf.u = Bool[])
+        method = get_selection_method(pf)
+
+        # Safety measure against having too many periods
+        if get_number_of_periods(pf) > max_periods && method == "optimization"
+            @warn """
+                Number of periods is greater than $max_periods and selection algorithm is $method. This could crash Julia if you are also ordering periods.
+            """
+        end
+
+        # Make and solve model
+        if method == "optimization"
+            m = make_periods_finder_model!(pf, optimizer)
+            stat = optimize_periods_finder_model!(pf, m)
+        elseif method == "clustering"
+            time_period_clustering(pf)
+            stat = MOI.OPTIMAL
+        else
+            error("""Selection method is $method, must be either "optimization" or "clustering".""")
+        end
+
+        # write out results
+        # TODO: The checks below could be a bit more robust...
+        save_results = recursive_get(pf.config, "results", "save_results", true)
+        create_plots_bool = recursive_get(
+            pf.config, "results", "create_plots", true
+        )
+        found_solution = (method in clust_options || has_values(pf.m))
+        if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && found_solution
+            save_results && write_out_results(pf)
+            create_plots_bool && create_plots(pf)
+        end
+        return pf
     end
 
-    # function find_representative_periods(
-    #     dft::PeriodsFinder,
-    #     optimizer_factory=Cbc.Optimizer
-    #     )
-    #     # Safety measure against having too many periods
-    #     method = try_get_val(dft.config["solver"], "Method", "ordering")
-    #     max_periods = 365
-    #     if length(dft.periods) > max_periods && method == "ordering"
-    #         @warn """
-    #             Number of periods is greater than $max_periods and ordering solution method has been selected. This will likely crash Julia.
-    #         """
-    #     end
-
-    #     # Make model
-    #     if dft.config["solver"]["Method"] == "reorder"
-    #         makeReOrderingPeriodsFinder(dft, optimizer_factory)
-    #         stat = optimizePeriodsFinder(dft)
-    #     elseif dft.config["solver"]["Method"] == "squared reorder"
-    #         makeReOrderingPeriodsFinder(dft, optimizer_factory)
-    #         stat = optimizePeriodsFinder(dft)
-    #     elseif dft.config["solver"]["Method"] == "iterative_bins"
-    #         binsVec = try_get_val(
-    #             dft.config["solver"], "Bins", [10,20,40]
-    #         )
-    #         boundType = try_get_val(
-    #             dft.config["solver"], "BoundType", "LowerBound"
-    #         )
-    #         for b in binsVec
-    #             println("-"^80)
-    #             println("-"^80)
-    #             println("Number of bins used for DC error for this iteration: $b")
-    #             println("-"^80)
-    #             dft.config["number_bins"] = b
-    #             if b != binsVec[1]
-    #                 dft.config["hot_start_values"] = dft.v
-    #                 if boundType == "ObjectiveLowerBound"
-    #                     dft.config["objective_lower_bound"] =
-    #                         objective_bound(dft.m)
-    #                 elseif boundType == "ObjectiveValue"
-    #                     dft.config["objective_lower_bound"] =
-    #                         objective_value(dft.m)
-    #                 end
-    #             end
-    #             populate_entries!(dft)
-    #             makePeriodsFinderModel(dft, optimizer_factory)
-    #             stat = optimizePeriodsFinder(dft)
-    #         end
-    #     elseif dft.config["solver"]["Method"] == "DC_error_only"
-    #         makeDCErrorOnlyPeriodsFinderModel(dft, optimizer_factory)
-    #         fix_periods!(dft)
-    #         stat = optimizePeriodsFinder(dft)
-    #     elseif dft.config["solver"]["Method"] == "ordering"
-    #         makePeriodsFinderModel(dft, optimizer_factory)
-    #         fix_periods!(dft)
-    #         stat = optimizePeriodsFinder(dft)
-    #     elseif dft.config["solver"]["Method"] == "squared error"
-    #         makeSquaredErrorPeriodsFinderModel(dft, optimizer_factory)
-    #         fix_periods!(dft)
-    #         stat = optimizePeriodsFinder(dft)
-    #     elseif dft.config["solver"]["Method"] == "grow algorithm"
-    #         @debug "Can't fix periods with this solution method"
-    #         RP = solveGrowAlgorithmForPeriodSelection(dft, optimizer_factory)
-    #         dft.rep_periods = RP
-    #         makeReOrderingPeriodsFinder(dft, optimizer_factory)
-    #         stat = optimizePeriodsFinder(dft)
-    #     elseif dft.config["solver"]["Method"] in ("chronological time period clustering", "hierarchical clustering")
-    #         timePeriodClustering(dft)
-    #         stat = MOI.OPTIMAL
-    #     else
-    #         error("Please specify solver method")
-    #     end
-
-
-    #     # write out results
-    #     # TODO: The checks below could be a bit more robust...
-    #     save_results = try_get_val(dft.config, "save_results", true)
-    #     create_plots_bool = get(dft.config, "create_plots", 1)
-    #     found_solution = (
-    #         dft.config["solver"]["Method"] in (
-    #             "chronological time period clustering",
-    #             "hierarchical clustering"
-    #             )
-    #         ||
-    #         has_values(dft.m)
-    #     )
-    #     if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && found_solution && save_results
-    #         writeOutResults(dft)
-    #         if create_plots_bool in (1,true)
-    #             create_plots(dft)
-    #         end
-    #     end
-    #     return dft
-    # end
-
-    # function find_representative_periods(config_file::String, optimizer_factory)
-    #     @info("Start RepresentativeDaysFinder")
-    #     if isfile(config_file)
-    #         dft = PeriodsFinder(config_file, populate_entries=true)
-    #         find_representative_periods(dft, optimizer_factory)
-    #     else
-    #         @error("Config-file not found $config_file")
-    #     end
-    # end
+    function find_representative_periods(config_file::String; kwargs...)
+        pf = PeriodsFinder(config_file, populate_entries=true)
+        find_representative_periods(pf; kwargs...)
+    end
 
 end
 
