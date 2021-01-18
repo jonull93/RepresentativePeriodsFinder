@@ -12,7 +12,7 @@ delete!(pf.config["method"]["options"], "ordering_error")
 delete!(pf.config["method"], "clustering")
 
 # Setup optimizer
-opt = optimizer_with_attributes(Gurobi.Optimizer, "TimeLimit" => 60)
+opt = optimizer_with_attributes(Cbc.Optimizer, "seconds" => 60)
 
 # Create and solve optimization problem
 find_representative_periods(pf, optimizer=opt, reset=true)

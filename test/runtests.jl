@@ -3,7 +3,7 @@ tests = [
 ]
 
 println("Starting tests")
-for t in tests
+for t in ["test_days_ordering.jl"]
   println("\n","#"^80)
   println("Running ", t,)
   println("#"^80, "\n")

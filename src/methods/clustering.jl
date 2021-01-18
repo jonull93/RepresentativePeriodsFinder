@@ -1,22 +1,26 @@
-function time_period_clustering(dft::PeriodsFinder)
+function time_period_clustering(pf::PeriodsFinder)
     # Notation is based on the following paper:
     # [1] S. Pineda and J. M. Morales, “Chronological time-period clustering for optimal capacity expansion planning with storage,” IEEE Trans. Power Syst., vol. 33, no. 6, pp. 7162–7170, 2018.
 
-    type = get(dft.config["solver"], "Method", "hierarchical clustering")
-    N = dft.N_total_periods # Initial number of clusters / periods
-    NC = dft.N_total_periods # Current number of clusters
-    NCD = dft.N_representative_periods # Desired number of cluster
-    ICM = [i for i in dft.periods] # Set of periods which are the mediod of a cluster -> indices are clusters, elements are periods which are mediods of that cluster
-    IP2C = [i for i in dft.periods] # A set which maps the periods to their clusters -> indices are periods, elements are clusters
-    IC2P = [[i] for i in dft.periods] # A set which maps clusters to their periods -> indices are clusters, periods are elements
+    opts = pf.config["method"]
+    type = recursive_get(opt, "clustering", "type", "hierarchical clustering")
+    N = get_number_of_periods(pf) # Initial number of clusters / periods
+    NC = get_number_of_periods(pf) # Current number of clusters
+    NCD = get_number_of_representative_periods(pf) # Desired number of cluster
+    periods = get_set_of_periods(pf)
+    norm_val = get_normalised_time_series_values(pf)
+    S = get_set_of_time_series_names(pf)
+    time_steps = get_set_of_time_steps(pf)
+    ts_weights = get_error_term_weights(pf)
+
+    ICM = [i for i in periods] # Set of periods which are the mediod of a cluster -> indices are clusters, elements are periods which are mediods of that cluster
+    IP2C = [i for i in periods] # A set which maps the periods to their clusters -> indices are periods, elements are clusters
+    IC2P = [[i] for i in periods] # A set which maps clusters to their periods -> indices are clusters, periods are elements
     x = [
-        [
-            Float32(dft.WEIGHT_DC[c] * dft.time_series[c].matrix_full_norm[i,t])
-            for c in dft.curves, t in dft.time_steps
-        ][:]
-        for i in dft.periods
+        [Float64(ts_weights[c] * norm_val[c][i,t]) for s in S, t in time_steps][:]
+        for i in periods
     ] # Cluster features vector
-    xbar = copy(x) # at least initially
+    xbar = copy(x) # Cluster centroids (i.e. averages)
 
     # TODO: Possible performance boosts:
     # 1. Changing the order of the for loops to be j then i ->
@@ -31,7 +35,7 @@ function time_period_clustering(dft::PeriodsFinder)
     # we only define the upper / lower triangle of the matrix
     # For hierarchical clustering, D is lower triangular and we compute 1/D
     # For CTPC, D is upper triangular with only diagonals defined
-    D = fill(Inf32, NC, NC)
+    D = fill(Inf64, NC, NC)
     # NOTE: Can also define D as UpperTriangular
     # but this leads to 0 entries which can be annoying when
     # trying to find the minimum
@@ -45,8 +49,8 @@ function time_period_clustering(dft::PeriodsFinder)
         end
         for i in istart:iend
             if i != j
-                num = Float32(2 * length(IC2P[i]) * length(IC2P[j]))
-                den = Float32(length(IC2P[i]) + length(IC2P[j]))
+                num = Float64(2 * length(IC2P[i]) * length(IC2P[j]))
+                den = Float64(length(IC2P[i]) + length(IC2P[j]))
                 @inbounds D[i,j] = num / den * sum((xbar[i][:] .- xbar[j][:]).^2)
             end
         end
@@ -57,11 +61,11 @@ function time_period_clustering(dft::PeriodsFinder)
     end
 
     # Mandatory periods enforcement
-    mandatoryPeriods = get(dft.config["solver"], "mandatoryPeriods", Int64[])
+    mandatoryPeriods = get(pf.config["solver"], "mandatoryPeriods", Int64[])
     replaceVal = if type == "hierarchical clustering"
-        Float32(0.0)
+        Float64(0.0)
     elseif type == "chronological time period clustering"
-        Inf32
+        Inf64
     end
     for i in mandatoryPeriods
         D[i,:] .= replaceVal
@@ -89,7 +93,7 @@ function time_period_clustering(dft::PeriodsFinder)
     end
 
     # Get intermediate periods
-    intermediatePeriods = get(dft.config["solver"], "intermediatePeriods", Int64[])
+    intermediatePeriods = get(pf.config["solver"], "intermediatePeriods", Int64[])
 
     # Run clustering
     while NC - length(mandatoryPeriods) > NCD
@@ -143,7 +147,7 @@ function time_period_clustering(dft::PeriodsFinder)
         (val, idxClust) = findmin(DC)
 
         # Set this as the cluster mediod
-        ICM[idx[1]] = dft.periods[IC2P[idx[1]][idxClust]]
+        ICM[idx[1]] = periods[IC2P[idx[1]][idxClust]]
 
         # Get rid of the "second" cluster in the cluster
         deleteat!(IC2P, idx[2])
@@ -200,45 +204,44 @@ function time_period_clustering(dft::PeriodsFinder)
             num = 2 * length(IC2P[i]) * length(IC2P[j])
             den = length(IC2P[i]) + length(IC2P[j])
             if type == "hierarchical clustering"
-                @inbounds D[i,j] = Float32(
+                @inbounds D[i,j] = Float64(
                     1 ./ (num / den * sum((xbar[i][:] .- xbar[j][:]).^2))
                 )
             else
-                @inbounds D[i,j] = Float32(
+                @inbounds D[i,j] = Float64(
                     num / den * sum((xbar[i][:] .- xbar[j][:]).^2)
                 )
             end
         end
 
         if NC in intermediatePeriods
-            calculate_rep_periods_from_clusters!(dft, ICM, IC2P, IP2C)
+            calculate_rep_periods_from_clusters!(pf, ICM, IC2P, IP2C)
             @warn "Currently I overwrite the saved stuff, ish sad"
             writeOutResults(
-                dft, joinpath(dft.config["result_dir"], string(NC))
+                pf, joinpath(pf.config["result_dir"], string(NC))
             )
         end
     end
 
     # Save the results
-    calculate_rep_periods_from_clusters!(dft, ICM, IC2P, IP2C)
+    calculate_rep_periods_from_clusters!(pf, ICM, IC2P, IP2C)
     return ICM, IC2P, IP2C, D
 end
 
 function calculate_rep_periods_from_clusters!(
-        dft::PeriodsFinder,
+        pf::PeriodsFinder,
         ICM,
         IC2P,
         IP2C
     )
-    dft.u = [i in ICM ? 1 : 0 for i in dft.periods]
-    dft.w = [i in ICM ? length(IC2P[IP2C[i]]) : 0 for i in dft.periods]
-    dft.v = zeros(length(dft.periods), length(dft.periods))
-    for i in dft.periods
+    pf.u = [i in ICM ? 1 : 0 for i in periods]
+    pf.w = [i in ICM ? length(IC2P[IP2C[i]]) : 0 for i in periods]
+    pf.v = zeros(length(periods), length(periods))
+    for i in periods
         j = # I'm pretty sure this line is unnecessary
-        dft.v[i,ICM[IP2C[i]]] = 1
+        pf.v[i,ICM[IP2C[i]]] = 1
     end
-    dft.rep_periods = sort(ICM)
-    dft.v = dft.v[:, dft.rep_periods]
-    @warn "Modified dft, make sure this doesn't bugger up the clustering"
-    return dft
+    pf.rep_periods = sort(ICM)
+    pf.v = pf.v[:, pf.rep_periods]
+    return pf
 end

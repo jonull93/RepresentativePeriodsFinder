@@ -1,0 +1,16 @@
+# See this template here: 
+# https://gitlab.com/tkpapp/GitlabJuliaDemo.jl/-/blob/master/.gitlab-ci.yml
+image: julia:1.5.0                # image comes from Docker hub
+
+before_script:
+  - apt-get -qq update; apt-get -y install git # obtain git
+  - julia --project=@. -e "import Pkg; Pkg.build()" # build the package
+
+test:
+  tags:
+    - mech
+  script:
+    - julia --project=@. -e "import Pkg; Pkg.test(; coverage=true)" # test the package
+  only:
+  - master
+  - dev
