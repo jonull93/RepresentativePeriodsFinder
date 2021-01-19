@@ -1,4 +1,5 @@
 using RepresentativePeriodsFinder
+RPF = RepresentativePeriodsFinder
 using JuMP
 using Cbc
 
@@ -11,15 +12,17 @@ delete!(pf.config["method"]["optimization"], "time_series_error")
 delete!(pf.config["method"]["options"], "ordering_error")
 delete!(pf.config["method"], "clustering")
 
+# Make life a bit easier for the optimiser, reduce the number of days
+pf.config["method"]["options"]["total_periods"] = 20
+
 # Setup optimizer
 opt = optimizer_with_attributes(Cbc.Optimizer, "seconds" => 60)
+# using Gurobi
+# opt = optimizer_with_attributes(Gurobi.Optimizer, "TimeLimit" => 60)
 
 # Create and solve optimization problem
-find_representative_periods(pf, optimizer=opt, reset=true)
+# find_representative_periods(pf, optimizer=opt, reset=true)
 
-# Try absolute error
+# Try absolute error (this is the only possibility with Cbc)
 pf.config["method"]["optimization"]["duration_curve_error"]["type"] = "absolute"
 find_representative_periods(pf, optimizer=opt, reset=true)
-
-# Clean up
-rm(RPF.get_abspath_to_result_dir(pf), recursive=true)

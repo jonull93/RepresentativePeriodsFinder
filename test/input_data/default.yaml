@@ -41,7 +41,7 @@ time_series:
 
 method:
   options: # Method agnostic options
-    mandatory_periods: [8]
+    mandatory_periods: [] # Leave empty to specify none
     total_periods: 365
     representative_periods: 8
     time_steps_per_period: 24
@@ -61,11 +61,11 @@ method:
     
     time_series_error:
       weight: 0.5
-      type: "absolute" # Or "absolute"
+      type: "squared" # Or "absolute"
     duration_curve_error:
       weight: 0.5
       number_bins: 40
-      type: "absolute" # Or "absolute"
+      type: "squared" # Or "absolute"
   
   clustering: # Only one method (opt or clust) can be specified!
     type: "hierarchical"

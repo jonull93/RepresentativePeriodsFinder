@@ -51,7 +51,7 @@ function optimize_periods_finder_model!(pf::PeriodsFinder, m::JuMP.Model = pf.m)
     optimize!(pf.m)
     stat = termination_status(pf.m)
 
-    if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && has_values(pf.m)
+    if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT, MOI.ITERATION_LIMIT] && has_values(pf.m)
         # Save selection variable as is
         pf.u = round.(var_value((pf.m.ext[:variables][:u])))
 
@@ -84,13 +84,14 @@ function optimize_periods_finder_model!(pf::PeriodsFinder, m::JuMP.Model = pf.m)
     return stat
 end
 
-
-
 function make_selection_variable!(pf::PeriodsFinder, m::JuMP.Model)
     rep_periods = get_set_of_representative_periods(pf)
     mandatory_periods = get_set_of_mandatory_periods(pf)
     if length(rep_periods) == length(mandatory_periods)
-        return m.ext[:variables][:u] = mandatory_periods
+        N_total = get_number_of_periods(pf)
+        u = zeros(Bool, N_total)
+        u[mandatory_periods] .= true
+        return m.ext[:variables][:u] = u
     else
         return m.ext[:variables][:u] = @variable(m, 
             [j in rep_periods], binary=true, base_name="u"
@@ -129,11 +130,11 @@ end
 
 function make_time_series_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
     S = get_set_of_time_series_names(pf)
-    rep_periods = get_set_of_representative_periods(pf)
+    periods = get_set_of_periods(pf)
     time_steps = get_set_of_time_steps(pf)
     return m.ext[:variables][:time_series_error] = @variable(m,
-        [s in S, i in rep_periods, t in time_steps], 
-        base_name = "dc_err", lower_bound = 0.0
+        [s in S, i in periods, t in time_steps], 
+        base_name = "ts_err", lower_bound = 0.0
     )
 end
 
@@ -190,7 +191,7 @@ function restrict_non_zero_weights_to_selected_periods!(
 end
 
 function enforce_yearly_equivalent_duration!(pf::PeriodsFinder, m::JuMP.Model)
-    rep_periods = get_set_of_periods(pf)
+    rep_periods = get_set_of_representative_periods(pf)
     N_total = get_number_of_periods(pf)
     w = m.ext[:variables][:w]
     return m.ext[:constraints][:equivalent_yearly_duration] = @constraint(m,
@@ -238,6 +239,50 @@ function enforce_minimum_weight!(pf::PeriodsFinder, m::JuMP.Model)
     ]
 end
 
+function define_time_series_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
+    ts_err_opt = pf.config["method"]["optimization"]["time_series_error"]
+    type = get(ts_err_opt, "type", "squared")
+    S = get_set_of_time_series_names(pf)
+    periods = get_set_of_periods(pf)
+    rep_periods = get_set_of_representative_periods(pf)
+    time_steps = get_set_of_time_steps(pf)
+    N_total = get_number_of_periods(pf)
+    x = get_normalised_time_series_values(pf)
+
+    @fetch time_series_error, v = m.ext[:variables]
+
+    if type == "squared"
+        duration_curve_error = @constraint(m,
+            [s in S, i in periods, t in time_steps],
+            time_series_error[s,i,t]
+            == 
+            + sum(v[i,j] * x[s][i,t] for j in rep_periods)
+            - x[s][i,t]
+        )
+    elseif type == "absolute"
+        reconstructed_time_series = @expression(m,
+            [s in S, i in periods, t in time_steps],
+            sum(v[i,j] * x[s][i,t] for j in rep_periods)
+        )
+        time_series_error_eq1 = @constraint(m, 
+            [s in S, i in periods, t in time_steps],
+            time_series_error[s,i,t]
+            >=
+            + reconstructed_time_series[s,i,t]
+            - x[s][i,t]
+        )
+        time_series_error_eq2 = @constraint(m, 
+            [s in S, i in periods, t in time_steps],
+            time_series_error[s,i,t]
+            >=
+            - reconstructed_time_series[s,i,t]
+            + x[s][i,t]
+        )
+        @assign time_series_error_eq1, time_series_error_eq2 = m.ext[:constraints]
+    end
+    return m
+end
+
 function define_duration_curve_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
     dc_err_opt = pf.config["method"]["optimization"]["duration_curve_error"]
     type = get(dc_err_opt, "type", "squared")
@@ -247,12 +292,15 @@ function define_duration_curve_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
     A = get_duration_curve_parameter(pf)
     L = get_discretised_duration_curve(pf)
     N_total = get_number_of_periods(pf)
+
     @fetch duration_curve_error, w = m.ext[:variables]
+
     if type == "squared"
         duration_curve_error = @constraint(m,
             [s in S, b in bins],
-            duration_curve_error[s][b] == 
-            sum(w[j] / N_total * A[s][j,b] for j in rep_periods)
+            duration_curve_error[s,b] == 
+            + sum(w[j] / N_total * A[s][j,b] for j in rep_periods)
+            - L[s][b]
         )
     elseif type == "absolute"
         duration_curve_error_eq1 = @constraint(m, 
@@ -272,18 +320,17 @@ function define_duration_curve_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
     return m
 end
 
-function define_time_series_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
-    return m
-end
-
 function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
     opt = pf.config["method"]["optimization"]
-    dc_err_type = recursive_get(opt, "duration_curve_error", "type", "absolute")
+    dc_err_type = recursive_get(opt, "duration_curve_error", "type", "squared")
+    ts_err_type = recursive_get(opt, "time_series_error", "type", "squared")
+
     ordering_errors = get_set_of_ordering_errors(pf)
     objective_term_weights = get_error_term_weights(pf)
     time_series_weights = get_time_series_weights(pf)
     periods = get_set_of_periods(pf)
     rep_periods = get_set_of_representative_periods(pf)
+    time_steps = get_set_of_time_steps(pf)
     bins = get_set_of_bins(pf)
     S = get_set_of_time_series_names(pf)
 
@@ -293,9 +340,8 @@ function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
     )
 
     @fetch duration_curve_error, time_series_error = m.ext[:variables]
-    dc_err_func(x) = dc_err_type == "absolute" ? x^2 : x
-
-    # @assert keys(objective_term_weights) == keys(objective_term_indices) == keys(objective_terms)
+    dc_err_func(x) = (dc_err_type == "squared" ? x^2 : x)
+    ts_err_func(x) = (ts_err_type == "squared" ? x^2 : x)
 
     obj = @objective(m, Min, 
         sum(
@@ -304,12 +350,13 @@ function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
                     dc_err_func(duration_curve_error[s,b]) for b in bins
                 )
                 + objective_term_weights["time_series_error"] * sum(
-                    time_series_error[s,i,j] for i in periods, j in rep_periods
+                    ts_err_func(time_series_error[s,i,t]) 
+                    for i in periods, t in time_steps
                 )
                 + sum(
                     objective_term_weights[ord_err] * sum(
                         ordering_error_expressions[ord_err][s][i,j]
-                        for i in periods, j in periods
+                        for i in periods, j in rep_periods
                     )
                     for ord_err in ordering_errors
                 )
@@ -317,21 +364,6 @@ function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
             for s in S
         )
     )
-    # for ot in keys(objective_terms), s in S
-    #     for idx in Iterators.product(objective_term_indices[ot]...)
-    #         try
-    #             objective_term_weights[ot] * time_series_weights[s] * objective_terms[ot][s][idx...]
-    #         catch e
-    #             @show ot
-    #             @show s
-    #             @show idx
-    #             @show objective_terms[ot][s][idx...]
-    #             @show objective_term_weights[ot]
-    #             @show time_series_weights[s]
-    #             throw(e)
-    #         end
-    #     end
-    # end
 
     return m.ext[:objective] = obj
 end
@@ -346,17 +378,15 @@ function ordering_error_expression!(
     x = get_normalised_time_series_values(pf)
     v = m.ext[:variables][:v]
 
-    # @show errorfunc( [1,2], [2,3])
-
     ord_err_expr = Dict(
-        s => [
-            @expression(m, v[i,j] * errorfunc(x[s][i,:], x[s][j,:]))
-            for i in periods, j in rep_periods
-        ]
+        s => @expression(m,
+            [i in periods, j in rep_periods],
+            v[i,j] * errorfunc(x[s][i,:], x[s][j,:])
+        )
         for s in S
     )
 
-    @assert all([all(length.(ord_err_expr[s]) .== 1) for s in S]) "$err_name must return scalar value."
+    @assert all([all(length.(ord_err_expr[s].data) .== 1) for s in S]) "$err_name must return scalar value."
     
     return m.ext[:expressions][Symbol(err_name)] = ord_err_expr
 end

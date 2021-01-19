@@ -3,6 +3,7 @@ RPF = RepresentativePeriodsFinder
 using JuMP
 using Cbc
 
+
 # Create PeriodsFinder
 config_file = normpath(joinpath(@__DIR__, "input_data", "default.yaml"))
 pf = PeriodsFinder(config_file, populate_entries=true)
@@ -12,6 +13,7 @@ N_total = RPF.get_number_of_periods(pf)
 pf.u = rand(Bool, N_total)
 rep_periods = RPF.get_set_of_representative_periods(pf)
 N_repr = length(rep_periods)
+pf.config["method"]["options"]["representative_periods"] = N_repr
 pf.v = zeros(Bool, N_total, N_total)
 for j in rep_periods
     pf.v[j, j] = 1

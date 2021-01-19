@@ -17,7 +17,8 @@ module RepresentativePeriodsFinder
     using Plots; gr()                       # -> output plots
     using JSON                              # -> output config file
     using SparseArrays                      # -> for the (sparse) ordering variable
-    using Cbc                               # -> free solver for tests
+    using Cbc                               # -> open source solver for tests
+    using Ipopt                             # -> For quadratic obj problems
     using LinearAlgebra                     # -> for e.g. transpose()
     using NamedTupleTools                   # -> for easy creation of NamedTuples
     using MathOptInterface                  # -> for solver queries
@@ -46,7 +47,8 @@ module RepresentativePeriodsFinder
     find_representative_periods,
     optimize_periods_finder_model!, make_periods_finder_model!,
     cluster_periods!,
-    create_plots, write_out_results
+    create_plots, create_synthetic_time_series_plots,
+    write_out_results, write_out_synthetic_timeseries
 
     # Some useful numbers
     max_periods = 365 # Number of periods before warning

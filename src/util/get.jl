@@ -17,9 +17,12 @@ end
 
 function get_set_of_mandatory_periods(pf::PeriodsFinder)
     # TODO: fix this
-    mandatory_periods = Int64[]
+
+    mandatory_periods = [Int64(i) for i in 
+        recursive_get(pf.config, "method", "options", "mandatory_periods", Int64[])
+    ]
     @assert length(mandatory_periods) <= get_number_of_representative_periods(pf) 
-    return mandatory_periods
+    return mandatory_periods::Vector{Int64}
 end
 
 function get_set_of_periods(pf::PeriodsFinder)
@@ -40,7 +43,7 @@ If representative periods have not been defined yet, returns `get_set_of_periods
 function get_set_of_representative_periods(pf::PeriodsFinder)
     if isdefined(pf, :u) && isempty(pf.u) == false &&
             length(pf.u) == get_number_of_periods(pf)
-        return [index for (index,value) in enumerate(pf.u) if value == true]
+        return [index for (index, value) in enumerate(pf.u) if value == true]
     else
         return get_set_of_periods(pf)
     end
@@ -172,6 +175,23 @@ end
 get_normalised_time_series_values(pf::PeriodsFinder, ts_name::String) = 
     get_normalised_time_series_values(pf, pf.time_series[ts_name])
 
+# TODO: reduce the number of lines of code
+function get_time_series_values(pf::PeriodsFinder)
+    vals = Dict{String,Array{Float64,2}}()
+    for (ts_name, ta) in get_set_of_time_series(pf)
+        start = meta(ta)["start"]
+        sampling_time = get_sampling_time(pf)
+        ntt = get_total_number_of_time_steps(pf)
+        timestamps = range(start, length=ntt, step=sampling_time)
+        vec = values(ta[timestamps])
+        npt = get_number_of_periods(pf)
+        ntpp = get_number_of_time_steps_per_period(pf)
+        vals[ts_name] = permutedims(reshape(vec, ntpp, npt), (2,1))
+    end
+    return vals
+end
+
+
 """
     get_discretised_duration_curve(pf::PeriodsFinder, ts_name::String)
 
@@ -255,5 +275,31 @@ function get_histogram_per_period(pf::PeriodsFinder)
 end
 
 function get_synthetic_time_series(pf::PeriodsFinder, ts_name::String)
+    return get_synthetic_time_series(pf, pf.time_series[ts_name])
+end
 
+function get_synthetic_time_series(pf::PeriodsFinder, ta::FloatTimeArray)
+    start = meta(ta)["start"]
+    sampling_time = get_sampling_time(pf)
+    ntt = get_total_number_of_time_steps(pf)
+    timestamps = range(start, length=ntt, step=sampling_time)
+    vec = values(ta[timestamps])
+    np = get_number_of_periods(pf)
+    ntpp = get_number_of_time_steps_per_period(pf)
+    array = permutedims(reshape(vec, ntpp, np), (2,1))
+    rep_periods = get_set_of_representative_periods(pf)
+    
+    v = pf.v
+    data = Float64[]
+    for i in 1:np
+        for t in 1:ntpp
+            push!(data, v[i,:]' * array[rep_periods,t])
+        end
+    end
+    
+    return TimeArray(
+        timestamp(ta[timestamps]), 
+        hcat(values(ta[timestamps]), data), 
+        [:original, :synthetic], meta(ta)
+    )
 end

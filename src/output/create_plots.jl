@@ -34,8 +34,8 @@ function create_plots(pf::PeriodsFinder,
         xaxis!("Duration [%]", 0:10:100)
         yaxis!("Curve [-]")
 
-        file_pdf = joinpath(result_dir, "$(ts_name).svg")
-        savefig(file_pdf)
+        file_svg = joinpath(result_dir, "$(ts_name)_duration_curve.svg")
+        savefig(file_svg)
     end
 
     # Heatmap of ordering variable v, if v isn't too big
@@ -53,4 +53,36 @@ function create_plots(pf::PeriodsFinder,
         )
         savefig(p, joinpath(result_dir, "ordering_heatmap.svg"))
     end
+    return nothing
+end
+
+"""
+    create_synthetic_time_series_plots(pf::PeriodsFinder,
+        result_dir::String = get_abspath_to_result_dir(pf);
+        timestamps
+    )
+
+Creates plots of original and synthetic time series for the ranges in `timestamp` and saves them in `result_dir`.
+
+# Example
+```julia
+timestamps = Dict("Load" => DateTime(1970,1,1):Hour(1):DateTime(1970,1,2))
+# result_dir not specified, since it is specified in pf.config 
+create_synthetic_time_series_plots(pf; timestamps=timestamps)
+```
+"""
+function create_synthetic_time_series_plots(pf::PeriodsFinder,
+        result_dir::String = get_abspath_to_result_dir(pf);
+        timestamps = Dict{String,Vector{DateTime}}()
+    )
+    mkrootdirs(result_dir)
+    for (ts_name, ts) in get_set_of_time_series(pf)
+        tstamp = haskey(timestamps, ts_name) ? timestamps[ts_name] : timestamp(ts)
+        p = Plots.plot(
+            get_synthetic_time_series(pf, ts)[tstamp],
+            title=ts_name,
+        )
+        savefig(p, joinpath(result_dir, "$(ts_name)_synthetic_time_series.svg"))
+    end
+    return nothing
 end
