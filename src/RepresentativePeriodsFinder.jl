@@ -22,6 +22,7 @@ module RepresentativePeriodsFinder
     using LinearAlgebra                     # -> for e.g. transpose()
     using NamedTupleTools                   # -> for easy creation of NamedTuples
     using MathOptInterface                  # -> for solver queries
+    using FileIO                            # -> to redefine load and save     
 
     # Utility
     include("util/types.jl")
@@ -41,6 +42,7 @@ module RepresentativePeriodsFinder
     # Outputs and results
     include("output/create_plots.jl")
     include("output/write_out_results.jl")
+    include("output/load.jl")
 
     # Exported methods
     export PeriodsFinder, populate_entries!, 
@@ -48,7 +50,8 @@ module RepresentativePeriodsFinder
     optimize_periods_finder_model!, make_periods_finder_model!,
     cluster_periods!,
     create_plots, create_synthetic_time_series_plots,
-    write_out_results, write_out_synthetic_timeseries
+    write_out_results, write_out_synthetic_timeseries,
+    save, load
 
     # Some useful numbers
     max_periods = 365 # Number of periods before warning

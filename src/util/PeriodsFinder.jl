@@ -34,12 +34,14 @@ mutable struct PeriodsFinder
         pf.time_series = Dict{String,TimeArray}()
     end
 
-    function PeriodsFinder(config_file::String; populate_entries::Bool=false)
+    function PeriodsFinder(config_file::String;     
+            populate_entries::Bool=false
+        )
         pf = new()
         pf.config_file = config_file
         @assert isfile(config_file)
         pf.config = YAML.load(open(config_file))
-        pf.config["base_dir"] = dirname(config_file)
+        !(haskey(pf.config, "base_dir")) && (pf.config["base_dir"] = dirname(config_file))
         pf.time_series = Dict{String,TimeArray}()
 
         if populate_entries == true
@@ -50,13 +52,13 @@ mutable struct PeriodsFinder
     end
 
     # Pretty prints of long term planning model
-    function Base.print(io::IO, dft::PeriodsFinder)
+    function Base.print(io::IO, pf::PeriodsFinder)
         println(io, "Representative Periods Finder")
-        println(io, "Configuration file: \n\t$(dft.config_file)")
+        println(io, "Configuration file: \n\t$(pf.config_file)")
     end
 
-    function Base.show(io::IO, dft::PeriodsFinder)
-        print(io, dft)
+    function Base.show(io::IO, pf::PeriodsFinder)
+        print(io, pf)
     end
 end
 

@@ -12,7 +12,7 @@ covered_lines, total_lines = get_summary(processed)
 percentage = covered_lines / total_lines * 100
 print("""
 \n\n\n
-($(percentage)%) covered
+Code coverage: $(percentage)%
 \n\n\n
 """)
 

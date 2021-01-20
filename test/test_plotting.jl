@@ -3,7 +3,6 @@ RPF = RepresentativePeriodsFinder
 using JuMP
 using Cbc
 
-
 # Create PeriodsFinder
 config_file = normpath(joinpath(@__DIR__, "input_data", "default.yaml"))
 pf = PeriodsFinder(config_file, populate_entries=true)

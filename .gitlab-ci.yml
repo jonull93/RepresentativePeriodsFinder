@@ -11,6 +11,9 @@ test:
     - mech
   script:
     - julia --project=@. -e "import Pkg; Pkg.test(; coverage=true)" # test the package
+    - julia --project=test/coverage -e 'import Pkg; Pkg.instantiate()'
+    - julia --project=test/coverage test/coverage/coverage_summary.jl
+  coverage: '/Code coverage: \d+\.\d+/'
   only:
   - master
   - dev

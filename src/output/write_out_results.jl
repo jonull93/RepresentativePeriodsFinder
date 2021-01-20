@@ -1,4 +1,11 @@
 """
+    save(pf::PeriodsFinder, args; kwargs)
+
+Alias for `write_out_results`.
+"""
+FileIO.save(pf::PeriodsFinder, args...; kwargs...) = write_out_results(pf, args...; kwargs...)
+
+"""
     write_out_results(pf::PeriodsFinder,
         result_dir::String = get_abspath_to_result_dir(pf);
     )
@@ -58,14 +65,10 @@ function write_out_results(
         optStatus = Dict(
             "objective_value" => obj_val,
             "objective_bound" => obj_bound,
-            "optimality_gap" => (obj_val - obj_bound)/obj_val * 100
+            "optimality_gap_percentage" => (obj_val - obj_bound)/obj_val * 100
         )
-    else
-        optStatus = Dict(
-            "solution_method" => pf.config["solver"]["Method"]
-        )
+        YAML.write_file(joinpath(result_dir, "optimization_results.yaml"), optStatus)
     end
-    YAML.write_file(joinpath(result_dir, "optimization_results.yaml"), optStatus)
 
     return pf
 end
