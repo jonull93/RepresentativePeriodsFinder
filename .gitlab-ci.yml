@@ -23,8 +23,9 @@ pages:
     - mech
   stage: deploy
   script:
-    - julia --project=docs -e 'using Pkg; Pkg.instantiate(); @show pwd();' # Pkg.develop(path=".")' # Instantiate this repository and dev the package (why dev?)
-    - julia --project=docs --color=yes docs/make.jl
+    - julia --project=docs -e 'using Pkg; Pkg.instantiate(); Pkg.develop(path=pwd())' 
+    # Instantiate docs environment and dev the package to add it to environment
+    - julia --project=docs --color=yes docs/make.jl # build the docs
     - mv docs/build public # move to the directory picked up by Gitlab pages
   artifacts:
     paths:
