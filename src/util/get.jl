@@ -25,6 +25,21 @@ function get_set_of_mandatory_periods(pf::PeriodsFinder)
     return mandatory_periods::Vector{Int64}
 end
 
+function get_set_of_intermediate_periods(pf::PeriodsFinder)
+    intermediate_periods = [Int64(i) for i in 
+        recursive_get(pf.config, "method", "clustering", 
+            "intermediate_periods", Int64[]
+        )
+    ]
+    if isempty(intermediate_periods) == false
+        @assert length(intermediate_periods) < get_number_of_periods(pf)
+        @assert maximum(intermediate_periods) <= get_number_of_periods(pf)
+        @assert minimum(intermediate_periods) >= get_number_of_representative_periods(pf)
+        @assert length(unique(intermediate_periods)) == length(intermediate_periods)
+    end
+    return intermediate_periods::Vector{Int64}
+end
+
 function get_set_of_periods(pf::PeriodsFinder)
     periods = 1:get_number_of_periods(pf)
     return periods::UnitRange{Int64}
@@ -95,13 +110,15 @@ function get_bin_interval_values(pf::PeriodsFinder, ts_name::String)
 end
 
 function get_error_term_weights(pf::PeriodsFinder)
-    opt = pf.config["method"]["optimization"]
     opt_general = pf.config["method"]["options"]
     ord_errs = get_set_of_ordering_errors(pf)
     weights = Dict{String,Float64}()
 
-    for err in ["time_series_error", "duration_curve_error"]
-        weights[err] = recursive_get(opt, err, "weight", 0.0)
+    if haskey(pf.config["method"], "optimization")
+        opt = pf.config["method"]["optimization"]
+        for err in ["time_series_error", "duration_curve_error"]
+            weights[err] = recursive_get(opt, err, "weight", 0.0)
+        end
     end
 
     for err in ord_errs

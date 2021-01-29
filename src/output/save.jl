@@ -1,22 +1,19 @@
 """
-    save(pf::PeriodsFinder, args; kwargs)
+    save(pf::PeriodsFinder, result_dir::String = get_abspath_to_result_dir(pf);)
 
-Alias for `write_out_results`.
+Writes out the representative periods selected by `pf` to `.csv` files in `result_dir`.
 """
 FileIO.save(pf::PeriodsFinder, args...; kwargs...) = write_out_results(pf, args...; kwargs...)
 
 """
-    write_out_results(pf::PeriodsFinder,
-        result_dir::String = get_abspath_to_result_dir(pf);
-    )
+    write_out_results
 
-Writes out the representative periods selected by `pf` to `.csv` files in `result_dir`.
+Alias for `save`.
 """
 function write_out_results(
         pf::PeriodsFinder,
         result_dir::String = get_abspath_to_result_dir(pf),
     )
-    result_dir = get_abspath_to_result_dir(pf)
     mkrootdirs(result_dir)
 
     # Selection and weights

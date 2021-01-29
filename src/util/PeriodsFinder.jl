@@ -1,5 +1,7 @@
 """
     PeriodsFinder(config_file::String; populate_entries::Bool=false)
+
+Type used for finding representative periods in a time series (see `find_representative_periods`). If `populate_entries=true` then time series are loaded into `pf`.
 """
 mutable struct PeriodsFinder
     ###########################################################################
@@ -85,7 +87,7 @@ function populate_entries!(pf::PeriodsFinder)
        
     pf.x = Dict{String,Array{Float64,2}}()
 
-    # Instantiate inputs
+    # Instantiate inputs, load error functions
     ord_err_names = get_set_of_ordering_errors(pf)
     pf.inputs = Dict(
         :ordering_error_functions => Dict{String,Function}(
@@ -94,74 +96,6 @@ function populate_entries!(pf::PeriodsFinder)
             # Do this now to avoid "new world" issues
         )
     )
-
-    # pf.time_series = Dict()
-    # pf.curves = Array{String,1}()
-    # for ts_config in pf.config["time_series"]
-    #     println("-"^100)
-
-    #     ts = TimeSeries(pf, ts_config)
-    #     addTimeSeries!(pf, ts)
-
-    #     println("$(ts.name) added")
-
-    #     ##################################################################################
-    #     # Dynamics profiles
-    #     ##################################################################################
-    #     if pf.config["dynamics_method"] == "all_1step"
-    #         println("-"^100)
-
-    #         ts_diff = TimeSeries(pf, ts, :all_1step)
-    #         addTimeSeries!(pf, ts_diff)
-
-    #         println("$(ts_diff.name) added")
-    #     end
-    # end
-
-    # ##################################################################################
-    # # Parameters
-    # ##################################################################################
-    # pf.WEIGHT_DC                  = Dict()
-    # pf.A                          = Dict()
-    # pf.L                          = Dict()
-
-    # pf.AREA_TOTAL                 = Dict()
-    # pf.AREA_TOTAL_DAY             = Dict()
-
-    # pf.N_representative_periods   = try_get_val(pf.config, "number_days", 8)
-    # pf.N_total_periods            = try_get_val(pf.config, "number_days_total", 365)
-
-    # ##################################################################################
-    # # Sets
-    # ##################################################################################
-    # pf.bins =     ["b" * string(b, pad=pad) for b in range(1, stop=pf.config["number_bins"])]
-
-    # lenP = pf.N_total_periods
-    # pf.periods = 1:lenP
-
-    # # TODO: this should just be timeseries length / N_periods
-    # # But this makes an assumption on the length of the timeseries, so eh...
-    # lenT = try_get_val(pf.config, "time_steps_per_period", 24)
-    # pf.time_steps = 1:lenT
-
-    # ##################################################################################
-    # # Correlation
-    # ##################################################################################
-    # if pf.config["correlation_method"] == "all"
-    #     ts_basic = [ts.name for ts in values(pf.time_series) if ts.time_series_type == :basic]
-    #     for combi in combinations(ts_basic, 2)
-    #         println("-"^100)
-    #         ts1 = pf.time_series[combi[1]]
-    #         ts2 = pf.time_series[combi[2]]
-    #         ts = TimeSeries(pf, ts1, ts2)
-    #         addTimeSeries!(pf, ts)
-
-    #         println("$(ts.name) added")
-    #     end
-    # end
-
-    # # misc dictionary
-    # pf.misc = Dict()
 
     return pf
 end

@@ -1,12 +1,3 @@
-# TODO: try_get_val is actually implemnted in Base as `get` - just use that...
-function try_get_val(d::AbstractDict, k, default=0.0)
-    if haskey(d, k)
-        return d[k]
-    else
-        return default
-    end
-end
-
 function config_get(d1::AbstractDict, d2::AbstractDict, k::String, default::Any)
     if haskey(d1, k)
         return d1[k]
@@ -29,14 +20,14 @@ function mkrootdirs(dir::String)
 end
 
 function recursive_get(d, args...)
-    if length(args) > 2
+    if length(args) > 1
         if haskey(d, args[1])
             recursive_get(d[args[1]], args[2:end]...)
-        else 
+        else
             return args[end]
         end
     else
-        return d[args[1]]
+        return d # if length(args) > 1 then d is the value you want
     end
 end
 
@@ -63,7 +54,6 @@ var_value(x::AbstractArray) = x
 var_value(x::Array{VariableRef,1}) = value.(x)
 var_value(x::Array{VariableRef,2}) = value.(x)
 
-
 import Base.length
 Base.length(expr::JuMP.GenericAffExpr) = 1
 
@@ -79,6 +69,8 @@ function get_number_of_clusters_of_adjacent_values(x::AbstractVector)
     end
     return numAdj
 end
+
+# TODO: the below can be done using the UnPack package!
 
 """
     @fetch x, y, ... = d

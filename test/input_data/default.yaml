@@ -70,7 +70,7 @@ method:
   clustering: # Only one method (opt or clust) can be specified!
     type: "hierarchical"
     force_adjacent: true # true for chronological time period clustering
-    intermediary_periods: [] # specify intermediary results to save
+    intermediate_periods: [] # specify intermediary results to save
 
 
 # Output options

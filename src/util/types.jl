@@ -8,7 +8,7 @@ FloatTimeArray = TimeArray{Float64,1,DateTime,Array{Float64,1}}
 """
     MissingFloatTimeArray = TimeArray{T,1,DateTime,A} where T <: Union{Missing, Float64}, A <: Array{Union{Missing, Float64},1}
 
-The concrete TimeArray type during processing.
+A concrete TimeArray type.
 """
 MissingFloatTimeArray = TimeArray{T,1,DateTime,A} where T <: Union{Missing, Float64} where A <: Array{Union{Missing, Float64},1}
 

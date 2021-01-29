@@ -41,7 +41,7 @@ module RepresentativePeriodsFinder
 
     # Outputs and results
     include("output/create_plots.jl")
-    include("output/write_out_results.jl")
+    include("output/save.jl")
     include("output/load.jl")
 
     # Exported methods
@@ -56,8 +56,8 @@ module RepresentativePeriodsFinder
     # Some useful numbers
     max_periods = 365 # Number of periods before warning
     clust_options = (
-        "chronological time period clustering",
-        "hierarchical clustering"
+        "chronological",
+        "hierarchical"
     )
 
     """
@@ -98,7 +98,7 @@ module RepresentativePeriodsFinder
         # Safety measure against having too many periods
         if get_number_of_periods(pf) > max_periods && method == "optimization"
             @warn """
-                Number of periods is greater than $max_periods and selection algorithm is $method. This could crash Julia if you are also ordering periods.
+            Number of periods is greater than $max_periods and selection algorithm is $method. This could crash Julia if you are also ordering periods.
             """
         end
 
@@ -113,13 +113,12 @@ module RepresentativePeriodsFinder
             error("""Selection method is $method, must be either "optimization" or "clustering".""")
         end
 
-        # write out results
-        # TODO: The checks below could be a bit more robust...
+        # Write out results
         save_results = recursive_get(pf.config, "results", "save_results", true)
         create_plots_bool = recursive_get(
             pf.config, "results", "create_plots", true
         )
-        found_solution = (method in clust_options || has_values(pf.m))
+        found_solution = (method == "clustering" || has_values(pf.m))
         if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT] && found_solution
             save_results && write_out_results(pf)
             create_plots_bool && create_plots(pf)
