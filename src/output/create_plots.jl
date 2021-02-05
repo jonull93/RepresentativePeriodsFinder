@@ -1,56 +1,88 @@
-############################## Copyright (C) 2019  #############################
-#       The content of this file is VITO (Vlaamse Instelling voor              #
-#       Technologisch Onderzoek  N.V.) proprietary.                            #
-################################################################################
-function create_plots(dft::DaysFinderTool)
-    result_dir = normpath(joinpath(dft.config["basedir"], dft.config["result_dir"], "plots"))
-    if !isdir(result_dir)
-        mkdir(result_dir)
-    end
+"""
+    create_plots(pf::PeriodsFinder, result_dir::String)
 
-    w = [dft.w[k] for k in sort([k for k in keys(dft.w)])]
-    u = [dft.u[k] for k in sort([k for k in keys(dft.u)])]
+Creates plots of original and aggregated duration curves and a heatmap of the ordering variable `v` if applicable and saves them in `result_dir`.
+"""
+function create_plots(pf::PeriodsFinder,
+        result_dir::String = get_abspath_to_result_dir(pf)
+    )
+    mkrootdirs(result_dir)
+    rep_periods = get_set_of_representative_periods(pf)
+    periods = get_set_of_periods(pf)
+    weights = pf.w[rep_periods]
+    ntp = get_number_of_time_steps_per_period(pf)
 
-    periods_with_weight = [i for (i,k) in enumerate(sort([k for k in keys(dft.w)])) if dft.w[k]>0]
-    weights = [ww for ww in w if ww > 0]
-
-    for ts in values(dft.time_series)
+    for (ts_name, ts) in get_set_of_time_series(pf)
 
         # Original
-        x = [x for x in range(1,stop=length(ts.data_norm))/length(ts.data_norm)*100.]
-        y = sort(ts.data_norm, rev=true)
-        plot(x, y, xlim=(0, 100), dpi=300, size = (1000, 1000/28*21), label="original")
+        norm_val = get_normalised_time_series_values(pf, ts_name)
+        nt = get_total_number_of_time_steps(pf)
+        x = [x for x in range(1,stop=nt) / nt * 100.0]
+        y = sort(norm_val[:], rev=true)
+        p = Plots.plot(
+            x, y, xlim=(0, 100), dpi=300, size = (800, 800/28*21), 
+            label="Original"
+        )
 
         # Reduced
-        y = ts.matrix_full_norm[periods_with_weight,:]'[:]
-        x = (weights * ones(1, size(ts.matrix_full_norm)[2]))'[:] / length(ts.data_norm) * 100.
-        df2 = sort(DataFrame(x=x, y=y, legend="reduced"), [:y], rev=true)
-        df2[!,:x] = cumsum(df2[!,:x])
-        plot!(df2.x, df2.y, label="reduced")
+        y = norm_val[rep_periods,:]'[:]
+        x = (weights * ones(1, ntp))'[:] / nt * 100.0
+        df = sort(DataFrame(x=x, y=y, legend="reduced"), :y, rev=true)
+        df[!,:x] = cumsum(df[!,:x])
 
-        xaxis!("Duration [-]", 0:10:100)
+        Plots.plot!(p, df.x, df.y, label="Aggregated", title=ts_name)
+        xaxis!("Duration [%]", 0:10:100)
         yaxis!("Curve [-]")
-        title!(ts.name)
 
-        file_pdf = joinpath(result_dir, "$(ts.name).pdf")
-
-        savefig(file_pdf)
+        file_svg = joinpath(result_dir, "$(ts_name)_duration_curve.svg")
+        savefig(file_svg)
     end
-    #######################################################################
-    # Show heatmap of sorting variable
-    #######################################################################
-    if any(values(dft.v) .> 0) && all(size(dft.v) .< 1000)
-        v = zeros(length.([dft.periods,dft.periods])...)
-        v[:, dft.rep_periods] = dft.v
-        p = heatmap(
+
+    # Heatmap of ordering variable v, if v isn't too big
+    if isdefined(pf, :v) && any(values(pf.v) .> 0) && all(size(pf.v) .< 1000)
+        v = zeros(length.([periods, periods])...)
+        v[:, rep_periods] = pf.v
+        p = Plots.heatmap(
             v,
             ylabel = "Sum = Ordering of periods",
             xlabel = "Sum = Weighting of rep. period",
             title = "Diagonal = Selection of rep. period",
             aspect_ratio=:equal,
-            xlim=[minimum(dft.periods),maximum(dft.periods)],
-            ylim=[minimum(dft.periods),maximum(dft.periods)],
+            xlim=[minimum(periods), maximum(periods)],
+            ylim=[minimum(periods), maximum(periods)],
         )
-        savefig(p, joinpath(result_dir, "ordering_heatmap.pdf"))
+        savefig(p, joinpath(result_dir, "ordering_heatmap.svg"))
     end
+    return nothing
+end
+
+"""
+    create_synthetic_time_series_plots(pf::PeriodsFinder,
+        result_dir::String = get_abspath_to_result_dir(pf);
+        timestamps
+    )
+
+Creates plots of original and synthetic time series for the ranges in `timestamp` and saves them in `result_dir`.
+
+# Example
+```julia
+timestamps = Dict("Load" => DateTime(1970,1,1):Hour(1):DateTime(1970,1,2))
+# result_dir not specified, since it is specified in pf.config 
+create_synthetic_time_series_plots(pf; timestamps=timestamps)
+```
+"""
+function create_synthetic_time_series_plots(pf::PeriodsFinder,
+        result_dir::String = get_abspath_to_result_dir(pf);
+        timestamps = Dict{String,Vector{DateTime}}()
+    )
+    mkrootdirs(result_dir)
+    for (ts_name, ts) in get_set_of_time_series(pf)
+        tstamp = haskey(timestamps, ts_name) ? timestamps[ts_name] : timestamp(ts)
+        p = Plots.plot(
+            get_synthetic_time_series(pf, ts)[tstamp],
+            title=ts_name,
+        )
+        savefig(p, joinpath(result_dir, "$(ts_name)_synthetic_time_series.svg"))
+    end
+    return nothing
 end

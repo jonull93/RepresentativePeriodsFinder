@@ -1,87 +1,45 @@
-# RepresentativeDaysFinders.jl
+# RepresentativePeriodsFinder
 
+This is a Julia package to select representative periods from time series data, typically to then be used in capacity expansion planning models. For more information see the [documentation](https://ucm.pages.gitlab.kuleuven.be/representativedaysfinder.jl/).
 
-A Julia Module to  
+## Installation
 
-## Getting started
+* `RepresentativePeriodsFinder` can be added via the Julia package manager (type `]`): `pkg> add https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl`
 
-### Installation
-
-While in the Julia REPL, press the "]" key to get to the package manager REPL mode (this is similar to `using Pkg`).
-
-```julia
-(v1.1) pkg> add git@gitlab.mech.kuleuven.be:UCM/RepresentativeDaysFinder.jl.git
-```
-
-This will install `representativedaysfinder.jl` as well as all its dependencies
-
-For devoloping the package clone it to <path_to_git_clone> and
+## Basic useage
 
 ```julia
-(v1.1) pkg> dev <path_to_git_clone>
+using RepresentativePeriodsFinder, Cbc
+config_file = <path_to_config_file>
+find_representative_periods(config_file, optimizer=Cbc.Optimizer)
 ```
+For more information see the [documentation](https://ucm.pages.gitlab.kuleuven.be/representativedaysfinder.jl/).
 
-### Useage
-Required are:
-- A `.yaml` configuration file (see `examples` for inspiration)
-- A `.csv` file (or several) containing demand / total load and normalised generation profiles for wind and solar
-
-Important contents of the config file:
-- Your timeseries properties (e.g. number of days, sampling time)
-- Your choice of solution method / optimiser
-- The path to your `.csv` data files along with column names - make sure this is filled in correctly!
-
-The annoying thing is that currently you're going to have to do some pre-processing of your timeseries - you can't just download them from ENTSO-E and have done with it.
-
-### Upgrading
-
-To upgrade to the most recent version of `representativedaysfinder.jl`, run
-
-
-```julia
-(v1.1) pkg> up RepresentativeDaysFinders
-```
-
-### Usage
-
-Run:
-
-```julia
-using RepresentativeDaysFinders
-using JuMP
-using GLPK
-
-# Specify location of config-file
-
-config_file = normpath(joinpath(@__DIR__, "scenarios", "DE_DK_2015_1.yaml"))
-
-findRepresentativeDays(config_file, with_optimizer(GLPK.Optimizer; presolve=true, msg_lev=GLPK.MSG_ALL))
-```
 ## Trouble shooting
-If issues with GR-engine occur just build GR package:
+If issues with GR-engine occur build the `GR` package:
 
 ```julia
-(v1.1) pkg> build GR
+pkg> build GR
 ```
+
+## Reporting issues and feature requests
+
+If you have any issues or feature requests, report them on GitLab and mention `@steffen.kaminski` or `@u0128861`. Most of the GitLab issues already there are just waiting for someone to motivate their implementation.
+
+## Alternative packages
+
+* [TimeSeriesClustering.jl](https://holgerteichgraeber.github.io/TimeSeriesClustering.jl/stable/quickstart/)
 
 ## Developers
 
 ```julia
-julia> cd("<path_to_git_clone>")
-(v1.1) pkg> activate <path_to_git_clone>
+julia> ENV["JULIA_PKG_DEVDIR"] = "<path_to_dir_of_choice>"
+pkg> dev "https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl"
 ```
-If you add packages now they're added to the `Project.toml` file.
 
-If you edit or create a function and want to test it (without killing Julia, starting it again and running `using RepresentativeDaysFinders`), simply run / execute that function (or the entire file, e.g. `TimeSeries.jl`). 
-
-## Documentation
-
-...
-
-## Reporting Issues and Contributing
-
-If you have any issues, report them on GitLab and mention '@steffen.kaminski' (will speed up response to the issue).
+## Acknowledgements
+This package is largely based on the [paper](https://www.mech.kuleuven.be/en/tme/research/energy_environment/Pdf/wp-2015-10b.pdf) and work of Kris Poncelet and Hanspeter Höschle where optimisation instead of clustering techniques were used to select representative days. This method was initially implemented in GAMS. An first Julia version was later implemented by Hanspeter Höschle while he was working at [VITO](https://vito.be/en). This was further developed by Sebastian Gonzato for a [paper on long term storage](https://www.mech.kuleuven.be/en/tme/research/energy-systems-integration-modeling/pdf-publications/wp-esim2021-1).
 
 ## License
 
-...
+This project is licensed under the GNU General Public License (GPL) v3.0 or later - see the `LICENSE.md` file for details.

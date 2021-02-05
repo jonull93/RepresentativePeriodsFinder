@@ -1,0 +1,35 @@
+# See this template here: 
+# https://gitlab.com/tkpapp/GitlabJuliaDemo.jl/-/blob/master/.gitlab-ci.yml
+image: julia:1.5.0                # image comes from Docker hub
+
+before_script:
+  - apt-get -qq update; apt-get -y install git # obtain git
+  - julia --project=@. -e "import Pkg; Pkg.build()" # build the package
+
+test:
+  tags:
+    - mech
+  script:
+    - julia --project=@. -e "import Pkg; Pkg.test(; coverage=true)" # test the package
+    - julia --project=test/coverage -e 'import Pkg; Pkg.instantiate()' # Setup coverage environment
+    - julia --project=test/coverage test/coverage/coverage_summary.jl # run coverage summary
+  coverage: '/Code coverage: \d+\.\d+/' # Regex expression to determine coverage
+  only:
+  - master
+  - dev
+
+pages:
+  tags:
+    - mech
+  stage: deploy
+  script:
+    - julia --project=docs -e 'using Pkg; Pkg.instantiate(); Pkg.develop(path=pwd())' 
+    # Instantiate docs environment and dev the package to add it to environment
+    - julia --project=docs --color=yes docs/make.jl # build the docs
+    - mv docs/build public # move to the directory picked up by Gitlab pages
+  artifacts:
+    paths:
+      - public
+  only:
+    - master
+    - dev

@@ -1,14 +1,11 @@
-using RepresentativeDaysFinders: DaysFinderTool
-using Test
-using YAML
+tests = [
+    f for f in readdir(@__DIR__) if !(isnothing(match(r"test_", f))) && !(isnothing(match(r".jl", f)))
+]
 
-@testset "RepresentativeDaysFinders" begin
-    config_file = joinpath(@__DIR__, "data", "unit_testing.yaml")
-    global dft = DaysFinderTool(config_file)
-
-    @testset "TimeSeries" begin
-
-        include("time_series/test_TimeSeries.jl")
-
-    end
+println("Starting tests")
+for t in ["test_days_ordering.jl"]
+  println("\n","#"^80)
+  println("Running ", t,)
+  println("#"^80, "\n")
+  include(t)
 end
