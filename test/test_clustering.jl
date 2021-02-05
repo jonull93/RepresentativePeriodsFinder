@@ -29,6 +29,5 @@ create_synthetic_time_series_plots(pf, timestamps=Dict(
     )
 )
 
-
 # Clean up
 rm(RPF.get_abspath_to_result_dir(pf), recursive=true)

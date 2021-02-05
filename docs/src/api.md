@@ -1,5 +1,15 @@
 # API Reference
 
 ```@docs
+RepresentativePeriodsFinder.PeriodsFinder
+
 RepresentativePeriodsFinder.find_representative_periods
+
+RepresentativePeriodsFinder.save
+
+RepresentativePeriodsFinder.create_synthetic_time_series_plots
+
+RepresentativePeriodsFinder.write_out_synthetic_timeseries
+
+RepresentativePeriodsFinder.load
 ```

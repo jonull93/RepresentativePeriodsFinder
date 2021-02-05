@@ -20,6 +20,7 @@ pf.u[rep_periods] .= 1
 # Delete clustering entries and ensure problem is linear
 delete!(pf.config["method"], "clustering")
 delete!(pf.config["method"]["optimization"], "duration_curve_error")
+# delete!(pf.config["method"]["optimization"], "time_series_error")
 pf.config["method"]["optimization"]["binary_ordering"] = false
 pf.config["method"]["options"]["mandatory_periods"] = rep_periods
 

@@ -1,3 +1,8 @@
+"""
+    make_periods_finder_model!(pf::PeriodsFinder, optimizer)
+
+Builds a JuMP model to select and/or order representative periods and assigns it to `pf.m`.
+"""
 function make_periods_finder_model!(
         pf::PeriodsFinder, optimizer=Cbc.Optimizer
     )
@@ -322,8 +327,8 @@ end
 
 function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
     opt = pf.config["method"]["optimization"]
-    dc_err_type = recursive_get(opt, "duration_curve_error", "type", "squared")
-    ts_err_type = recursive_get(opt, "time_series_error", "type", "squared")
+    dc_err_type = recursive_get(opt, "duration_curve_error", "type", "linear")
+    ts_err_type = recursive_get(opt, "time_series_error", "type", "linear")
 
     ordering_errors = get_set_of_ordering_errors(pf)
     objective_term_weights = get_error_term_weights(pf)
@@ -340,8 +345,22 @@ function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
     )
 
     @fetch duration_curve_error, time_series_error = m.ext[:variables]
-    dc_err_func(x) = (dc_err_type == "squared" ? x^2 : x)
-    ts_err_func(x) = (ts_err_type == "squared" ? x^2 : x)
+
+    # TODO: put the below in get functions
+    if dc_err_type == "linear"
+        dc_err_func(x) = x
+    elseif dc_err_type == "squared"
+        dc_err_func(x) = x^2
+    else
+        error("""Do not recognise duration curve error type "$(dc_err_type)".""")
+    end    
+    if ts_err_type == "linear"
+        ts_err_func(x) = x
+    elseif ts_err_type == "squared"
+        ts_err_func(x) = x^2
+    else
+        error("""Do not recognise duration curve error type "$(ts_err_type)".""")
+    end
 
     obj = @objective(m, Min, 
         sum(
