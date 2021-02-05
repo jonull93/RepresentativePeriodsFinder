@@ -1,6 +1,6 @@
 # Getting started (@id getting_started_page)
 
-[`RepresentativePeriodsFinder.jl`](https://ucm.pages.gitlab.kuleuven.be/representativedaysfinder.jl/) works principally by specifying a `.yaml` configuration file, which specifies which time series to load, how to select them, and where to save the results. In the process, a `PeriodsFinder` type is defined which holds all this data.
+[`RepresentativePeriodsFinder.jl`](https://ucm.pages.gitlab\.kuleuven\.be/representativeperiodsfinder.jl/) works principally by specifying a `.yaml` configuration file, which specifies which time series to load, how to select them, and where to save the results. In the process, a `PeriodsFinder` type is defined which holds all this data.
 
 It is perhaps easiest to check out an [example of a configuration file](https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl/-/blob/dev/test/input_data/default.yaml), though the rest of this page will describe what one of these should look like. For illustrative purposes, suppose that this configuration file is located at `/home/user/Desktop/selecting_periods/config_file.yaml`.
 

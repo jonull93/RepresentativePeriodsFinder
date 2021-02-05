@@ -1,6 +1,6 @@
 # RepresentativePeriodsFinder
 
-This is a Julia package to select representative periods from time series data, typically to then be used in capacity expansion planning models. For more information see the [documentation](https://ucm.pages.gitlab.kuleuven.be/representativedaysfinder.jl/).
+This is a Julia package to select representative periods from time series data, typically to then be used in capacity expansion planning models. For more information see the [documentation](https://ucm.pages.gitlab\.kuleuven\.be/representativeperiodsfinder.jl/).
 
 ## Installation
 
@@ -13,7 +13,7 @@ using RepresentativePeriodsFinder, Cbc
 config_file = <path_to_config_file>
 find_representative_periods(config_file, optimizer=Cbc.Optimizer)
 ```
-For more information see the [documentation](https://ucm.pages.gitlab.kuleuven.be/representativedaysfinder.jl/).
+For more information see the [documentation](https://ucm.pages.gitlab\.kuleuven\.be/representativeperiodsfinder.jl/).
 
 ## Trouble shooting
 If issues with GR-engine occur build the `GR` package:
