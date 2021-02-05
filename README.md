@@ -42,4 +42,4 @@ This package is largely based on the [paper](https://www.mech.kuleuven.be/en/tme
 
 ## License
 
-TODO
+This project is licensed under the GNU General Public License (GPL) v3.0 or later - see the `LICENSE.md` file for details.
