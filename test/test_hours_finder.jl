@@ -1,4 +1,2 @@
-using RepresentativePeriodsFinder
-using JuMP
-using Cbc
+using RepresentativePeriodsFinder, JuMP, Cbc
 RPF = RepresentativePeriodsFinder

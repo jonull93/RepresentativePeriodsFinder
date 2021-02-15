@@ -10,7 +10,6 @@ module RepresentativePeriodsFinder
     using Dates                             # -> date time parsing
     using TimeSeries                        # -> time series type
     using YAML                              # -> read config-file
-    using Combinatorics                     # -> functions for finding combinations
     using StatsBase                         # -> function to fit into Histogram bins
     using JuMP                              # -> optimization suite
     using Interpolations                    # -> interpolating time series
