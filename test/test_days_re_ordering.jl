@@ -1,8 +1,5 @@
-using RepresentativePeriodsFinder
+using RepresentativePeriodsFinder, JuMP, Ipopt, StatsBase
 RPF = RepresentativePeriodsFinder
-using JuMP
-using Ipopt
-using StatsBase
 # using Gurobi
 
 # Create PeriodsFinder

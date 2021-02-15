@@ -26,7 +26,7 @@ function create_plots(pf::PeriodsFinder,
 
         # Reduced
         y = norm_val[rep_periods,:]'[:]
-        x = (weights * ones(1, ntp))'[:] / nt * 100.0
+        x = transpose(weights * ones(1, ntp))[:] / nt * 100.0
         df = sort(DataFrame(x=x, y=y, legend="reduced"), :y, rev=true)
         df[!,:x] = cumsum(df[!,:x])
 

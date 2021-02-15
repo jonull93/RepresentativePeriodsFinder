@@ -1,7 +1,5 @@
-using RepresentativePeriodsFinder
+using RepresentativePeriodsFinder, Dates, Cbc
 RPF = RepresentativePeriodsFinder
-using Dates
-using Cbc
 
 # Create PeriodsFinder
 config_file = normpath(joinpath(@__DIR__, "input_data", "default.yaml"))

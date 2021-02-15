@@ -359,7 +359,7 @@ function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
     elseif ts_err_type == "squared"
         ts_err_func(x) = x^2
     else
-        error("""Do not recognise duration curve error type "$(ts_err_type)".""")
+        error("""Do not recognise time series error type "$(ts_err_type)".""")
     end
 
     obj = @objective(m, Min, 
