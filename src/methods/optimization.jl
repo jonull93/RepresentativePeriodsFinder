@@ -325,6 +325,16 @@ function define_duration_curve_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
     return m
 end
 
+function get_opt_error_func(type::String, error_str::String)
+    if type == "linear"
+        return func(x) = x
+    elseif type == " squared"
+        return func(x) = x^2
+    else
+        error("""Do not recognise $(error_str) type "$(type)".""")
+    end
+end
+
 function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
     opt = pf.config["method"]["optimization"]
     dc_err_type = recursive_get(opt, "duration_curve_error", "type", "linear")
@@ -347,20 +357,8 @@ function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
     @fetch duration_curve_error, time_series_error = m.ext[:variables]
 
     # TODO: put the below in get functions
-    if dc_err_type == "linear"
-        dc_err_func(x) = x
-    elseif dc_err_type == "squared"
-        dc_err_func(x) = x^2
-    else
-        error("""Do not recognise duration curve error type "$(dc_err_type)".""")
-    end    
-    if ts_err_type == "linear"
-        ts_err_func(x) = x
-    elseif ts_err_type == "squared"
-        ts_err_func(x) = x^2
-    else
-        error("""Do not recognise time series error type "$(ts_err_type)".""")
-    end
+    dc_err_func = get_opt_error_func(dc_err_type, "duration curve error")
+    ts_err_func = get_opt_error_func(ts_err_type, "time series error")
 
     obj = @objective(m, Min, 
         sum(
