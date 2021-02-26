@@ -11,7 +11,10 @@ delete!(pf.config["method"]["options"], "ordering_error")
 delete!(pf.config["method"], "clustering")
 
 # Make life a bit easier for the optimiser, reduce the number of days
-pf.config["method"]["options"]["total_periods"] = 20
+N_total = 20
+N_rep = 2
+pf.config["method"]["options"]["total_periods"] = N_total
+pf.config["method"]["options"]["representative_periods"] = N_rep
 
 # Setup optimizer
 opt = optimizer_with_attributes(Cbc.Optimizer, "seconds" => 60)
@@ -24,3 +27,4 @@ opt = optimizer_with_attributes(Cbc.Optimizer, "seconds" => 60)
 # Try absolute error (this is the only possibility with Cbc)
 pf.config["method"]["optimization"]["duration_curve_error"]["type"] = "absolute"
 find_representative_periods(pf, optimizer=opt, reset=true)
+

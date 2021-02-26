@@ -28,20 +28,18 @@ pf = PeriodsFinder(config_file, populate_entries=true)
 delete!(pf.config["method"], "clustering")
 delete!(pf.config["method"]["optimization"], "time_series_error")
 delete!(pf.config["method"]["options"], "ordering_error")
-pf.config["method"]["optimization"]["duration_curve_error"]["type"] = "linear"
-RPF.make_periods_finder_model!(pf)
+pf.config["method"]["optimization"]["duration_curve_error"]["type"] = "absolute"
+RPF.make_periods_finder_model!(pf, optimizer_with_attributes(
+        Cbc.Optimizer, "seconds" => 30, "ratioGap" => 1
+    )
+)
 
 # hot start values
 for i in 1:length(u)
     set_start_value(pf.m.ext[:variables][:u][i], u[i])
     set_start_value(pf.m.ext[:variables][:w][i], w[i])
-    for j in 1:length(rep_periods)
-        jj = rep_periods[j]
-        set_start_value(pf.m.ext[:variables][:v][i,jj], v[i,j])
-    end
 end
 
 # optimize
-optimize!(pf.m)
-# TODO: function which assigns variables to pf.u, w, v, etc.+
+RPF.optimize_periods_finder_model!(pf)
 create_plots(pf)

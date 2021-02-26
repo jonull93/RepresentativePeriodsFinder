@@ -15,7 +15,8 @@ mutable struct PeriodsFinder
     ###########################################################################
     time_series::Dict{String,FloatTimeArray}
     x::Dict{String,Array{Float64,2}} # Normalised time series in matrix format
-    inputs::Dict{Any,Any} # Any saved inputs (sets, parameters, etc)
+    inputs::Dict{Symbol,Any} # Any saved inputs (sets, parameters, etc)
+    # TODO: Change this to Dict{Union{Symbol,String},Any} - much nicer.
 
     ###########################################################################
     # optimization model

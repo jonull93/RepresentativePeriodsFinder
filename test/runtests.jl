@@ -5,11 +5,12 @@ tests = [
 ]
 
 println("Starting tests")
-@testset "All tests" begin
-  for t in ["test_days_ordering.jl"]
-    println("\n","#"^80)
-    println("Running ", t,)
-    println("#"^80, "\n")
-    include(t)
-  end
+for t in tests
+  println("\n","#"^80)
+  println("Running ", t,)
+  println("#"^80, "\n")
+  include(t)
 end
+
+# Remove the files
+rm(joinpath(@__DIR__, "results"), recursive=true)

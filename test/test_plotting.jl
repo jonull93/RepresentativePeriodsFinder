@@ -26,6 +26,3 @@ pf.v = pf.v[:,rep_periods]
 
 # Plot this
 RPF.create_plots(pf)
-
-# Remove the files
-rm(RPF.get_abspath_to_result_dir(pf), recursive=true)
