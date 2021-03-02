@@ -25,11 +25,7 @@ pkg> build GR
 ```
 
 ### CSV
-For some reason the `CSV` package can be troublesome, so make sure that this package is updated in your main environment by doing:
-```julia
-pkg> add CSV
-pkg> up CSV
-```
+Many versions of the `CSV` package are incompatible with each other, so errors which mention `CSV` are likely due to some other package restricting later versions of `CSV` from being used. This is a you problem unfortunately, so you'll have to fix it yourself (by e.g. removing the troublesome package).
 
 ## Reporting issues and feature requests
 
