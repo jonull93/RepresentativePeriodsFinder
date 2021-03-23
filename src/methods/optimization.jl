@@ -4,7 +4,7 @@
 Builds a JuMP model to select and/or order representative periods and assigns it to `pf.m`.
 """
 function make_periods_finder_model!(
-        pf::PeriodsFinder, optimizer=Cbc.Optimizer
+        pf::PeriodsFinder, optimizer::MathOptInterface.OptimizerWithAttributes
     )
     m = pf.m = JuMP.Model(optimizer)
     m.ext = Dict(
@@ -18,21 +18,25 @@ function make_periods_finder_model!(
     # Strict variables
     make_selection_variable!(pf, m)
     make_weighting_variable!(pf, m)
-    make_ordering_variable!(pf, m)
+    if has_ordering_error(pf) == true
+        make_ordering_variable!(pf, m)
+    else
+        m.ext[:variables][:v] = SVC(0.0)
+    end
 
     # Dependent error variables
-    if haskey(opt, "duration_curve_error")
+    if has_duration_curve_error(pf)
         make_duration_curve_error_variable!(pf, m)
         define_duration_curve_error_variable!(pf, m)
     else # else set to 0
-        m.ext[:variables][:duration_curve_error] = EmptyContainer{Float64}(0.0)
+        m.ext[:variables][:duration_curve_error] = SVC(0.0)
     end
 
-    if haskey(opt, "time_series_error")
+    if has_time_series_error(pf)
         make_time_series_error_variable!(pf, m)
         define_time_series_error_variable!(pf, m)
     else # else set to 0
-        m.ext[:variables][:time_series_error] = EmptyContainer{Float64}(0.0)
+        m.ext[:variables][:time_series_error] = SVC(0.0)
     end
 
     # Fix variables
@@ -42,8 +46,11 @@ function make_periods_finder_model!(
     limit_number_of_selected_periods!(pf, m)
     restrict_non_zero_weights_to_selected_periods!(pf, m)
     enforce_yearly_equivalent_duration!(pf, m)
-    restrict_non_zero_orderings_to_selected_periods!(pf, m)
-    restrict_linear_combination_of_representative_periods!(pf, m)
+    if has_ordering_error(pf)
+        restrict_non_zero_orderings_to_selected_periods!(pf, m)
+        restrict_linear_combination_of_representative_periods!(pf, m)
+        relate_ordering_to_weights!(pf, m)
+    end
     enforce_minimum_weight!(pf, m)
 
     # Objective
@@ -52,11 +59,23 @@ function make_periods_finder_model!(
     return m
 end
 
+function make_periods_finder_model!(pf::PeriodsFinder)
+    error("Please specify an optimizer to be used.")
+end
+
+function make_periods_finder_model!(pf::PeriodsFinder, x::Any)
+    error("""
+    Second argument must be an optimizer with attributes. 
+    Perhaps you only specified `Cbc.Optimizer`, and not `optimizer_with_attributes(Cbc.Optimizer)`?
+    """
+    )
+end
+
 function optimize_periods_finder_model!(pf::PeriodsFinder, m::JuMP.Model = pf.m)
     optimize!(pf.m)
     stat = termination_status(pf.m)
 
-    if stat in [MOI.OPTIMAL, MOI.TIME_LIMIT, MOI.ITERATION_LIMIT] && has_values(pf.m)
+    if stat in [MOI.OPTIMAL, MOI.LOCALLY_SOLVED, MOI.TIME_LIMIT, MOI.ITERATION_LIMIT] && has_values(pf.m)
         # Save selection variable as is
         pf.u = round.(var_value((pf.m.ext[:variables][:u])))
 
@@ -74,6 +93,9 @@ function optimize_periods_finder_model!(pf::PeriodsFinder, m::JuMP.Model = pf.m)
 
         # Only save non-zero entries v to save space
         v = var_value(pf.m.ext[:variables][:v])
+        if typeof(v) <: SingleValuedContainer # i.e. was not defined
+            v = get_educated_guess_for_ordering_variable(pf)
+        end
         if size(v, 2) != length(rep_periods)
             pf.v = v[:,rep_periods]
         elseif size(v, 2) == length(rep_periods)
@@ -82,7 +104,7 @@ function optimize_periods_finder_model!(pf::PeriodsFinder, m::JuMP.Model = pf.m)
             error("Size of v, $(size(v)) is unexpected.")
         end
     else
-        @show stat
+        @warn "Termination criteria is $stat and has_values(m) = $(has_values(pf.m)), solution not saved to PeriodsFinder."
     end
 
     # Return solution status
@@ -233,11 +255,23 @@ function restrict_linear_combination_of_representative_periods!(
     return nothing
 end
 
+function relate_ordering_to_weights!(pf::PeriodsFinder, m::JuMP.Model)
+    opt = pf.config["method"]["optimization"]
+    periods = get_set_of_periods(pf)
+    rep_periods = get_set_of_representative_periods(pf)
+    @unpack w, v = m.ext[:variables]
+    con = [
+        @constraint(m, sum(v[i,j] for i in periods) == w[j])
+        for j in rep_periods
+    ]
+    return m.ext[:constraints][:relate_ordering_to_weights] = con
+end
+
 function enforce_minimum_weight!(pf::PeriodsFinder, m::JuMP.Model)
     opt = pf.config["method"]["optimization"]
     rep_periods = get_set_of_representative_periods(pf)
     min_weight = get(opt, "minimum_weight", 0.0)
-    @fetch w, u = m.ext[:variables]
+    @unpack w, u = m.ext[:variables]
     return m.ext[:constraints][:minimum_weight] = [
         @constraint(m, w[j] >= u[j] * min_weight)
         for j in rep_periods
@@ -254,16 +288,18 @@ function define_time_series_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
     N_total = get_number_of_periods(pf)
     x = get_normalised_time_series_values(pf)
 
-    @fetch time_series_error, v = m.ext[:variables]
+    @unpack time_series_error, v = m.ext[:variables]
 
     if type == "squared"
-        duration_curve_error = @constraint(m,
+        time_series_error = @constraint(m,
             [s in S, i in periods, t in time_steps],
             time_series_error[s,i,t]
             == 
             + sum(v[i,j] * x[s][i,t] for j in rep_periods)
             - x[s][i,t]
         )
+        @pack! m.ext[:constraints] = time_series_error
+
     elseif type == "absolute"
         reconstructed_time_series = @expression(m,
             [s in S, i in periods, t in time_steps],
@@ -283,7 +319,7 @@ function define_time_series_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
             - reconstructed_time_series[s,i,t]
             + x[s][i,t]
         )
-        @assign time_series_error_eq1, time_series_error_eq2 = m.ext[:constraints]
+        @pack! m.ext[:constraints] = time_series_error_eq1, time_series_error_eq2 
     end
     return m
 end
@@ -298,7 +334,7 @@ function define_duration_curve_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
     L = get_discretised_duration_curve(pf)
     N_total = get_number_of_periods(pf)
 
-    @fetch duration_curve_error, w = m.ext[:variables]
+    @unpack duration_curve_error, w = m.ext[:variables]
 
     if type == "squared"
         duration_curve_error = @constraint(m,
@@ -320,15 +356,25 @@ function define_duration_curve_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
                 w[j] / N_total * A[s][j,b] for j in rep_periods
             )
         )
-        @assign duration_curve_error_eq1, duration_curve_error_eq2 = m.ext[:constraints]
+        @pack! m.ext[:constraints] = duration_curve_error_eq1, duration_curve_error_eq2
     end
     return m
 end
 
+function get_opt_error_func(type::String, error_str::String)
+    if type == "absolute"
+        return identity # x -> x 
+    elseif type == "squared"
+        return squared # x -> x^2
+    else
+        error("""Do not recognise $(error_str) of type "$(type)".""")
+    end
+end
+
 function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
     opt = pf.config["method"]["optimization"]
-    dc_err_type = recursive_get(opt, "duration_curve_error", "type", "linear")
-    ts_err_type = recursive_get(opt, "time_series_error", "type", "linear")
+    dc_err_type = recursive_get(opt, "duration_curve_error", "type", "absolute")
+    ts_err_type = recursive_get(opt, "time_series_error", "type", "absolute")
 
     ordering_errors = get_set_of_ordering_errors(pf)
     objective_term_weights = get_error_term_weights(pf)
@@ -344,23 +390,10 @@ function formulate_objective!(pf::PeriodsFinder, m::JuMP.Model)
         for ord_err in ordering_errors
     )
 
-    @fetch duration_curve_error, time_series_error = m.ext[:variables]
+    @unpack duration_curve_error, time_series_error = m.ext[:variables]
 
-    # TODO: put the below in get functions
-    if dc_err_type == "linear"
-        dc_err_func(x) = x
-    elseif dc_err_type == "squared"
-        dc_err_func(x) = x^2
-    else
-        error("""Do not recognise duration curve error type "$(dc_err_type)".""")
-    end    
-    if ts_err_type == "linear"
-        ts_err_func(x) = x
-    elseif ts_err_type == "squared"
-        ts_err_func(x) = x^2
-    else
-        error("""Do not recognise time series error type "$(ts_err_type)".""")
-    end
+    dc_err_func = get_opt_error_func(dc_err_type, "duration curve error")
+    ts_err_func = get_opt_error_func(ts_err_type, "time series error")
 
     obj = @objective(m, Min, 
         sum(

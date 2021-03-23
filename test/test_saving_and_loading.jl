@@ -32,9 +32,8 @@ pf_new = load(PeriodsFinder, RPF.get_abspath_to_result_dir(pf))
 pf_alt = load(PeriodsFinder(pf.config_file))
 
 # Checks
-@assert pf.u == pf_alt.u == pf_new.u
-@assert pf.w == pf_alt.w == pf_new.w
-@assert pf.v == pf_alt.v == pf_new.v
-
-# Remove the files
-rm(RPF.get_abspath_to_result_dir(pf), recursive=true)
+@testset "Saving and loading" begin
+    @test pf.u == pf_alt.u == pf_new.u
+    @test pf.w == pf_alt.w == pf_new.w
+    @test pf.v == pf_alt.v == pf_new.v
+end

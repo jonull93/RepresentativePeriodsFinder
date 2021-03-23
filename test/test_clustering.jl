@@ -28,6 +28,3 @@ create_synthetic_time_series_plots(pf, timestamps=Dict(
         "Load" => DateTime(1970):Hour(1):DateTime(1970,1,7),
     )
 )
-
-# Clean up
-rm(RPF.get_abspath_to_result_dir(pf), recursive=true)

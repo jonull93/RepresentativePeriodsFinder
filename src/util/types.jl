@@ -13,34 +13,38 @@ A concrete TimeArray type.
 MissingFloatTimeArray = TimeArray{T,1,DateTime,A} where T <: Union{Missing, Float64} where A <: Array{Union{Missing, Float64},1}
 
 """
-    mutable struct EmptyContainer{T}
+    mutable struct SingleValuedContainer{T}
         x::T
 
 Returns a specified value `x` no matter the indexing.
 """
-mutable struct EmptyContainer{T}
+mutable struct SingleValuedContainer{T}
 
     x::T
 
-    EmptyContainer{T}(x) where T <: Any = new(x)
+    SingleValuedContainer{T}(x) where T <: Any = new(x)
 
-    function EmptyContainer()
-        EmptyContainer(nothing)
+    function SingleValuedContainer()
+        SingleValuedContainer(nothing)
     end
 
-    function Base.getindex(ec::EmptyContainer, args...)
-        return ec.x
+    SingleValuedContainer(x::T) where T <: Any = SingleValuedContainer{T}(x)
+
+    function Base.getindex(svc::SingleValuedContainer, args...)
+        return svc.x
     end
 
-    function Base.print(io::IO, ec::EmptyContainer)
-        print(io, "An EmptyContainer with field $(ec.x)")
+    function Base.print(io::IO, svc::SingleValuedContainer)
+        print(io, "An SingleValuedContainer with field $(svc.x)")
     end
 
-    function Base.show(io::IO, ec::EmptyContainer)
-        print(io, ec)
+    function Base.show(io::IO, svc::SingleValuedContainer)
+        print(io, svc)
     end
 
-    function Base.length(ec::EmptyContainer)
-        return length(ec.x)
+    function Base.length(svc::SingleValuedContainer)
+        return length(svc.x)
     end
 end
+
+SVC = SingleValuedContainer

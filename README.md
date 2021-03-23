@@ -16,11 +16,16 @@ find_representative_periods(config_file, optimizer=Cbc.Optimizer)
 For more information see the [documentation](https://ucm.pages.gitlab\.kuleuven\.be/representativeperiodsfinder.jl/).
 
 ## Trouble shooting
+
+### GR
 If issues with GR-engine occur build the `GR` package:
 
 ```julia
 pkg> build GR
 ```
+
+### CSV
+Many versions of the `CSV` package are incompatible with each other, so errors which mention `CSV` are likely due to some other package restricting later versions of `CSV` from being used. This is a you problem unfortunately, so you'll have to fix it yourself (by e.g. removing the troublesome package).
 
 ## Reporting issues and feature requests
 

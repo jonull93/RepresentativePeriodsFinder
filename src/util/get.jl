@@ -73,7 +73,13 @@ function get_set_of_ordering_errors(pf::PeriodsFinder)
     end
 end
 
-# Simple parameters
+function has_ordering_error(pf::PeriodsFinder)
+    return (
+        isempty(get_set_of_ordering_errors(pf)) == false &&
+        has_time_series_error(pf) == false
+    )
+end
+
 function get_total_number_of_time_steps(pf::PeriodsFinder)
     opt = pf.config["method"]["options"]
     return opt["total_periods"] * opt["time_steps_per_period"]
@@ -126,6 +132,16 @@ function get_error_term_weights(pf::PeriodsFinder)
     end
 
     return weights
+end
+
+function has_time_series_error(pf::PeriodsFinder)
+    opt = pf.config["method"]
+    return haskey(opt, "optimization") && haskey(opt["optimization"], "time_series_error")
+end
+
+function has_duration_curve_error(pf::PeriodsFinder)
+    opt = pf.config["method"]
+    return haskey(opt, "optimization") && haskey(opt["optimization"], "duration_curve_error")
 end
 
 function get_time_series_weights(pf::PeriodsFinder)
@@ -229,7 +245,8 @@ function get_discretised_duration_curve(pf::PeriodsFinder)
         ts_name => get_discretised_duration_curve(pf, ts_name)
         for ts_name in get_set_of_time_series_names(pf)
     )
-    return @assign L = pf.inputs
+    @pack! pf.inputs = L
+    return L
 end
 
 """
@@ -252,7 +269,8 @@ function get_duration_curve_parameter(pf::PeriodsFinder)
         ts_name => get_duration_curve_parameter(pf, ts_name)
         for ts_name in get_set_of_time_series_names(pf)
     )
-    return @assign A = pf.inputs
+    @pack! pf.inputs = A
+    return A
 end
 
 """
@@ -277,9 +295,9 @@ function get_histogram_per_period(pf::PeriodsFinder,ts_name::String)
     ]
 
     @assert all(sum(histogram_per_period, dims=2) .== get_number_of_time_steps_per_period(pf::PeriodsFinder))
-
+    
     return recursive_set(pf.inputs, :histogram_per_period, 
-        ts_name, histogram_per_period
+        ts_name, histogram_per_period; collection_type=Dict{Union{String,Symbol},Any}
     )
 end
 
@@ -288,7 +306,8 @@ function get_histogram_per_period(pf::PeriodsFinder)
         ts_name => get_histogram_per_period(pf, ts_name)
         for ts_name in get_set_of_time_series_names(pf)
     )
-    return @assign histograms_per_period = pf.inputs 
+    @pack! pf.inputs = histograms_per_period
+    return histograms_per_period
 end
 
 function get_synthetic_time_series(pf::PeriodsFinder, ts_name::String)
@@ -319,4 +338,21 @@ function get_synthetic_time_series(pf::PeriodsFinder, ta::FloatTimeArray)
         hcat(values(ta[timestamps]), data), 
         [:original, :synthetic], meta(ta)
     )
+end
+
+# OTHER
+function get_educated_guess_for_ordering_variable(pf::PeriodsFinder)
+    u = pf.u
+    w = pf.w
+    v = fill(0.0, length(pf.u), length(pf.u))
+    i = 1
+    for j in 1:length(u)
+        u[j] == false && continue
+        n_periods = Int(round(w[j]))
+        i_end = minimum([i+n_periods, length(pf.u)])
+        v[i:i_end,j] .= 1
+        i = i + n_periods + 1
+    end
+    return v
+    # TODO: This "educated guess" could be improved to better deal with rounding
 end

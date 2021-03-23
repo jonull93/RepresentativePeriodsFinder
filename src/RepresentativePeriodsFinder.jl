@@ -16,12 +16,11 @@ module RepresentativePeriodsFinder
     using Plots; gr()                       # -> output plots
     using JSON                              # -> output config file
     using SparseArrays                      # -> for the (sparse) ordering variable
-    using Cbc                               # -> open source solver for tests
-    using Ipopt                             # -> For quadratic obj problems
     using LinearAlgebra                     # -> for e.g. transpose()
     using NamedTupleTools                   # -> for easy creation of NamedTuples
     using MathOptInterface                  # -> for solver queries
-    using FileIO                            # -> to redefine load and save     
+    using FileIO                            # -> to redefine load and save
+    using UnPack                            # -> to unpack dicts
 
     # Utility
     include("util/types.jl")
