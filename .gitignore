@@ -2,3 +2,4 @@ test/results
 docs/build
 test/Manifest.toml
 /Manifest.toml
+docs/Manifest.toml
