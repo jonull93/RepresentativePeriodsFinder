@@ -1,12 +1,14 @@
 # See this template here: 
 # https://gitlab.com/tkpapp/GitlabJuliaDemo.jl/-/blob/master/.gitlab-ci.yml
-image: julia:1.5.0                # image comes from Docker hub
+default:
+  image: julia:1.5.0
 
-before_script:
+  before_script:
   - apt-get -qq update; apt-get -y install git # obtain git
   - julia --project=@. -e "import Pkg; Pkg.build()" # build the package
 
-test:
+test:latest:
+  image: julia:1.5.0
   tags:
     - mech
   script:
@@ -16,6 +18,24 @@ test:
   coverage: '/Code coverage: \d+\.\d+/' # Regex expression to determine coverage
   only:
   - dev
+
+test:1.2:
+  image: julia:1.2.0
+  tags:
+    - mech
+  script:
+    - julia --project=test -e 'using Pkg; Pkg.instantiate(); Pkg.develop(path=pwd()); include("test/minimal_tests.jl")'
+  only:
+    - dev
+
+test:1.3:
+  image: julia:1.3.0
+  tags:
+    - mech
+  script:
+    - julia --project=test -e 'using Pkg; Pkg.instantiate(); Pkg.develop(path=pwd()); include("test/minimal_tests.jl")'
+  only:
+    - dev
 
 pages:
   tags:
