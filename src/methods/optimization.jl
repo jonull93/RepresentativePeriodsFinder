@@ -367,7 +367,7 @@ function get_opt_error_func(type::String, error_str::String)
     elseif type == "squared"
         return squared # x -> x^2
     else
-        error("""Do not recognise $(error_str) of type "$(type)".""")
+        error("""Do not recognise $(error_str) of type "$(type)". Must be either "squared" or "absolute".""")
     end
 end
 

@@ -1,12 +1,14 @@
 # See this template here: 
 # https://gitlab.com/tkpapp/GitlabJuliaDemo.jl/-/blob/master/.gitlab-ci.yml
-image: julia:1.5.0                # image comes from Docker hub
+default:
+  image: julia:1.5.0
 
-before_script:
+  before_script:
   - apt-get -qq update; apt-get -y install git # obtain git
   - julia --project=@. -e "import Pkg; Pkg.build()" # build the package
 
-test:
+test:latest:
+  image: julia:1.5.0
   tags:
     - mech
   script:
@@ -17,12 +19,39 @@ test:
   only:
   - dev
 
+test:1.2:
+  image: julia:1.2.0
+  tags:
+    - mech
+  script:
+    - julia --project=test -e 'using Pkg; Pkg.instantiate(); Pkg.develop(PackageSpec(path=pwd())); include("test/minimal_tests.jl")'
+  only:
+    - master
+
+test:1.3:
+  image: julia:1.3.0
+  tags:
+    - mech
+  script:
+    - julia --project=test -e 'using Pkg; Pkg.instantiate(); Pkg.develop(PackageSpec(path=pwd())); include("test/minimal_tests.jl")'
+  only:
+    - master
+
+test:1.4:
+  image: julia:1.4.0
+  tags:
+    - mech
+  script:
+    - julia --project=test -e 'using Pkg; Pkg.instantiate(); Pkg.develop(PackageSpec(path=pwd())); include("test/minimal_tests.jl")'
+  only:
+    - master
+
 pages:
   tags:
     - mech
   stage: deploy
   script:
-    - julia --project=docs -e 'using Pkg; Pkg.instantiate(); Pkg.develop(path=pwd())' 
+    - julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate();' 
     # Instantiate docs environment and dev the package to add it to environment
     - julia --project=docs --color=yes docs/make.jl # build the docs
     - mv docs/build public # move to the directory picked up by Gitlab pages

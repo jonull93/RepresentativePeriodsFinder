@@ -14,8 +14,6 @@ module RepresentativePeriodsFinder
     using JuMP                              # -> optimization suite
     using Interpolations                    # -> interpolating time series
     using Plots; gr()                       # -> output plots
-    using JSON                              # -> output config file
-    using SparseArrays                      # -> for the (sparse) ordering variable
     using LinearAlgebra                     # -> for e.g. transpose()
     using NamedTupleTools                   # -> for easy creation of NamedTuples
     using MathOptInterface                  # -> for solver queries
@@ -127,6 +125,17 @@ module RepresentativePeriodsFinder
     function find_representative_periods(config_file::String; kwargs...)
         pf = PeriodsFinder(config_file, populate_entries=true)
         find_representative_periods(pf; kwargs...)
+    end
+
+    """
+        find_representative_periods!(pf; kwargs...)
+    
+    Alias for `find_representative_periods(pf; kwargs...)`.
+    """
+    function find_representative_periods!(pf::PeriodsFinder; 
+        optimizer=nothing, reset::Bool=true
+    )
+        return find_representative_periods(pf; optimizer=optimizer, reset=reset)
     end
 
 end
