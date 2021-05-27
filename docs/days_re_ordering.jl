@@ -28,13 +28,15 @@ pf.config["method"]["options"]["representative_periods"] = 10
 rep_periods = [1, 3, 4, 5, 7, 12, 15, 16, 18, 19]
 
 # We populate the results of the selection variable, `pf.u`, with our representative days. This is the only step that (currently) cannot be done within the `.yaml` file.
-pf.u = zeros(Bool, 20)
-pf.u[rep_periods] .= 1 
+pf.u = zeros(Bool, N_total)
+pf.u[rep_periods] .= 1
 
 # The following lines define the selection and ordering method, specifically we will use an optimisation method which minimises only the absolute (as opposed to squared) time series error. 
 delete!(pf.config["method"], "clustering")
 delete!(pf.config["method"]["optimization"], "duration_curve_error")
 pf.config["method"]["optimization"]["time_series_error"]["type"] = "absolute"
+
+# TODO: check that squared error also works
 
 # We set binary ordering to false, which means that a non-representative day can be represented by a linear combination of representative days.
 pf.config["method"]["optimization"]["binary_ordering"] = false
@@ -43,7 +45,7 @@ pf.config["method"]["optimization"]["binary_ordering"] = false
 pf.config["method"]["options"]["mandatory_periods"] = rep_periods
 
 # Setup the optimizer and solve to re-order the days.
-using Ipopt, JuMP
+using Ipopt
 opt = optimizer_with_attributes(Ipopt.Optimizer, "max_iter" => 100)
 find_representative_periods(pf, optimizer=opt, reset=false)
 
@@ -57,22 +59,13 @@ create_synthetic_time_series_plots(pf; timestamps=timestamps)
 create_plots(pf)
 # ![heatmap]("results/days_re_ordering/ordering_heatmap.svg)
 
-# TODO: The above heatmap should have more entries between 0 and 1, as opposed to 0 or 1.
-
 # We can also write out the this synthetic time series to `pf.config["results"]["result_dir"].
 write_out_synthetic_timeseries(pf, timestamps=timestamps)
 
 # This last optimisation was done by solving a linear problem. We can also do this by solving a binary problem, where each representative day is mapped to a non-representative day as opposed to using a linear combination of days. The advantage of this is that we can define fancier error functions.
 
-# Change the total number of days and re-define our represntative periods:
+# Change the total number of days:
 pf.config["method"]["options"]["total_periods"] = 365
-rep_periods = [i for i in 1:35:350]
-pf.config["method"]["options"]["mandatory_periods"] = rep_periods
-pf.u = zeros(Bool, 365)
-pf.u[rep_periods] .= 1 
-
-# For reasons not worth getting into, we need to re-populate `pf`:
-populate_entries!(pf)
 
 # We get rid of the time series error entry:
 delete!(pf.config["method"]["optimization"], "time_series_error")
@@ -88,17 +81,17 @@ pf.config["method"]["options"]["ordering_error"] = Dict(
 # Here we've used the 2-norm error, but we could have specified anything we wanted.
 
 # We set binary ordering to `true`:
-pf.config["method"]["optimization"]["binary_ordering"] = true
+pf.config["method"]["optimization"]["binary_ordering"] = false
 
 # Setup the optimizer and solve to re-order the days.
 using Cbc
-opt = optimizer_with_attributes(Cbc.Optimizer, "seconds" => 60)
+opt = optimizer_with_attributes(Ipopt.Optimizer, "seconds" => 60)
 find_representative_periods(pf, optimizer=opt, reset=false)
 
 # Let's inspect the heatmap again
 result_dir = joinpath(@__DIR__, "results", script_name * "_binary")
 pf.config["results"]["result_dir"] = result_dir
 create_plots(pf)
-# ![heatmap]("./results/days_re_ordering_binary/ordering_heatmap.svg)
+# ![heatmap]("results/days_re_ordering_binary/ordering_heatmap.svg)
 
 # Note how we have solid colors now, since we don't represent days by linear combinations of representative days.

@@ -155,8 +155,12 @@ end
 function get_ordering_error_function(pf::PeriodsFinder, err_name::String)
     opt_general = pf.config["method"]["options"]
     ord_err_opt = opt_general["ordering_error"]
-    return errorfunc = 
-        eval(Meta.parse(ord_err_opt[err_name]["function"], raise=true))
+    err_func = ord_err_opt[err_name]["function"]
+    if typeof(err_func) <: Function 
+        return err_func
+    else
+        return eval(Meta.parse(err_func, raise=true))
+    end
 end
 
 function get_abspath_to_result_dir(pf::PeriodsFinder)
