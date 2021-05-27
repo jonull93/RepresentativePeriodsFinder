@@ -45,7 +45,7 @@ module RepresentativePeriodsFinder
     find_representative_periods,
     optimize_periods_finder_model!, make_periods_finder_model!,
     cluster_periods!,
-    create_plots, create_synthetic_time_series_plots,
+    create_plots, create_synthetic_time_series_plots, create_synthetic_time_series_plot,
     write_out_results, write_out_synthetic_timeseries,
     save, load
 

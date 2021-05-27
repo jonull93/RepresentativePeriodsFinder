@@ -77,12 +77,32 @@ function create_synthetic_time_series_plots(pf::PeriodsFinder,
     )
     mkrootdirs(result_dir)
     for (ts_name, ts) in get_set_of_time_series(pf)
-        tstamp = haskey(timestamps, ts_name) ? timestamps[ts_name] : timestamp(ts)
-        p = Plots.plot(
-            get_synthetic_time_series(pf, ts)[tstamp],
-            title=ts_name,
+        p = create_synthetic_time_series_plot(pf, ts_name; 
+            timestamps=timestamps
         )
         savefig(p, joinpath(result_dir, "$(ts_name)_synthetic_time_series.svg"))
     end
     return nothing
+end
+
+"""
+    create_synthetic_time_series_plot(pf::PeriodsFinder, ts_name; timestamps)
+    
+# Example
+```julia
+timestamps = Dict("Load" => DateTime(1970,1,1):Hour(1):DateTime(1970,1,2))
+p = create_synthetic_time_series_plot(pf, "Load"; timestamps=timestamps)
+display(p)
+```
+"""
+function create_synthetic_time_series_plot(pf::PeriodsFinder,
+        ts_name::String;
+        timestamps = Dict{String,Vector{DateTime}}()
+    )
+    ts = pf.time_series[ts_name]
+    tstamp = haskey(timestamps, ts_name) ? timestamps[ts_name] : timestamp(ts)
+    return Plots.plot(
+        get_synthetic_time_series(pf, ts)[tstamp],
+        title=ts_name,
+    )
 end
