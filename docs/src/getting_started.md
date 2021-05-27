@@ -38,7 +38,7 @@ method:
     duration_curve_error:
       weight: 0.5
       number_bins: 40
-      type: "squared" # Or "absolute"
+      type: "absolute" # Or "absolute"
 
 results:
   save_results: true
@@ -73,6 +73,9 @@ using JuMP, Cbc
 optimizer = optimizer_with_attributes(Cbc.Optimizer, "seconds" => 300) # seconds specifies time out limit
 pf = find_representative_periods(pf, optimizer=optimizer)
 ```
+
+!!! note
+  We're able to use the `Cbc` solver here because the resulting optimisation is a mixed integer linear problem. If we had chosen to the duration curve error type to be `"squared"` then we would need a solver capable of handling mixed integer quadratic problems, such as Gurobi.
 
 ## [Saving and inspecting the results] (@id save_gs)
 The configuration specified by `config_file.yaml` will save the selected representative periods to `.csv` files in `/home/user/Desktop/selecting_periods/results/` along with plots of the original and aggregated duration curves.
