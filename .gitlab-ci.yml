@@ -5,6 +5,7 @@ default:
 
   before_script:
   - apt-get -qq update; apt-get -y install git # obtain git
+  - sudo apt-get install qt5-default # For displaying images (maybe?)
   - julia --project=@. -e "import Pkg; Pkg.build()" # build the package
 
 test:latest:
