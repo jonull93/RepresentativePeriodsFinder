@@ -4,6 +4,8 @@ This is a Julia package to select representative periods from time series data, 
 
 ## Installation
 
+* Download and install Julia from [here](https://julialang.org/downloads/).
+* Assuming you've added Julia to your path, you can open up a Julia REPL by typing `julia` in a terminal.
 * `RepresentativePeriodsFinder` can be added via the Julia package manager (type `]`): `pkg> add https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl`
 
 ## Basic useage
@@ -15,7 +17,7 @@ find_representative_periods(config_file, optimizer=Cbc.Optimizer)
 ```
 For more information see the [documentation](https://ucm.pages.gitlab\.kuleuven\.be/representativeperiodsfinder.jl/).
 
-## Trouble shooting
+## Troubleshooting
 
 This package is tested using Julia 1.2, 1.3, 1.4 and 1.5. If it doesn't work for you, this is in all likelihood due to your own environment! Some troubleshooting tips to fix this are suggested below.
 

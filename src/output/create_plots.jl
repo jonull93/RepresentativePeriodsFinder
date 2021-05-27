@@ -8,7 +8,6 @@ function create_plots(pf::PeriodsFinder,
     )
     mkrootdirs(result_dir)
     rep_periods = get_set_of_representative_periods(pf)
-    periods = get_set_of_periods(pf)
     weights = pf.w[rep_periods]
     ntp = get_number_of_time_steps_per_period(pf)
 
@@ -40,20 +39,31 @@ function create_plots(pf::PeriodsFinder,
 
     # Heatmap of ordering variable v, if v isn't too big
     if isdefined(pf, :v) && any(values(pf.v) .> 0) && all(size(pf.v) .< 1000)
-        v = zeros(length.([periods, periods])...)
-        v[:, rep_periods] = pf.v
-        p = Plots.heatmap(
-            v,
-            ylabel = "Sum = Ordering of periods",
-            xlabel = "Sum = Weighting of rep. period",
-            title = "Diagonal = Selection of rep. period",
-            aspect_ratio=:equal,
-            xlim=[minimum(periods), maximum(periods)],
-            ylim=[minimum(periods), maximum(periods)],
-        )
+        p = create_ordering_heatmap(pf)
         savefig(p, joinpath(result_dir, "ordering_heatmap.svg"))
     end
     return nothing
+end
+
+"""
+    create_ordering_heatmap(pf)
+    
+Returns a heatmap showing the mapping of representative periods to non-representative periods. 
+"""
+function create_ordering_heatmap(pf::PeriodsFinder)
+    rep_periods = get_set_of_representative_periods(pf)
+    periods = get_set_of_periods(pf)
+    v = zeros(length.([periods, periods])...)
+    v[:, rep_periods] = pf.v
+    return Plots.heatmap(
+        v,
+        ylabel = "Sum = Ordering of periods",
+        xlabel = "Sum = Weighting of rep. period",
+        title = "Diagonal = Selection of rep. period",
+        aspect_ratio=:equal,
+        xlim=[minimum(periods), maximum(periods)],
+        ylim=[minimum(periods), maximum(periods)],
+    )
 end
 
 """
