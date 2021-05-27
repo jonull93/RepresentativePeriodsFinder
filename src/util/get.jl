@@ -75,8 +75,8 @@ end
 
 function has_ordering_error(pf::PeriodsFinder)
     return (
-        isempty(get_set_of_ordering_errors(pf)) == false &&
-        has_time_series_error(pf) == false
+        isempty(get_set_of_ordering_errors(pf)) == false ||
+        has_time_series_error(pf) == true
     )
 end
 
