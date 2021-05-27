@@ -8,7 +8,6 @@ function create_plots(pf::PeriodsFinder,
     )
     mkrootdirs(result_dir)
     rep_periods = get_set_of_representative_periods(pf)
-    periods = get_set_of_periods(pf)
     weights = pf.w[rep_periods]
     ntp = get_number_of_time_steps_per_period(pf)
 
@@ -40,20 +39,31 @@ function create_plots(pf::PeriodsFinder,
 
     # Heatmap of ordering variable v, if v isn't too big
     if isdefined(pf, :v) && any(values(pf.v) .> 0) && all(size(pf.v) .< 1000)
-        v = zeros(length.([periods, periods])...)
-        v[:, rep_periods] = pf.v
-        p = Plots.heatmap(
-            v,
-            ylabel = "Sum = Ordering of periods",
-            xlabel = "Sum = Weighting of rep. period",
-            title = "Diagonal = Selection of rep. period",
-            aspect_ratio=:equal,
-            xlim=[minimum(periods), maximum(periods)],
-            ylim=[minimum(periods), maximum(periods)],
-        )
+        p = create_ordering_heatmap(pf)
         savefig(p, joinpath(result_dir, "ordering_heatmap.svg"))
     end
     return nothing
+end
+
+"""
+    create_ordering_heatmap(pf)
+    
+Returns a heatmap showing the mapping of representative periods to non-representative periods. 
+"""
+function create_ordering_heatmap(pf::PeriodsFinder)
+    rep_periods = get_set_of_representative_periods(pf)
+    periods = get_set_of_periods(pf)
+    v = zeros(length.([periods, periods])...)
+    v[:, rep_periods] = pf.v
+    return Plots.heatmap(
+        v,
+        ylabel = "Sum = Ordering of periods",
+        xlabel = "Sum = Weighting of rep. period",
+        title = "Diagonal = Selection of rep. period",
+        aspect_ratio=:equal,
+        xlim=[minimum(periods), maximum(periods)],
+        ylim=[minimum(periods), maximum(periods)],
+    )
 end
 
 """
@@ -77,12 +87,32 @@ function create_synthetic_time_series_plots(pf::PeriodsFinder,
     )
     mkrootdirs(result_dir)
     for (ts_name, ts) in get_set_of_time_series(pf)
-        tstamp = haskey(timestamps, ts_name) ? timestamps[ts_name] : timestamp(ts)
-        p = Plots.plot(
-            get_synthetic_time_series(pf, ts)[tstamp],
-            title=ts_name,
+        p = create_synthetic_time_series_plot(pf, ts_name; 
+            timestamps=timestamps
         )
         savefig(p, joinpath(result_dir, "$(ts_name)_synthetic_time_series.svg"))
     end
     return nothing
+end
+
+"""
+    create_synthetic_time_series_plot(pf::PeriodsFinder, ts_name; timestamps)
+    
+# Example
+```julia
+timestamps = Dict("Load" => DateTime(1970,1,1):Hour(1):DateTime(1970,1,2))
+p = create_synthetic_time_series_plot(pf, "Load"; timestamps=timestamps)
+display(p)
+```
+"""
+function create_synthetic_time_series_plot(pf::PeriodsFinder,
+        ts_name::String;
+        timestamps = Dict{String,Vector{DateTime}}()
+    )
+    ts = pf.time_series[ts_name]
+    tstamp = haskey(timestamps, ts_name) ? timestamps[ts_name] : timestamp(ts)
+    return Plots.plot(
+        get_synthetic_time_series(pf, ts)[tstamp],
+        title=ts_name,
+    )
 end

@@ -1,6 +1,10 @@
 RepresentativePeriodsFinder release notes
 ==========================================
 
+Version 0.4.2 (May 27th 2021)
+- Fixed ordering error bug
+- Added example for re-ordering
+
 Version 0.4.1 (March 24th 2021)
 ---------------------------------
 - There was an error in the optimisation formulation when re-ordering, this was fixed.

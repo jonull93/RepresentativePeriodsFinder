@@ -1,7 +1,7 @@
 name = "RepresentativePeriodsFinder"
 uuid = "d8a704e0-5cf8-11e9-3a92-a36052b0d072"
 authors = ["Hanspeter Höschle <hanspeter.hoeschle@gmail.com>", "Sebastian Gonzato <sebastian.gonzato@kuleuven.be>"]
-version = "0.4.1"
+version = "0.4.2"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
@@ -25,6 +25,6 @@ UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [compat]
-julia = ">= 1.2"
 CSV = ">= 0.8.2"
 DataFrames = ">= 0.21.0"
+julia = ">= 1.2"

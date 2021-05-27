@@ -115,6 +115,7 @@ function make_selection_variable!(pf::PeriodsFinder, m::JuMP.Model)
     rep_periods = get_set_of_representative_periods(pf)
     mandatory_periods = get_set_of_mandatory_periods(pf)
     if length(rep_periods) == length(mandatory_periods)
+        # Selection fully specified, just return a Boolean vector
         N_total = get_number_of_periods(pf)
         u = zeros(Bool, N_total)
         u[mandatory_periods] .= true
@@ -177,8 +178,9 @@ function fix_selection_variable!(pf::PeriodsFinder, m::JuMP.Model)
     return u
 end
 
-function set_selection_variable_initial_guess(pf::PeriodsFinder, m::JuMP.Model)
+function set_selection_variable_initial_guess!(pf::PeriodsFinder, m::JuMP.Model)
     # TODO: fill in
+    return nothing
 end
 
 function limit_number_of_selected_periods!(

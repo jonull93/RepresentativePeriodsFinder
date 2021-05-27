@@ -35,6 +35,7 @@ mutable struct PeriodsFinder
         pf = new()
         pf.config = Dict{Any,Any}()
         pf.time_series = Dict{String,TimeArray}()
+        return pf
     end
 
     function PeriodsFinder(config_file::String;     
@@ -57,7 +58,7 @@ mutable struct PeriodsFinder
     # Pretty prints of long term planning model
     function Base.print(io::IO, pf::PeriodsFinder)
         println(io, "Representative Periods Finder")
-        println(io, "Configuration file: \n\t$(pf.config_file)")
+        isdefined(pf, :config_file) && println(io, "Configuration file: \n\t$(pf.config_file)")
     end
 
     function Base.show(io::IO, pf::PeriodsFinder)
