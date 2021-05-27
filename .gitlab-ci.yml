@@ -9,8 +9,6 @@ default:
 
 test:latest:
   image: julia:1.5.0
-  tags:
-    - mech
   script:
     - julia --project=@. -e "import Pkg; Pkg.test(; coverage=true)" # test the package
     - julia --project=test/coverage -e 'import Pkg; Pkg.instantiate()' # Setup coverage environment
@@ -21,8 +19,6 @@ test:latest:
 
 test:1.2:
   image: julia:1.2.0
-  tags:
-    - mech
   script:
     - julia --project=test -e 'using Pkg; Pkg.instantiate(); Pkg.develop(PackageSpec(path=pwd())); include("test/minimal_tests.jl")'
   only:
@@ -30,8 +26,6 @@ test:1.2:
 
 test:1.3:
   image: julia:1.3.0
-  tags:
-    - mech
   script:
     - julia --project=test -e 'using Pkg; Pkg.instantiate(); Pkg.develop(PackageSpec(path=pwd())); include("test/minimal_tests.jl")'
   only:
@@ -39,16 +33,12 @@ test:1.3:
 
 test:1.4:
   image: julia:1.4.0
-  tags:
-    - mech
   script:
     - julia --project=test -e 'using Pkg; Pkg.instantiate(); Pkg.develop(PackageSpec(path=pwd())); include("test/minimal_tests.jl")'
   only:
     - master
 
 pages:
-  tags:
-    - mech
   stage: deploy
   script:
     - julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate();' 
