@@ -1,0 +1,37 @@
+# Specify csv files for time series and other options
+time_series:
+  default: # These values will be used unless specified in the entries below
+    source: "input_data/2015.csv"
+    csv_options: # These are passed to CSV.read
+        delim: ","
+    timestamp: "date" # optional
+    weight: 1 # weight of time series in objective / clustering
+    sampling_time: "Hour(1)" # Only necessary if a timestamp is not given
+  
+  
+method:
+  options: # Method agnostic options
+    mandatory_periods: [] # Leave empty to specify none
+    total_periods: 8758
+    representative_periods: 10
+    time_steps_per_period: 1
+    sampling_time: "Hour(1)" # This is a DateTime format - for quarter hours, Hour(0.25)
+  
+  optimization:
+    integral_weights: false
+    binary_ordering: false
+    equal_weights: false
+    
+    
+    duration_curve_error:
+      weight: 0.5
+      number_bins: 50
+      type: "squared" # Or "absolute"
+  
+  
+# Output options
+results:
+  save_results: true
+  # Options for exactly what to save here
+  result_dir: '../results15_19_40periods' # Relative to this file
+  create_plots: true

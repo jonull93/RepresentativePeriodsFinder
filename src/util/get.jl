@@ -194,9 +194,13 @@ function get_normalised_time_series_values(pf::PeriodsFinder, ta::FloatTimeArray
         start = meta(ta)["start"]
         sampling_time = get_sampling_time(pf)
         ntt = get_total_number_of_time_steps(pf)
-        timestamps = range(start, length=ntt, step=sampling_time)
+        timestamps = range(start, length=ntt+1, step=sampling_time)
         vec = values(ta[timestamps])
         
+        # @show vec 
+        # @show length(vec)
+        # @show ntt
+
         @assert length(vec) == ntt "Less than $ntt values lie between $(timestamps[1]) and $(timestamps[end]) in $ts_name"
 
         vec = normalize_values(vec)
@@ -219,7 +223,7 @@ function get_time_series_values(pf::PeriodsFinder)
         start = meta(ta)["start"]
         sampling_time = get_sampling_time(pf)
         ntt = get_total_number_of_time_steps(pf)
-        timestamps = range(start, length=ntt, step=sampling_time)
+        timestamps = range(start, length=ntt+1, step=sampling_time)
         vec = values(ta[timestamps])
         npt = get_number_of_periods(pf)
         ntpp = get_number_of_time_steps_per_period(pf)
@@ -298,7 +302,7 @@ function get_histogram_per_period(pf::PeriodsFinder,ts_name::String)
         for p in periods, b in bins
     ]
 
-    @assert all(sum(histogram_per_period, dims=2) .== get_number_of_time_steps_per_period(pf::PeriodsFinder))
+    # @assert all(sum(histogram_per_period, dims=2) .== get_number_of_time_steps_per_period(pf::PeriodsFinder))
     
     return recursive_set(pf.inputs, :histogram_per_period, 
         ts_name, histogram_per_period; collection_type=Dict{Union{String,Symbol},Any}
