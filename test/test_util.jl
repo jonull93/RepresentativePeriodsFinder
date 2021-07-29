@@ -1,8 +1,5 @@
-using RepresentativePeriodsFinder
+using RepresentativePeriodsFinder, TimeSeries
 RPF = RepresentativePeriodsFinder
-
-# TODO: Test basic stuff like getting the number of representative periods
-# to be found and stuff like that
 
 @testset "Utilities" begin
     pf = PeriodsFinder()
@@ -54,4 +51,34 @@ RPF = RepresentativePeriodsFinder
     )
     @test_throws AssertionError RPF.get_normalised_time_series_values(pf, "t")
     
+    # Test whether bin discretisation does not lead to numerical errors
+    ta = TimeArray(
+        [
+            DateTime(2018, 11, 21, 12, 0),
+            DateTime(2018, 11, 21, 13, 0),
+            DateTime(2018, 11, 21, 14, 0)
+        ],
+        [-1.0, 0.0, 1.0],
+        [:col1],
+        Dict("name" => "example", "start" => DateTime(2018, 11, 21, 12, 0))
+    )
+    pf.time_series["t"] = ta
+    pf.x = Dict{String, Matrix{Float64}}()
+    pf.config = Dict(
+        "method" => Dict(
+            "options" => Dict(
+                "sampling_time" => Hour(1),
+                "total_periods" => 3,
+                "time_steps_per_period" => 1,
+            ),
+            "optimization" => Dict(
+                "duration_curve_error" => Dict(
+                    "number_bins" => 3
+                )
+            )
+        )
+    )
+    pf.inputs = Dict()
+    hpp = RPF.get_histogram_per_period(pf, "t")
+    @assert hpp == I
 end
