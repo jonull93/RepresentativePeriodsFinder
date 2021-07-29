@@ -46,3 +46,5 @@ time_series:
 To load the above time series (without selecting representative periods) run [`pf = PeriodsFinder(config_file)`](@ref PeriodsFinder) where `config_file` is the path to your chosen configuration file.
 
 The `default` entry specifies options to be used if these are not specified for the time series entries. So `Load` is read in from `time_series.csv` since there is no `source` option specified for it, while `Residual Load` is read from `residual_load.csv`.
+
+To "deactivate" a time series (i.e. only output it in the results without having it affect the aggregation algorithm) simply set the `weight` entry to `0`.
