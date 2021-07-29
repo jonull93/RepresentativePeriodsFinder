@@ -16,22 +16,29 @@ function create_plots(pf::PeriodsFinder,
         # Original
         norm_val = get_normalised_time_series_values(pf, ts_name)
         nt = get_total_number_of_time_steps(pf)
-        x = [x for x in range(1,stop=nt) / nt * 100.0]
+        x = [x for x in range(0, stop=nt) / nt * 100.0]
         y = sort(norm_val[:], rev=true)
+        prepend!(y, 1.0)
         p = Plots.plot(
             x, y, xlim=(0, 100), dpi=300, size = (800, 800/28*21), 
-            label="Original"
+            label="Original", line=:steppre
         )
 
         # Reduced
         y = norm_val[rep_periods,:]'[:]
         x = transpose(weights * ones(1, ntp))[:] / nt * 100.0
-        df = sort(DataFrame(x=x, y=y, legend="reduced"), :y, rev=true)
+        df = sort(DataFrame(x=x, y=y), :y, rev=true)
         df[!,:x] = cumsum(df[!,:x])
+        df = vcat(
+            DataFrame(x=0.0, y=df[1,:y]),
+            df
+        )
 
-        Plots.plot!(p, df.x, df.y, label="Aggregated", title=ts_name)
+        Plots.plot!(p, df.x, df.y, label="Aggregated", 
+            title=ts_name, line=:steppre
+        )
         xaxis!("Duration [%]", 0:10:100)
-        yaxis!("Curve [-]")
+        yaxis!("Normalised value [-]")
 
         file_svg = joinpath(result_dir, "$(ts_name)_duration_curve.svg")
         savefig(file_svg)
