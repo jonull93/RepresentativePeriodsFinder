@@ -1,4 +1,5 @@
 # Loading time series
+
 In the absence of additional documentation, refer to the examples in the [`test`](https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl/-/tree/dev/test) directory of this repository to understand the options available for loading in time series.
 
 For the purposes of illustration, consider [`default.yaml`](https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl/-/blob/dev/test/input_data/default.yaml) which is used for testing this package.
