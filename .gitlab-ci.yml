@@ -4,7 +4,7 @@ default:
   image: julia:1.6.1
 
   before_script:
-  - apt-get -qq update; apt-get -y installlibxt6 libxrender1 libxext6 libgl1-mesa-glx libqt5widgets5
+  - apt-get -qq update; apt-get -y install libxt6 libxrender1 libxext6 libgl1-mesa-glx libqt5widgets5
   - julia --project=@. -e "import Pkg; Pkg.build()" # build the package
 
 test:latest:
