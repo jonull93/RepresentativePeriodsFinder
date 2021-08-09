@@ -110,9 +110,13 @@ end
 function get_bin_interval_values(pf::PeriodsFinder, ts_name::String)
     bins = get_set_of_bins(pf)
     x_ts = get_normalised_time_series_values(pf, ts_name)
-    return bin_interval_values = range(
-        minimum(x_ts), maximum(x_ts), length=length(bins)+1
+    bin_interval_values = collect(
+        range(
+            minimum(x_ts), maximum(x_ts), length=length(bins)+1
+        )
     )
+    bin_interval_values[1] -= eps()
+    return bin_interval_values
 end
 
 function get_error_term_weights(pf::PeriodsFinder)
@@ -197,6 +201,8 @@ function get_normalised_time_series_values(pf::PeriodsFinder, ta::FloatTimeArray
         timestamps = range(start, length=ntt, step=sampling_time)
         vec = values(ta[timestamps])
         
+        @assert length(ta) == length(unique(timestamp(ta))) "Time series $ts_name has non unique time stamps (perhaps due to daylight savings). Remove or do not specify the timestamps column to fix this."
+        
         @assert length(vec) == ntt "Less than $ntt values lie between $(timestamps[1]) and $(timestamps[end]) in $ts_name"
 
         vec = normalize_values(vec)
@@ -280,7 +286,7 @@ end
 """
     get_histogram_per_period(pf::PeriodsFinder,ts_name::String)
 
-Returns a `np`by `nb` matrix which counts the number of hours 
+Returns a `np` by `nb` matrix which counts the number of periods associated with each bin (possibly, it's been a while).
 """
 function get_histogram_per_period(pf::PeriodsFinder,ts_name::String)
     bins = get_set_of_bins(pf)
@@ -291,14 +297,14 @@ function get_histogram_per_period(pf::PeriodsFinder,ts_name::String)
     histogram_per_period = [
         length(
             findall(
-                x -> x >= bin_interval_values[b] && x <= bin_interval_values[b+1],
+                x -> x > bin_interval_values[b] && x <= bin_interval_values[b+1],
                 x_ts[p,:]
             )
         )
         for p in periods, b in bins
     ]
 
-    @assert all(sum(histogram_per_period, dims=2) .== get_number_of_time_steps_per_period(pf::PeriodsFinder))
+    @assert all(sum(histogram_per_period, dims=2) .== get_number_of_time_steps_per_period(pf))
     
     return recursive_set(pf.inputs, :histogram_per_period, 
         ts_name, histogram_per_period; collection_type=Dict{Union{String,Symbol},Any}

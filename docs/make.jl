@@ -56,6 +56,7 @@ makedocs(
             "Loading time series" => "loading_time_series.md",
             "Selecting periods" => "selecting_periods.md",
             "Outputs" => "outputs.md",
+            "Troubleshooting" => "troubleshooting.md",
         ],
         "Examples" => [
             "Re ordering representative days" => "examples/days_re_ordering.md",
