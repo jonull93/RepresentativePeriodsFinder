@@ -8,7 +8,7 @@ default:
   - julia --project=@. -e "import Pkg; Pkg.build()" # build the package
 
 test:latest:
-  image: julia:1.6.2
+  image: julia:1.6.1
   script:
     - julia --project=@. -e "import Pkg; Pkg.test(; coverage=true)" # test the package
     - julia --project=test/coverage -e 'import Pkg; Pkg.instantiate()' # Setup coverage environment
