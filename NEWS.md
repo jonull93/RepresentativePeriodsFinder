@@ -1,13 +1,14 @@
 RepresentativePeriodsFinder release notes
 ==========================================
 
-Version 0.4.3 (July 29th 2021)
+Version 0.4.3 (August 9th 2021)
 ---------------------------------
 
 - Fixed non unique time stamp bug.
 - Fixed bin discretisation error bug.
 - Fixed plotting offset issue.
 - Minor edits of documentation and `README` file.
+- Cleaned up dependencies and updated packages.
 
 Version 0.4.2 (May 27th 2021)
 ---------------------g------------

@@ -41,9 +41,12 @@ pf = PeriodsFinder(config_file; populate_entries=true) # This keyword argument i
 find_representative_periods(pf; optimizer=Cbc.Optimizer)
 ```
 
+## Optimal ordering of representative periods is slow
+
+It may be that setting the `integral_weights` option to `true` speeds up the optimisation massively (from several hours or days to several seconds).
+
 ## Other errors and fixes
 
 * Make sure your time series are correct, i.e. without "NaN", "N/A" or blank entries.
 * The time series interpolation feature could fix "NaN" entries, but it is quite experimental so best to turn it off.
 * If you've specified a timestamp column for a time series, not specifying it could fix possible bugs.
-

@@ -1,4 +1,4 @@
-using RepresentativePeriodsFinder, TimeSeries
+using RepresentativePeriodsFinder, TimeSeries, LinearAlgebra
 RPF = RepresentativePeriodsFinder
 
 @testset "Utilities" begin
@@ -80,5 +80,5 @@ RPF = RepresentativePeriodsFinder
     )
     pf.inputs = Dict()
     hpp = RPF.get_histogram_per_period(pf, "t")
-    @assert hpp == I
+    @assert hpp == I # I is from LinearAlgebra
 end
