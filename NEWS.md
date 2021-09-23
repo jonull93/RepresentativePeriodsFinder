@@ -11,7 +11,7 @@ Version 0.4.3 (August 9th 2021)
 - Cleaned up dependencies and updated packages.
 
 Version 0.4.2 (May 27th 2021)
----------------------g------------
+---------------------------------
 
 - Fixed ordering error bug
 - Added example for re-ordering
