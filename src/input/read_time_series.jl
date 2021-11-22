@@ -17,19 +17,19 @@ function read_time_series(pf::PeriodsFinder, ts_name::String)
     )
     val_col = get(ts_dict[ts_name], "value_column", "")
     timestamp_col = get(ts_dict[ts_name], "timestamp_column", "")
-    csv_options = Dict()
+    csv_options_0 = Dict()
     for name in ("default", ts_name)
         if haskey(ts_dict[name], "csv_options") && typeof(ts_dict[name]["csv_options"]) <: Dict
-            merge!(csv_options, ts_dict[name]["csv_options"])
+            merge!(csv_options_0, ts_dict[name]["csv_options"])
         end
     end
     csv_options = Dict{Symbol,Any}(
-        Symbol(k) => get(csv_options, k, "") 
-        for (k,v) in csv_options if isempty(v) == false
+        Symbol(k) => get(csv_options_0, k, "") 
+        for (k,v) in csv_options_0 if isempty(v) == false
     )
     csv_options[:types] = Dict(val_col => Float64, timestamp_col => DateTime)
     csv_options = namedtuple(collect(csv_options))
-    df = CSV.read(source, DataFrame; csv_options...)
+    df = CSV.read(source, DataFrame; validate=false, csv_options...)
 
     # Checks
     for col in filter(!isempty, [val_col, timestamp_col])
