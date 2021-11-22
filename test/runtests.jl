@@ -1,8 +1,9 @@
-using Test, Pkg
+using Test
 
 # GR issues
 ENV["GRDIR"] = ""
 ENV["GKSwstype"] = "nul"
+import Pkg
 Pkg.build("GR")
 
 tests = [

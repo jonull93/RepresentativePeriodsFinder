@@ -1,6 +1,8 @@
 # Troubleshooting
 
-This package is tested using Julia 1.2, 1.3, 1.4 and 1.5. If it doesn't work for you, this is in all likelihood due to your own environment! Some troubleshooting tips to fix this are suggested below.
+This package is tested using Julia 1.5 and above. Versions lower than that will likely lead to errors. Unfortunately this
+
+Other errors are likely due to your Julia environment. Some troubleshooting tips to fix this are suggested below.
 
 ## GR
 

@@ -28,7 +28,6 @@ module RepresentativePeriodsFinder
     # Input and data processing
     include("input/read_time_series.jl")
     include("input/process_time_series.jl")
-    include("input/load_periods_finder.jl")
 
     # Period finding methods
     include("methods/optimization.jl")

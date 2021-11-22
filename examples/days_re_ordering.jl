@@ -7,12 +7,12 @@ RPF = RepresentativePeriodsFinder;
 config_file = normpath(joinpath(@__DIR__, "input_data", "default.yaml"));
 pf = PeriodsFinder(config_file, populate_entries=true);
 
-# Change the result directory name
+# Change the result directory name.
 script_name = splitext(splitdir(@__FILE__)[2])[1];
 result_dir = joinpath(@__DIR__, "results", script_name);
 pf.config["results"]["result_dir"] = result_dir;
 
-# Turn off automatic plot creation
+# Turn off automatic plot creation.
 pf.config["results"]["create_plots"] = false;
 
 # We will only concern ourselves with mapping load, just to make things simple.
@@ -39,10 +39,10 @@ pf.config["method"]["optimization"]["time_series_error"]["type"] = "absolute";
 # We set binary ordering to false, which means that a non-representative day can be represented by a linear combination of representative days.
 pf.config["method"]["optimization"]["binary_ordering"] = false;
 
-# We set the mandatory periods to be selected to our representative periods
+# We set the mandatory periods to be selected to our representative periods.
 pf.config["method"]["options"]["mandatory_periods"] = rep_periods;
 
-# Setup the optimizer and solve to re-order the days.
+# Setup the optimizer and solve to re-order the days. **Importantly don't forget to pass the keyword argument** `reset=false`!
 using Ipopt, JuMP;
 opt = optimizer_with_attributes(Ipopt.Optimizer, "max_iter" => 100);
 find_representative_periods(pf, optimizer=opt, reset=false);
@@ -58,14 +58,14 @@ create_ordering_heatmap(pf)
 #md # !!! note
 #md #     The above heatmap should (probably) have more entries between 0 and 1, as opposed to 0 or 1. This may be due to the small number of days, the solver or be a bug.
 
-# We can also write out the this synthetic time series to `pf.config["results"]["result_dir"].
+# We can also write out the this synthetic time series to `pf.config["results"]["result_dir"]`.
 # ```julia
 # write_out_synthetic_timeseries(pf, timestamps=timestamps)
 # ```
 
 # This last optimisation was done by solving a linear problem. We can also do this by solving a binary problem, where each representative day is mapped to a non-representative day as opposed to using a linear combination of days. The advantage of this is that we can define fancier error functions.
 
-# Change the total number of days and re-define our represntative periods:
+# Change the total number of days and re-define our representative periods:
 pf.config["method"]["options"]["total_periods"] = 365;
 rep_periods = [i for i in 1:35:350];
 pf.config["method"]["options"]["mandatory_periods"] = rep_periods;
