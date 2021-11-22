@@ -1,4 +1,4 @@
-using Test
+using Test, Pkg
 
 # GR issues
 ENV["GRDIR"] = ""
