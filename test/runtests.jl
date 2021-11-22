@@ -1,5 +1,10 @@
 using Test
 
+# GR issues
+ENV["GRDIR"] = ""
+ENV["GKSwstype"] = "nul"
+Pkg.build("GR")
+
 tests = [
     f for f in readdir(@__DIR__) if !(isnothing(match(r"test_", f))) && !(isnothing(match(r".jl", f)))
 ]
