@@ -168,7 +168,6 @@ end
 
 function fix_selection_variable!(pf::PeriodsFinder, m::JuMP.Model)
     u = m.ext[:variables][:u]
-    periods = get_set_of_periods(pf)
     mandatory_periods = get_set_of_mandatory_periods(pf)
     if eltype(u) <: JuMP.VariableRef
         for p in mandatory_periods
