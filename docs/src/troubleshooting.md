@@ -4,14 +4,6 @@ This package is tested using Julia 1.5 and above. Versions lower than that will 
 
 Other errors are likely due to your Julia environment. Some troubleshooting tips to fix this are suggested below.
 
-## GR
-
-If issues with the GR-engine (i.e. plotting) occur build the `GR` package:
-
-```julia
-pkg> build GR
-```
-
 ## CSV
 
 Many versions of the `CSV` package are incompatible with each other, so errors which mention `CSV` are likely due to some other package restricting later versions of `CSV` from being used. This is a you problem unfortunately, so you'll have to fix it yourself (by e.g. removing the troublesome package).

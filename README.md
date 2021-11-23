@@ -15,6 +15,7 @@ using RepresentativePeriodsFinder, Cbc
 config_file = <path_to_config_file>
 find_representative_periods(config_file, optimizer=Cbc.Optimizer)
 ```
+
 For more information see the [documentation](https://ucm.pages.gitlab\.kuleuven\.be/representativeperiodsfinder.jl/).
 
 ## Troubleshooting

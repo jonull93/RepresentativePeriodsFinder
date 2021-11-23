@@ -15,6 +15,7 @@ test:latest:
     - julia --project=test/coverage test/coverage/coverage_summary.jl # run coverage summary
   coverage: '/Code coverage: \d+\.\d+/' # Regex expression to determine coverage
   only:
+  - master
   - dev
 
 test:1.5:

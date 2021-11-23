@@ -1,11 +1,5 @@
 using Documenter, Literate, RepresentativePeriodsFinder
 
-# GR issues
-ENV["GRDIR"] = ""
-ENV["GKSwstype"] = "nul"
-import Pkg
-Pkg.build("GR")
-
 # This is heavily copied from COSMO.jl: https://github.com/oxfordcontrol/COSMO.jl/blob/master/docs/make.jl#L1
 
 @info "Building examples..."
