@@ -4,8 +4,10 @@ default:
   image: julia:latest
 
   before_script:
-  # docker image bases on new debian:bullseye-slim
+  # docker image bases on new debian:bullseye-slim. qt5-default has an bug there
+  - apt update -y
   - apt-get install -y qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
+
   - apt-get -qq update; apt-get -y --no-install-recommends install git at-spi2-core libgtk-3-dev xauth xvfb gconf-gsettings-backend
   # - apt-get -qq update; apt-get -y --no-install-recommends install git qt5-default at-spi2-core libgtk-3-dev xauth xvfb gconf-gsettings-backend
   - export GKSwstype="100"
