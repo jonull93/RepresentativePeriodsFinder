@@ -1,5 +1,6 @@
 # Only test essentials, used for testing different julia versions
 using Test
+ENV["GKSwstype"]="nul" #fix gr() problems in headless mode 
 
 include(joinpath(@__DIR__, "test_util.jl"))
 include(joinpath(@__DIR__, "test_days_finder.jl"))
