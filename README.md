@@ -8,7 +8,14 @@ This is a Julia package to select representative periods from time series data, 
 * Assuming you've added Julia to your path, you can open up a Julia REPL by typing `julia` in a terminal.
 * `RepresentativePeriodsFinder` can be added via the Julia package manager (type `]`): `pkg> add https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl`
 
-## Basic useage
+## Installation using docker
+* make sure Docker is running
+  ```bash
+    docker build -t representativeperiodsfinder.jl:latest .
+    docker run -it representativeperiodsfinder.jl:latest
+  ```
+
+## Basic usage
 
 ```julia
 using RepresentativePeriodsFinder, Cbc
