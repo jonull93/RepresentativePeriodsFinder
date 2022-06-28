@@ -140,7 +140,7 @@ end
 
 """
     get_contributing_time_slices(
-        idx_start::Int64, idx_end::Int64,
+        idx_start::Integer, idx_end::Integer,
         t_start::DateTime, t_end::DateTime,
         timestamps::Array{DateTime,1}
     )
@@ -178,7 +178,7 @@ julia> weights
 
 """
 function get_contributing_time_slices(
-        idx_start::Int64, idx_end::Int64,
+        idx_start::Integer, idx_end::Integer,
         t_start::DateTime, t_end::DateTime,
         timestamps::Array{DateTime,1}
     )

@@ -87,17 +87,17 @@ end
 
 function get_number_of_representative_periods(pf::PeriodsFinder)
     opt = pf.config["method"]["options"]
-    return opt["representative_periods"]::Int64
+    return opt["representative_periods"]::Integer
 end
 
 function get_number_of_periods(pf::PeriodsFinder)
     opt = pf.config["method"]["options"]
-    return opt["total_periods"]::Int64
+    return opt["total_periods"]::Integer
 end
 
 function get_number_of_time_steps_per_period(pf::PeriodsFinder)
     opt = pf.config["method"]["options"]
-    return opt["time_steps_per_period"]::Int64
+    return opt["time_steps_per_period"]::Integer
 end
 
 function get_sampling_time(pf::PeriodsFinder)
