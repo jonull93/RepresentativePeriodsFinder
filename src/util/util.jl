@@ -9,7 +9,7 @@ function config_get(d1::AbstractDict, d2::AbstractDict, k::String, default::Any)
 end
 
 function mkrootdirs(dir::String)
-    dirVec = splitdir(dir)
+    dirVec = splitpath(dir)
     dd = dirVec[1]
     for d in dirVec[2:end]
         dd = joinpath(dd, d)

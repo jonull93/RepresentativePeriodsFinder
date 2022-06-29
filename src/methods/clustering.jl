@@ -98,11 +98,14 @@ function time_period_clustering(pf::PeriodsFinder)
     # Get intermediate periods
     intermediate_periods = get_set_of_intermediate_periods(pf)
 
+    # Create a progress meter
+    NC0 = NC
+    p = Progress(NC0 - NCD, 1.0)
+
     # Run clustering
     while NC - length(mandatory_periods) > NCD
-        if mod(NC, 100) == 0
-            @debug "Number of clusters left: $NC"
-        end
+        # Update progress meter
+        update!(p, NC0 - NCD - NC - length(mandatory_periods))
 
         # Find the two "closest" mediods
         # This takes up half of the calculation time!
@@ -214,7 +217,7 @@ function time_period_clustering(pf::PeriodsFinder)
 
         if NC in intermediate_periods
             dir = joinpath(get_abspath_to_result_dir(pf), string(NC))
-            @debug "Saving intermediate number of representative periods $NC to $dir"
+            @info "Saving intermediate number of representative periods $NC to $dir"
             calculate_rep_periods_from_clusters!(pf, ICM, IC2P, IP2C)
             save(pf, dir)
         end

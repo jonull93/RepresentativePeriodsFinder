@@ -12,12 +12,13 @@ module RepresentativePeriodsFinder
     using StatsBase                         # -> function to fit into Histogram bins
     using JuMP                              # -> optimization suite
     using Interpolations                    # -> interpolating time series
-    using Plots; gr()                   # -> output plots
+    using Plots; gr()                       # -> output plots
     using LinearAlgebra                     # -> for e.g. transpose()
     using NamedTupleTools                   # -> for easy creation of NamedTuples
     using MathOptInterface                  # -> for solver queries
     using FileIO                            # -> to redefine load and save
     using UnPack                            # -> to unpack dicts
+    using ProgressMeter                     # -> showing progress for clustering
 
     # Utility
     include("util/types.jl")

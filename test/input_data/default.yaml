@@ -4,6 +4,7 @@ time_series:
     source: "time_series.csv"
     csv_options: # These are passed to CSV.read
         delim: ";"
+        validate: false
     timestamp: "Timestamp" # optional
     weight: 1 # weight of time series in objective / clustering
     interpolation_type: "linear" # or "constant" or don't specify
