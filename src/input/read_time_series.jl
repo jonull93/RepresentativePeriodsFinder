@@ -27,7 +27,10 @@ function read_time_series(pf::PeriodsFinder, ts_name::String)
         Symbol(k) => get(csv_options, k, "") 
         for (k,v) in csv_options if isempty(v) == false
     )
-    csv_options[:types] = Dict(val_col => Float64, timestamp_col => DateTime)
+    csv_options[:types] = Dict(val_col => Float64)
+    if isempty(timestamp_col) == false
+        csv_options[:types][timestamp_col] = DateTime
+    end
     csv_options = namedtuple(collect(csv_options))
     df = CSV.read(source, DataFrame; csv_options...)
 
