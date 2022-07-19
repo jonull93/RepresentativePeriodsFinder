@@ -66,7 +66,7 @@ end
 function make_periods_finder_model!(pf::PeriodsFinder, x::Any)
     error("""
     Second argument must be an optimizer with attributes. 
-    Perhaps you only specified `Cbc.Optimizer`, and not `optimizer_with_attributes(Cbc.Optimizer)`?
+    Perhaps you only specified e.g. `Cbc.Optimizer`, and not `optimizer_with_attributes(Cbc.Optimizer)`?
     """
     )
 end
