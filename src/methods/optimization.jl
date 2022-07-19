@@ -297,7 +297,7 @@ function define_time_series_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
             [s in S, i in periods, t in time_steps],
             time_series_error[s,i,t]
             == 
-            + sum(v[i,j] * x[s][i,t] for j in rep_periods)
+            + sum(v[i,j] * x[s][j,t] for j in rep_periods)
             - x[s][i,t]
         )
         @pack! m.ext[:constraints] = time_series_error
@@ -305,7 +305,7 @@ function define_time_series_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
     elseif type == "absolute"
         reconstructed_time_series = @expression(m,
             [s in S, i in periods, t in time_steps],
-            sum(v[i,j] * x[s][i,t] for j in rep_periods)
+            sum(v[i,j] * x[s][j,t] for j in rep_periods)
         )
         time_series_error_eq1 = @constraint(m, 
             [s in S, i in periods, t in time_steps],
@@ -321,6 +321,7 @@ function define_time_series_error_variable!(pf::PeriodsFinder, m::JuMP.Model)
             - reconstructed_time_series[s,i,t]
             + x[s][i,t]
         )
+        @pack! m.ext[:expressions] = reconstructed_time_series
         @pack! m.ext[:constraints] = time_series_error_eq1, time_series_error_eq2 
     end
     return m
