@@ -7,41 +7,11 @@ function create_plots(pf::PeriodsFinder,
         result_dir::String = get_abspath_to_result_dir(pf)
     )
     mkrootdirs(result_dir)
-    rep_periods = get_set_of_representative_periods(pf)
-    weights = pf.w[rep_periods]
-    ntp = get_number_of_time_steps_per_period(pf)
 
     for (ts_name, ts) in get_set_of_time_series(pf)
-
-        # Original
-        norm_val = get_normalised_time_series_values(pf, ts_name)
-        nt = get_total_number_of_time_steps(pf)
-        x = [x for x in range(0, stop=nt) / nt * 100.0]
-        y = sort(norm_val[:], rev=true)
-        prepend!(y, 1.0)
-        p = Plots.plot(
-            x, y, xlim=(0, 100), dpi=300, size = (800, 800/28*21), 
-            label="Original", line=:steppre
-        )
-
-        # Reduced
-        y = norm_val[rep_periods,:]'[:]
-        x = transpose(weights * ones(1, ntp))[:] / nt * 100.0
-        df = sort(DataFrame(x=x, y=y), :y, rev=true)
-        df[!,:x] = cumsum(df[!,:x])
-        df = vcat(
-            DataFrame(x=0.0, y=df[1,:y]),
-            df
-        )
-
-        Plots.plot!(p, df.x, df.y, label="Aggregated", 
-            title=ts_name, line=:steppre
-        )
-        xaxis!("Duration [%]", 0:10:100)
-        yaxis!("Normalised value [-]")
-
+        p = create_duration_curve(pf, ts_name)
         file_svg = joinpath(result_dir, "$(ts_name)_duration_curve.svg")
-        savefig(file_svg)
+        savefig(p, file_svg)
     end
 
     # Heatmap of ordering variable v, if v isn't too big
@@ -50,6 +20,52 @@ function create_plots(pf::PeriodsFinder,
         savefig(p, joinpath(result_dir, "ordering_heatmap.svg"))
     end
     return nothing
+end
+
+"""
+    create_duration_curve(pf::PeriodsFinder, ts_name::String)
+
+Create the duration curve for `ts_name`.
+
+# Example
+```julia
+pf = find_representative_periods(config_file)
+p = create_duration_curve(pf, "Load")
+display(p)
+```
+"""
+function create_duration_curve(pf::PeriodsFinder, ts_name::String)
+    rep_periods = get_set_of_representative_periods(pf)
+    weights = pf.w[rep_periods]
+    ntp = get_number_of_time_steps_per_period(pf)
+    
+    # Original
+    norm_val = get_normalised_time_series_values(pf, ts_name)
+    nt = get_total_number_of_time_steps(pf)
+    x = [x for x in range(0, stop=nt) / nt * 100.0]
+    y = sort(norm_val[:], rev=true)
+    prepend!(y, 1.0)
+    p = Plots.plot(
+        x, y, xlim=(0, 100), dpi=300, size = (800, 800/28*21), 
+        label="Original", line=:steppre
+    )
+
+    # Reduced
+    y = norm_val[rep_periods,:]'[:]
+    x = transpose(weights * ones(1, ntp))[:] / nt * 100.0
+    df = sort(DataFrame(x=x, y=y), :y, rev=true)
+    df[!,:x] = cumsum(df[!,:x])
+    df = vcat(
+        DataFrame(x=0.0, y=df[1,:y]),
+        df
+    )
+
+    Plots.plot!(p, df.x, df.y, label="Aggregated", 
+        title=ts_name, line=:steppre
+    )
+    xaxis!("Duration [%]", 0:10:100)
+    yaxis!("Normalised value [-]")
+    return p
 end
 
 """
