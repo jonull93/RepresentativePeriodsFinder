@@ -44,7 +44,7 @@ function recursive_set(d, args...; collection_type=typeof(d))
 end
 
 function normalize_values(
-    A, lb=0.0, ub=1.0; min_val=minimum(A), max_val=maximum(A)
+    A, lb=-1.0, ub=1.0; min_val=minimum(A), max_val=maximum(A)
 )
     A = (A .- min_val) ./ (max_val - min_val) .* (ub - lb) .+ lb
     return replace(A, NaN => 0.0)

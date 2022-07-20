@@ -116,6 +116,7 @@ function get_bin_interval_values(pf::PeriodsFinder, ts_name::String)
         )
     )
     bin_interval_values[1] -= eps()
+    bin_interval_values[end] += eps()
     return bin_interval_values
 end
 
@@ -242,11 +243,21 @@ Returns the duration curve of time series `ts_name` discretized into `nb` bins.
 """
 function get_discretised_duration_curve(pf::PeriodsFinder, ts_name::String)
     histogram_per_period = get_histogram_per_period(pf, ts_name)
+    bins = get_set_of_bins(pf)
     ntt = get_total_number_of_time_steps(pf)
-    L = cumsum(
-        sum(histogram_per_period, dims=1) / ntt,
-        dims=2
-    )[:]
+    L = fill(NaN, length(bins))
+    L[1] = 0
+    hpp_sum = (sum(histogram_per_period, dims=1) / ntt)[:]
+    last_cumsum_val = sum(hpp_sum[1:1])
+    for b in bins[1:end-1]
+        cumsum_val = sum(hpp_sum[1:b])
+        if last_cumsum_val != cumsum_val
+            L[b+1] = cumsum_val
+        else
+            L[b+1] = L[b]
+        end
+        last_cumsum_val = cumsum_val
+    end
     return normalize_values(L)
 end
 
