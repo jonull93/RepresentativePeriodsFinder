@@ -266,10 +266,8 @@ Returns an `np` by `nb` matrix used to approximate the aggregated duration curve
 """
 function get_duration_curve_parameter(pf::PeriodsFinder, ts_name::String)
     histogram_per_period = get_histogram_per_period(pf, ts_name)
-    np = get_number_of_periods(pf)
     A = normalize_values(
-        cumsum(histogram_per_period, dims=2),
-        -1, 1
+        cumsum(histogram_per_period, dims=2)
     )
     return A
 end
