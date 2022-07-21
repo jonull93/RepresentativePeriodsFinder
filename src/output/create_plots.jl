@@ -34,7 +34,7 @@ p = create_duration_curve(pf, "Load")
 display(p)
 ```
 """
-function create_duration_curve(pf::PeriodsFinder, ts_name::String)
+function create_duration_curve(pf::PeriodsFinder, ts_name::String; line=:scatter, marker=:cross)
     rep_periods = get_set_of_representative_periods(pf)
     weights = pf.w[rep_periods]
     ntp = get_number_of_time_steps_per_period(pf)
@@ -47,7 +47,7 @@ function create_duration_curve(pf::PeriodsFinder, ts_name::String)
     prepend!(y, 1.0)
     p = Plots.plot(
         x, y, xlim=(0, 100), dpi=300, size = (800, 800/28*21), 
-        label="Original", line=:steppre
+        label="Original", line=line, marker=marker
     )
 
     # Reduced
@@ -61,7 +61,7 @@ function create_duration_curve(pf::PeriodsFinder, ts_name::String)
     )
 
     Plots.plot!(p, df.x, df.y, label="Aggregated", 
-        title=ts_name, line=:steppre
+        title=ts_name, line=line, marker=marker
     )
     xaxis!("Duration [%]", 0:10:100)
     yaxis!("Normalised value [-]")
