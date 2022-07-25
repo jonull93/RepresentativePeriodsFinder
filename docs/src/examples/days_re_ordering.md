@@ -11,7 +11,7 @@ First we create an instance of a PeriodsFinder. Here we are using the default `.
 ```@example days_re_ordering
 using RepresentativePeriodsFinder;
 RPF = RepresentativePeriodsFinder;
-config_file = normpath(joinpath(@__DIR__, "input_data", "default.yaml"));
+config_file = RPF.datadir();
 pf = PeriodsFinder(config_file, populate_entries=true);
 nothing #hide
 ```

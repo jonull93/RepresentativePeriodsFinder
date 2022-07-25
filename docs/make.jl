@@ -17,9 +17,9 @@ function postprocess(cont)
 end
 
 # Copy some of the tests and input data to the example folder
-data_path = joinpath(@__DIR__, "..", "test", "input_data")
+data_path = RepresentativePeriodsFinder.datadir()
 test_path = joinpath(@__DIR__, "..", "test")
-example_file_names = ["test_days_re_ordering.jl"]
+example_file_names = ["test_days_re_ordering.jl", "test_rep_hours_finder.jl"]
 examples_path = joinpath(@__DIR__, "..", "examples")
 isdir(examples_path) == false && mkdir(examples_path)
 cp(data_path, joinpath(examples_path, "input_data"); force=true)
@@ -44,10 +44,6 @@ for file in readdir(examples_path)
         postprocess=postprocess, documenter=true, credit=true
     )
 end
-
-# Also need to copy input data to src/ - this is getting out of hand...
-doc_examples_path = joinpath(@__DIR__, "src", "examples", "input_data")
-cp(data_path, doc_examples_path; force=true)
 
 @info "Building documentation..."
 makedocs(
