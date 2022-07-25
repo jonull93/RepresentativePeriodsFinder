@@ -16,7 +16,7 @@ function get_set_of_bins(pf::PeriodsFinder)
 end
 
 function get_set_of_mandatory_periods(pf::PeriodsFinder)
-    mandatory_periods = [Int64(i) for i in 
+    mandatory_periods = Int64[Int64(i) for i in 
         recursive_get(pf.config, "method", "options", "mandatory_periods", Int64[])
     ]
     @assert length(mandatory_periods) <= get_number_of_representative_periods(pf) 
@@ -284,7 +284,10 @@ function get_duration_curve_parameter(pf::PeriodsFinder)
         ts_name => get_duration_curve_parameter(pf, ts_name)
         for ts_name in get_set_of_time_series_names(pf)
     )
-    @pack! pf.inputs = AInt64
+    @pack! pf.inputs = A
+    return A
+end
+
 """
     get_histogram_per_period(pf::PeriodsFinder,ts_name::String)
 
