@@ -76,26 +76,22 @@ objective_value(pf.m)
 
 pf.w[RPF.get_set_of_representative_periods(pf)]
 
-# We can repeat this exercise for all time series and the entire year (though this time with much less bins, since this drastically increases computation time).
+# We can repeat this exercise for all time series and 7 days (though this time with less bins, since this drastically increases computation time).
 
 pf.config["time_series"] = ts_orig;
-pf.config["method"]["options"]["total_periods"] = 8_760;
-pf.config["method"]["options"]["representative_periods"] = 10;
-pf.config["method"]["optimization"]["duration_curve_error"]["number_bins"] = 10;
+pf.config["method"]["options"]["total_periods"] = 7*24;
+pf.config["method"]["options"]["representative_periods"] = 20;
+pf.config["method"]["optimization"]["duration_curve_error"]["number_bins"] = 40;
 populate_entries!(pf)
 find_representative_periods(pf; optimizer=opt, reset=true);
 
-# Plot the duration curve of solar
+# Plot the duration curves of all the time series to see how we got on
 for (ts_name, ts) in RPF.get_set_of_time_series(pf)
     p = create_duration_curve(
         pf,
         ts_name;
-        line=:solid,
-        marker=:none,
-        original_discretised=true,
-        aggregated_discretised=true,
     )
     display(p)
 end
 
-# Selecting hours from the year using an optimisation method is not recommended, as it can be quite computationally intensive. A clustering based method is preferred instead.
+# Here we only selected 10 hours from 168 using 40 bins, and as you can see above it did not find a solution within 60 seconds. Selecting hours from the year using an optimisation method is therefore not recommended as it can be computationally expensive. A clustering based method is preferable.

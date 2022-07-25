@@ -39,7 +39,7 @@ display(p)
 function create_duration_curve(
     pf::PeriodsFinder,
     ts_name::String;
-    line=:scatter,
+    line=:auto,
     marker=:cross,
     original_discretised=false,
     aggregated_discretised=false,
