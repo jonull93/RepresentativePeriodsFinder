@@ -73,3 +73,5 @@ function get_number_of_clusters_of_adjacent_values(x::AbstractVector)
     end
     return numAdj
 end
+
+midpoint(x::AbstractVector) = [(x[i] + x[i+1])/2 for i in eachindex(x)[1:end-1]]

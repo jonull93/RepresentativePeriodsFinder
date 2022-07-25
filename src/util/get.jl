@@ -16,8 +16,6 @@ function get_set_of_bins(pf::PeriodsFinder)
 end
 
 function get_set_of_mandatory_periods(pf::PeriodsFinder)
-    # TODO: fix this
-
     mandatory_periods = [Int64(i) for i in 
         recursive_get(pf.config, "method", "options", "mandatory_periods", Int64[])
     ]
