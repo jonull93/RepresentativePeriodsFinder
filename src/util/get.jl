@@ -241,22 +241,22 @@ Returns the duration curve of time series `ts_name` discretized into `nb` bins.
 """
 function get_discretised_duration_curve(pf::PeriodsFinder, ts_name::String)
     histogram_per_period = get_histogram_per_period(pf, ts_name)
-    bins = get_set_of_bins(pf)
+    bins = get_set_of_bins(pf) # Bins go from low to high values
     ntt = get_total_number_of_time_steps(pf)
     L = fill(NaN, length(bins))
-    L[1] = 0
     hpp_sum = (sum(histogram_per_period, dims=1) / ntt)[:]
     last_cumsum_val = sum(hpp_sum[1:1])
-    for b in bins[1:end-1]
+    L[1] = last_cumsum_val # First bin is at the bottom of DC
+    for b in bins[2:end]
         cumsum_val = sum(hpp_sum[1:b])
         if last_cumsum_val != cumsum_val
-            L[b+1] = cumsum_val
+            L[b] = cumsum_val
         else
-            L[b+1] = L[b]
+            L[b] = L[b-1]
         end
         last_cumsum_val = cumsum_val
     end
-    return normalize_values(L)
+    return L
 end
 
 function get_discretised_duration_curve(pf::PeriodsFinder)
@@ -275,9 +275,7 @@ Returns an `np` by `nb` matrix used to approximate the aggregated duration curve
 """
 function get_duration_curve_parameter(pf::PeriodsFinder, ts_name::String)
     histogram_per_period = get_histogram_per_period(pf, ts_name)
-    A = normalize_values(
-        cumsum(histogram_per_period, dims=2)
-    )
+    A = cumsum(histogram_per_period, dims=2)
     return A
 end
 
@@ -286,10 +284,7 @@ function get_duration_curve_parameter(pf::PeriodsFinder)
         ts_name => get_duration_curve_parameter(pf, ts_name)
         for ts_name in get_set_of_time_series_names(pf)
     )
-    @pack! pf.inputs = A
-    return A
-end
-
+    @pack! pf.inputs = AInt64
 """
     get_histogram_per_period(pf::PeriodsFinder,ts_name::String)
 

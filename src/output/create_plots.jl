@@ -47,14 +47,14 @@ function create_duration_curve(
     rep_periods = get_set_of_representative_periods(pf)
     weights = pf.w[rep_periods]
     ntp = get_number_of_time_steps_per_period(pf)
+    norm_val = get_normalised_time_series_values(pf, ts_name)
 
     # Original
-    norm_val = get_normalised_time_series_values(pf, ts_name)
     nt = get_total_number_of_time_steps(pf)
-    # x = [x for x in range(0; stop=nt) / nt * 100.0]
-    x = [x for x in range(0; stop=(nt-1)) / (nt-1) * 100.0]
+    x = [x for x in range(0; stop=nt) / nt * 100.0]
+    # x = [x for x in range(0; stop=(nt-1)) / (nt-1) * 100.0]
     y = sort(norm_val[:]; rev=true)
-    # prepend!(y, y[1]) # first value has duration 0! Think about it.
+    prepend!(y, y[1]) # first value has duration 0! Think about it.
     p = Plots.plot(
         x,
         y;
@@ -70,8 +70,9 @@ function create_duration_curve(
     y = norm_val[rep_periods, :]'[:]
     x = transpose(weights * ones(1, ntp))[:] / nt * 100.0
     df = sort(DataFrame(; x=x, y=y), :y; rev=true)
+    df = vcat(DataFrame(; x=0.0, y=df[1, :y]), df, )
     df[!, :x] = cumsum(df[!, :x])
-    df = vcat(DataFrame(; x=0.0, y=df[1, :y]), df)
+    # df = vcat(DataFrame(; x=0.0, y=df[1, :y]), df)
 
     Plots.plot!(
         p,
@@ -89,7 +90,7 @@ function create_duration_curve(
         y = midpoint(y)
         if original_discretised
             L = get_discretised_duration_curve(pf)
-            x = 100 .- normalize_values([L[ts_name][b] for b in bins], 0, 100)
+            x = 100 .- [L[ts_name][b] for b in bins] .* 100
             Plots.plot!(
                 p,
                 x,
@@ -102,16 +103,13 @@ function create_duration_curve(
         if aggregated_discretised
             N_total = get_number_of_periods(pf)
             A = get_duration_curve_parameter(pf)
-            x = 100 .- normalize_values(
+            x = 100 .- 
                 [
                     sum(
-                        weights[j] / N_total * A[ts_name][j, b] for
+                        pf.w[j] / N_total * A[ts_name][j, b] for
                         j in rep_periods
                     ) for b in bins
-                ],
-                0,
-                100,
-            )
+                ] .* 100
             Plots.plot!(
                 p,
                 x,
