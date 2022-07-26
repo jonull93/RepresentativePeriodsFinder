@@ -3,4 +3,5 @@ docs/build
 test/Manifest.toml
 /Manifest.toml
 docs/Manifest.toml
-examples/results
+examples
+docs/src/examples/*

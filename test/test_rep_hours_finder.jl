@@ -5,7 +5,7 @@
 # First we create an instance of a PeriodsFinder. We'll use the default `.yaml` configuration file and modify it, but you could just edit it directly.
 using RepresentativePeriodsFinder, PrettyPrint, JuMP, HiGHS;
 RPF = RepresentativePeriodsFinder;
-config_file = RPF.datadir();
+config_file = RPF.datadir("default.yaml");
 pf = PeriodsFinder(config_file; populate_entries=false);
 pprintln(pf.config)
 

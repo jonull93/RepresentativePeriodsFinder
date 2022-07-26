@@ -2,7 +2,7 @@ using RepresentativePeriodsFinder, Dates, Cbc
 RPF = RepresentativePeriodsFinder
 
 # Create PeriodsFinder
-config_file = RPF.datadir()
+config_file = RPF.datadir("default.yaml")
 pf = PeriodsFinder(config_file, populate_entries=true)
 
 # Delete entries for optimization, add intermediate periods
@@ -23,7 +23,7 @@ u = pf.u; w = pf.w; v = pf.v;
 rep_periods = RPF.get_set_of_representative_periods(pf)
 
 # Rebuild the periods finder and hot start it
-config_file = RPF.datadir()
+config_file = RPF.datadir("default.yaml")
 pf = PeriodsFinder(config_file, populate_entries=true)
 delete!(pf.config["method"], "clustering")
 delete!(pf.config["method"]["optimization"], "time_series_error")

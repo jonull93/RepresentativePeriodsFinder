@@ -3,7 +3,7 @@ RPF = RepresentativePeriodsFinder
 using Dates
 
 # Create PeriodsFinder
-config_file = RPF.datadir()
+config_file = RPF.datadir("default.yaml")
 pf = PeriodsFinder(config_file, populate_entries=true)
 
 # Delete entries for optimization, add intermediate periods

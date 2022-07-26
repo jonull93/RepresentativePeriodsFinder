@@ -3,7 +3,7 @@ RPF = RepresentativePeriodsFinder
 # using Gurobi
 
 # Create PeriodsFinder
-config_file = RPF.datadir()
+config_file = RPF.datadir("default.yaml")
 pf = PeriodsFinder(config_file, populate_entries=true)
 
 # Delete clustering entries and ensure problem is an IP

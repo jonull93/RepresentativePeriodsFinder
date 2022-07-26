@@ -4,7 +4,7 @@
 # First we create an instance of a PeriodsFinder. Here we are using the default `.yaml` configuration file, but keep in mind that a lot of the following lines of code could be avoided by creating your own custom file.
 using RepresentativePeriodsFinder;
 RPF = RepresentativePeriodsFinder;
-config_file = RPF.datadir();
+config_file = RPF.datadir("default.yaml");
 pf = PeriodsFinder(config_file, populate_entries=true);
 
 # Change the result directory name.
