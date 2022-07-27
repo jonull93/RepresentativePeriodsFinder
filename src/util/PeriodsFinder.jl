@@ -2,6 +2,18 @@
     PeriodsFinder(config_file::String; populate_entries::Bool=false)
 
 Type used for finding representative periods in a time series (see `find_representative_periods`). If `populate_entries=true` then time series are loaded into `pf`.
+
+# Entries
+
+* `config_file`: Path of configuration file used to create the `PeriodsFinder`.
+* `config`: Dictionary of input parameters.
+* `time_series`: Dictionary of time series.
+* `x`: Normalise time series in matrix format (rows = timesteps, columns = periods).
+* `inputs`: Used internally to save variables which are computationally intensive to calculate.
+* `m`: JuMP model used for representative period selection.
+* `u`: Selection variable, a vector whose entries are 1 if a period is selected and 0 otherwise.
+* `w`: Weighting variable, a vector whose entries greater than 0 if a period is selected and 0 otherwise.
+* `v`: Ordering variable, a matrix where the sum over the columns is equal to `w` and the diagonal is equal to `u`.  
 """
 mutable struct PeriodsFinder
     ###########################################################################
@@ -29,7 +41,6 @@ mutable struct PeriodsFinder
     u::Array{Bool,1}    # Selection variable
     w::Array{Float64,1} # Weight variable (can also be integer)
     v::Array{T,2} where T <: Union{Bool,Float64} # Ordering variable (not always defined, can be float)
-    # TODO: redefine v so it's Union{Bool,Float64} to potentially save memort
 
     function PeriodsFinder()
         pf = new()
