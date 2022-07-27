@@ -96,3 +96,11 @@ for (ts_name, ts) in RPF.get_set_of_time_series(pf)
 end
 
 # Here we only selected 10 hours from 168 using 40 bins, and as you can see above it did not find a solution within 60 seconds. Selecting hours from the year using an optimisation method is therefore not recommended as it can be computationally expensive. A clustering based method is preferable.
+
+#jlAssert that the ordering variable is not made
+#jl@testset "Optimisation based hour selection" begin
+#jl    @test typeof(pf.m.ext[:variables][:v]) <: RPF.SingleValuedContainer
+#jl    @test haskey(pf.m.ext[:constraints], :restrict_ordering) == false
+#jl    @test haskey(pf.m.ext[:constraints], :linear_combination_representative_periods) == false
+#jl    @test length(RPF.get_set_of_representative_periods(pf)) == n_rep
+#jlend

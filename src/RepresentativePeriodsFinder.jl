@@ -42,7 +42,7 @@ module RepresentativePeriodsFinder
 
     # Exported methods
     export PeriodsFinder, populate_entries!, 
-    find_representative_periods,
+    find_representative_periods, find_representative_periods!,
     optimize_periods_finder_model!, make_periods_finder_model!,
     cluster_periods!,
     create_plots, create_duration_curve, create_ordering_heatmap,
