@@ -61,6 +61,9 @@ makedocs(
         ],
         "Examples" => [
             "Re ordering representative days" => "examples/days_re_ordering.md",
+            "Selecting representative hours" => "examples/rep_hours_finder.md",
+            "Interfacing with TimeSeriesClustering.jl" => "examples/interfacing_with_TimeSeriesClustering.md",
+            "Ramping and correlation time series" => "examples/ramping_and_correlation.md",
         ],
         "Methods" => "methods.md",
         "API Reference" => "api.md"
