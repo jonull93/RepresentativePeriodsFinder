@@ -1,7 +1,10 @@
 test/results
 docs/build
 test/Manifest.toml
+results
 /Manifest.toml
 docs/Manifest.toml
 examples
 docs/src/examples/*
+corr_time_series.csv
+corr.yaml
