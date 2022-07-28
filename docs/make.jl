@@ -1,4 +1,4 @@
-using Documenter, Literate, RepresentativePeriodsFinder
+using Pkg, Documenter, Literate, RepresentativePeriodsFinder
 
 # GR issues
 ENV["GRDIR"] = ""
