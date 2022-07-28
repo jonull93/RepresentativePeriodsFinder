@@ -135,7 +135,9 @@ function get_error_term_weights(pf::PeriodsFinder)
         opt = pf.config["method"]["optimization"]
         for err in ["time_series_error", "duration_curve_error"]
             weights[err] = recursive_get(opt, err, "weight", 0.0)
-            check_weight_val(err, weights[err])
+            if haskey(opt, err)
+                check_weight_val(err, weights[err])
+            end
         end
     end
 
