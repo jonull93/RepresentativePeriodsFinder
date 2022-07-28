@@ -24,6 +24,9 @@ RPF = RepresentativePeriodsFinder
         )
     )
     @test RPF.has_ordering_error(pf) == true
+    @test_logs (:warn, ) RPF.get_error_term_weights(pf)
+    pf.config["method"]["options"]["ordering_error"]["ord_err_1"]["weight"] = -1.0
+    @test_logs (:error, ) RPF.get_error_term_weights(pf)
     
     delete!(pf.config["method"]["optimization"], "time_series_error")
     @test RPF.has_ordering_error(pf) == true

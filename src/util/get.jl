@@ -123,15 +123,25 @@ function get_error_term_weights(pf::PeriodsFinder)
     ord_errs = get_set_of_ordering_errors(pf)
     weights = Dict{String,Float64}()
 
+    function check_weight_val(err::String, err_val::Number)
+        if err_val ≈ 0.0
+            @warn "Weight for error $err is 0 and it will not impact period selection."
+        elseif err_val < 0.0
+            @error "Weight for error $err is less than 0 which will have adverse impacts for period selection."
+        end
+    end
+
     if haskey(pf.config["method"], "optimization")
         opt = pf.config["method"]["optimization"]
         for err in ["time_series_error", "duration_curve_error"]
             weights[err] = recursive_get(opt, err, "weight", 0.0)
+            check_weight_val(err, weights[err])
         end
     end
 
     for err in ord_errs
         weights[err] = opt_general["ordering_error"][err]["weight"]
+        check_weight_val(err, weights[err])
     end
 
     return weights
