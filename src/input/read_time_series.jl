@@ -79,7 +79,7 @@ function read_time_series(pf::PeriodsFinder, ts_name::String)
     end
 
     metaDict = Dict(
-        k => v for (k, v) in merge(ts_dict[ts_name], ts_dict["default"])
+        k => v for (k, v) in merge(ts_dict["default"], ts_dict[ts_name])
     )
     metaDict["name"] = ts_name
     if haskey(metaDict, "start")
@@ -94,16 +94,5 @@ function read_time_series(pf::PeriodsFinder, ts_name::String)
     end
     metaDict["start"] = start
 
-    return ta = TimeArray(timestamps, data, [:value], metaDict)
-
-    # pf.time_series[ts_name] = readtimearray(source; kwargs...)
-
-    # push!(pf.curves, ts.name)
-
-    # weight!(pf.WEIGHT_DC, ts)
-    # area_total!(pf.AREA_TOTAL, ts)
-    # area_total_days!(pf.AREA_TOTAL_DAY, pf.periods, ts)
-
-    # cum_bin_end!(pf.A, pf.periods, pf.bins, ts)
-    # cum_bin_total!(pf.L, self.bins, ts)
+    return TimeArray(timestamps, data, [:value], metaDict)
 end
