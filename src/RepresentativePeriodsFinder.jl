@@ -42,7 +42,7 @@ module RepresentativePeriodsFinder
     include("output/load.jl")
 
     # Exported methods
-    export PeriodsFinder, populate_entries!, 
+    export PeriodsFinder, populate_entries!, reset_inputs!,
     find_representative_periods, find_representative_periods!,
     optimize_periods_finder_model!, make_periods_finder_model!,
     cluster_periods!,

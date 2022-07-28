@@ -78,9 +78,9 @@ mutable struct PeriodsFinder
 end
 
 """
-    populate_entries!(pf::PeriodsFinder)
+    populate_entries!(pf::PeriodsFinder; reset_inputs::Bool=true)
 
-Re-reads time series from the `.csv` files and resets all internally saved parameters i.e. `pf.x` and `pf.inputs`. Should be called after making changes to `pf.config` to ensure that these are applied.
+Re-reads time series from the `.csv` files. If `reset_inputs=true`, also calls `reset_inputs!(pf)`.
 """
 function populate_entries!(pf::PeriodsFinder)
     S = get_set_of_time_series_names(pf)
@@ -101,7 +101,18 @@ function populate_entries!(pf::PeriodsFinder)
             colnames(ta), meta(ta)
         )
     end
-       
+
+    reset_inputs!(pf)
+
+    return pf
+end
+
+"""
+    reset_inputs!(pf::PeriodsFinder)
+
+Resets the inputs of `pf`, specifically `pf.x` and `pf.inputs`. Should be called after making changes to `pf.config` to ensure that these are applied.
+"""
+function reset_inputs!(pf::PeriodsFinder)
     pf.x = Dict{String,Array{Float64,2}}()
 
     # Instantiate inputs, load error functions
