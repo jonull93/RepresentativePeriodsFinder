@@ -77,6 +77,11 @@ mutable struct PeriodsFinder
     end
 end
 
+"""
+    populate_entries!(pf::PeriodsFinder)
+
+Re-reads time series from the `.csv` files and resets all internally saved parameters i.e. `pf.x` and `pf.inputs`. Should be called after making changes to `pf.config` to ensure that these are applied.
+"""
 function populate_entries!(pf::PeriodsFinder)
     S = get_set_of_time_series_names(pf)
     
@@ -84,18 +89,17 @@ function populate_entries!(pf::PeriodsFinder)
         @info "Adding $ts_name..."
         ta = read_time_series(pf, ts_name)
         if haskey(meta(ta), "interpolation_type")
+            @info "Interpolating missing values..."
             interpolate_missing_values!(pf, ta)
         end
         if haskey(meta(ta), "resample") && meta(ta)["resample"] == true
+            @info "Resampling..."
             resample!(pf, ta)
         end
         pf.time_series[ts_name] = TimeArray(
             DateTime.(timestamp(ta)), Float64.(values(ta)), 
             colnames(ta), meta(ta)
         )
-        # TODO: 
-        # 1) Create correlation time series (and weights)
-        # 2) Create ramping time series (and weights)
     end
        
     pf.x = Dict{String,Array{Float64,2}}()
