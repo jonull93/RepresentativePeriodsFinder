@@ -13,7 +13,7 @@ RUN apt-get -qq update; apt-get -y --no-install-recommends install git qtbase5-d
 RUN export GKS_WSTYPE=nul
 
 RUN julia -E ' \
-            ENV[“GKSwstype”]=“nul”; \
+            ENV["GKSwstype"]="nul"; \
             using Pkg; \
             Pkg.activate(".");\
             pkg"instantiate" ;\
