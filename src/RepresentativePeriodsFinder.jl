@@ -25,6 +25,7 @@ module RepresentativePeriodsFinder
     include("util/PeriodsFinder.jl")
     include("util/util.jl")
     include("util/get.jl")
+    include("util/PeriodsFinder_util.jl") # Has to come after "get.jl" for doctest reasons. I think....
 
     # Input and data processing
     include("input/read_time_series.jl")
