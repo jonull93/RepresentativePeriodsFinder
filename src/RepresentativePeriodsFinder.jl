@@ -19,6 +19,7 @@ module RepresentativePeriodsFinder
     using FileIO                            # -> to redefine load and save
     using UnPack                            # -> to unpack dicts
     using ProgressMeter                     # -> showing progress for clustering
+    using Infiltrator
 
     # Utility
     include("util/types.jl")

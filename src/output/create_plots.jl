@@ -48,9 +48,9 @@ function create_duration_curve(
     weights = pf.w[rep_periods]
     ntp = get_number_of_time_steps_per_period(pf)
     norm_val = get_normalised_time_series_values(pf, ts_name)
+    nt = get_total_number_of_time_steps(pf)
 
     # Original
-    nt = get_total_number_of_time_steps(pf)
     x = [x for x in range(0; stop=nt) / nt * 100.0]
     # x = [x for x in range(0; stop=(nt-1)) / (nt-1) * 100.0]
     y = sort(norm_val[:]; rev=true)

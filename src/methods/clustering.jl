@@ -77,12 +77,13 @@ function time_period_clustering(pf::PeriodsFinder)
         D[:,j] .= replaceVal
     end
 
+    @infiltrate
+
     # Correct for mandatory periods
     NCD = NCD - length(mandatory_periods)
     @assert iszero(NCD) == false "Can't run clustering if all periods are fixed."
     # TODO: could eventually replace this with a reasonable default.
-    # TODO: currently mandatory periods don't represent other periods!
-    # Since 
+    # TODO: currently mandatory periods don't represent other periods! Just themselves. I would say this is a limitation of clustering however
     ermsg = "Please allow for at least 1 period to be determined by the clustering algorithm."
     @assert NCD > 0 eval(ermsg)
     numAdj = get_number_of_clusters_of_adjacent_values(mandatory_periods)

@@ -7,19 +7,49 @@
 # ## Ramping time series
 
 # Let's create a `PeriodsFinder` instance:
-using RepresentativePeriodsFinder, Plots;
+using RepresentativePeriodsFinder, Plots, TimeSeries;
 RPF = RepresentativePeriodsFinder;
 config_file = RPF.datadir("default.yaml");
 pf = PeriodsFinder(config_file; populate_entries=false);
 
+# Helper functions for later:
+function make_clustering!(pf::PeriodsFinder)
+    pf.config["results"]["save_results"] = false
+    pf.config["method"]["options"]["representative_periods"] = 16
+    delete!(pf.config["method"], "optimization")
+    delete!(pf.config["method"]["options"]["ordering_error"], "ord_err_2"); # remove from set
+    pf.inputs[:ordering_error_functions]["ord_err_1"] = (
+        (x, y) -> (sum((x .- y).^2))
+    );
+    return pf
+end;
+
+function make_optimization!(pf::PeriodsFinder)
+    pf.config["results"]["save_results"] = false
+    pf.config["method"]["options"]["representative_periods"] = 16
+    delete!(pf.config["method"]["optimization"], "time_series_error")
+    delete!(pf.config["method"]["options"], "ordering_error")
+    delete!(pf.config["method"], "clustering")
+    pf.config["method"]["optimization"]["duration_curve_error"]["type"] = "absolute"
+end
+
+function plot_duration_curves(pf::PeriodsFinder)
+    plt_vec = [
+        create_duration_curve(pf, ts_name; line=:solid, marker=:none) for
+        (ts_name, ts) in RPF.get_set_of_time_series(pf)
+    ]
+    plt = Plots.plot(plt_vec...)
+    display(plt)
+    return plt
+end;
+
 # Delete some time series to speed up the process
-ts_orig = copy(pf.config["time_series"]);
 for ts_name in ["LFW", "Load", "LFS"]
     delete!(pf.config["time_series"], ts_name)
 end
 populate_entries!(pf);
 
-# Let's now create a ramping time series based on the residual load time series. Using `deepcopy` instead of `copy` is extremely important if you want to avoid weird bugs!
+# Let's now create a ramping time series based on the residual load time series. Using `deepcopy` instead of `copy` is extremely important if you want to avoid weird bugs! Otherwise any changes made to the `meta` dictionary in one time series will be made to that of the other time series to.
 pf.time_series["RL Ramp"] = diff(deepcopy(pf.time_series["Residual Load"]));
 
 # The above time series is 8783 entries long, but that's not as an issue - the configuration file will only select the first 8,760 entries. However, it starts an hour earlier than "Residual Load" - this is an issue! Let's fix it.
@@ -27,35 +57,98 @@ timestamp(pf.time_series["RL Ramp"]) .-= Hour(1)
 
 # We also need to change some settings in the "RL Ramp" meta dictionary:
 meta(pf.time_series["RL Ramp"])["name"] = "RL Ramp";
-meta(pf.time_series["RL Ramp"])["weight"] = 0.00001;
-meta(pf.time_series["Residual Load"])
-
-# TODO: allow for weights in clustering algorithm! Also the weights aren't working for some reason?
+meta(pf.time_series["RL Ramp"])["weight"] = 0.1;
 
 # And also add an entry for it in the config dictionary. This avoids some unfortunate bugs.
 pf.config["time_series"]["RL Ramp"] = Dict()
 
-delete!(pf.config["method"]["optimization"], "time_series_error")
-delete!(pf.config["method"]["options"], "ordering_error")
-delete!(pf.config["method"], "clustering")
-pf.config["method"]["optimization"]["duration_curve_error"]["type"] = "absolute"
-
-# # Make this a clustering based selection:
-# delete!(pf.config["method"], "optimization")
-# delete!(pf.config["method"]["options"]["ordering_error"], "ord_err_2"); # remove from set
-# pf.inputs[:ordering_error_functions]["ord_err_1"] = (
-#     (x, y) -> (sum((x[i] - y[i])^2 for i in eachindex(x)))
-# );
-
 # And now let's find us some representative days:
-find_representative_periods(
-    pf; optimizer=optimizer_with_attributes(HiGHS.Optimizer), reset=false
-)
-# find_representative_periods(pf; reset=false)
+make_optimization!(pf)
+# find_representative_periods(
+#     pf; optimizer=optimizer_with_attributes(HiGHS.Optimizer, "time_limit" => 15.0)
+# )
 
 # And what do these duration curves look like then?
-plt_vec = [
-    create_duration_curve(pf, ts_name; line=:solid, marker=:none) for
-    (ts_name, ts) in RPF.get_set_of_time_series(pf)
-]
-display(Plots.plot(plt_vec...; layout=(1, 2)))
+plot_duration_curves(pf)
+
+# ## Correlation time series
+
+# What you saw above was the hard way of doing things. It's much easier to simply add the new timeseries to the .csv file and then load it, which is what we'll do here.
+
+# The original paper of [Poncelet et al.](https://www.mech.kuleuven.be/en/tme/research/energy_environment/Pdf/wp-2015-10b.pdf) suggests to use an additional time series which explicitly captures the correlation between two time series. It's easier to understand this with an example.
+
+using Statistics, CSV, DataFrames;
+config_file = RPF.datadir("default.yaml");
+pf = PeriodsFinder(config_file; populate_entries=true);
+x_1 = permutedims(RPF.get_normalised_time_series_values(pf)["LFS"], [2, 1])[:];
+x_2 = permutedims(RPF.get_normalised_time_series_values(pf)["Load"], [2, 1])[:];
+x_1_m, x_2_m = mean.((x_1, x_2));
+corr_12 = [(x_1[i] - x_1_m) * (x_2[i] - x_2_m) for i in eachindex(x_1)];
+T = 1:48
+p = Plots.plot(
+    T .- 1,
+    getindex(hcat(x_1, x_2, corr_12), T, :);
+    lab=["Solar" "Load" "Correlation"],
+    xlab="Time [h]",
+    ylab="Normalised time series value [-]",
+    legend=:topleft,
+    color=[:red :blue :orange],
+    lw=2,
+    ylims=(-1,1)
+)
+Plots.plot!(
+    p,
+    T[[1, end]] .- 1,
+    hcat([x_1_m, x_1_m], [x_2_m, x_2_m]);
+    lab=["Mean Solar" "Mean Load"],
+    color=[:red :blue],
+    lw=2,
+    linestyle=:dash,
+)
+
+# Clearly the correlation time series is positive when the solar and load time series are both positive or both negative, and negative otherwise. In this way, it's capturing the correlation between the time series.
+
+# Let's write this time series to a new file:
+corr_ts_file = RPF.datadir("corr_time_series.csv");
+CSV.write(corr_ts_file, DataFrame(corr12=corr_12));
+
+# Now let's make a new config file with the time series in it:
+pf.config["time_series"]["Corr Load-LFS"] = Dict(
+    "source" => "corr_time_series.csv",
+    "csv_options" => Dict("validate" => false),
+    "value_column" => "corr12",
+    "weight" => 10,
+    "start" => 1
+);
+# for ts_name in ["Residual Load", "Corr Load-LFS", "Load", "LFS"]
+for ts_name in ["Residual Load", "Load", "LFS"]
+    delete!(pf.config["time_series"], ts_name)
+end
+corr_config_file = RPF.datadir("corr.yaml")
+YAML.write_file(corr_config_file, pf.config);
+
+# Make a new `PeriodsFinder` instance:
+pf = PeriodsFinder(corr_config_file; populate_entries=true);
+
+# Find them days:
+make_clustering!(pf);
+find_representative_periods(pf);
+
+# Plot the duration curves:
+plot_duration_curves(pf);
+
+# Delete the files we created
+rm(corr_ts_file; force=true)
+rm(corr_config_file; force=true)
+
+# debug
+rep_periods = RPF.get_set_of_representative_periods(pf)
+weights = pf.w[rep_periods]
+ntp = RPF.get_number_of_time_steps_per_period(pf)
+norm_val = RPF.get_normalised_time_series_values(pf, "LFW")
+nt = RPF.get_total_number_of_time_steps(pf)
+y = norm_val[rep_periods, :]'[:]
+x = transpose(weights * ones(1, ntp))[:] / nt * 100.0
+df = sort(DataFrame(; x=x, y=y), :y; rev=true)
+df = vcat(DataFrame(; x=0.0, y=df[1, :y]), df, )
+df[!, :x] = cumsum(df[!, :x])

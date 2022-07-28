@@ -1,7 +1,7 @@
 """
     read_time_series(pf::PeriodsFinder, ts_name::String)
 
-Reads a time series based on data in `pf.config[ts_name]`.
+Reads the time series `ts_name` based on data provided in `pf.config[ts_name]`.
 """
 function read_time_series(pf::PeriodsFinder, ts_name::String)
 
