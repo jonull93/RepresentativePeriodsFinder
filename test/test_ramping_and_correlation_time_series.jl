@@ -13,43 +13,52 @@ config_file = RPF.datadir("default.yaml");
 pf = PeriodsFinder(config_file; populate_entries=false);
 
 # Helper functions for later:
+function make_optimization!(pf::PeriodsFinder)
+    pf.config["results"]["save_results"] = false
+    pf.config["method"]["options"]["representative_periods"] = 8
+    delete!(pf.config["method"]["optimization"], "time_series_error")
+    pf.config["method"]["optimization"]["duration_curve_error"]["type"] = "absolute"
+    delete!(pf.config["method"]["options"], "ordering_error")
+    delete!(pf.config["method"], "clustering")
+    reset_inputs!(pf)
+    return pf
+end
+
 function make_clustering!(pf::PeriodsFinder)
     pf.config["results"]["save_results"] = false
-    pf.config["method"]["options"]["representative_periods"] = 16
+    pf.config["method"]["options"]["representative_periods"] = 8
     delete!(pf.config["method"], "optimization")
-    delete!(pf.config["method"]["options"]["ordering_error"], "ord_err_2"); # remove from set
+    delete!(pf.config["method"]["options"]["ordering_error"], "ord_err_2")
+    pf.config["method"]["options"]["ordering_error"]["ord_err_1"]["weight"] =
+        1.0
+    reset_inputs!(pf)
     pf.inputs[:ordering_error_functions]["ord_err_1"] = (
-        (x, y) -> (sum((x .- y).^2))
-    );
+        (x, y) -> (sum((x[i] - y[i])^2 for i in eachindex(x)))
+    )
     return pf
 end;
 
-function make_optimization!(pf::PeriodsFinder)
-    pf.config["results"]["save_results"] = false
-    pf.config["method"]["options"]["representative_periods"] = 16
-    delete!(pf.config["method"]["optimization"], "time_series_error")
-    delete!(pf.config["method"]["options"], "ordering_error")
-    delete!(pf.config["method"], "clustering")
-    pf.config["method"]["optimization"]["duration_curve_error"]["type"] = "absolute"
-end
-
 function plot_duration_curves(pf::PeriodsFinder)
     plt_vec = [
-        create_duration_curve(pf, ts_name; line=:solid, marker=:none) for
-        (ts_name, ts) in RPF.get_set_of_time_series(pf)
+        create_duration_curve(
+            pf,
+            ts_name;
+            line=:solid,
+            marker=:none,
+        ) for (ts_name, ts) in RPF.get_set_of_time_series(pf)
     ]
     plt = Plots.plot(plt_vec...)
     display(plt)
     return plt
 end;
 
-# Delete some time series to speed up the process
+# Delete some time series to speed up the selection process
 for ts_name in ["LFW", "Load", "LFS"]
     delete!(pf.config["time_series"], ts_name)
 end
 populate_entries!(pf);
 
-# Let's now create a ramping time series based on the residual load time series. Using `deepcopy` instead of `copy` is extremely important if you want to avoid weird bugs! Otherwise any changes made to the `meta` dictionary in one time series will be made to that of the other time series to.
+# Let's now create a ramping time series based on the residual load time series using `diff`. Using `deepcopy` instead of `copy` is extremely important if you want to avoid weird bugs! Otherwise any changes made to the `meta` dictionary in one time series will be made to that of the other time series to.
 pf.time_series["RL Ramp"] = diff(deepcopy(pf.time_series["Residual Load"]));
 
 # The above time series is 8783 entries long, but that's not as an issue - the configuration file will only select the first 8,760 entries. However, it starts an hour earlier than "Residual Load" - this is an issue! Let's fix it.
@@ -64,12 +73,13 @@ pf.config["time_series"]["RL Ramp"] = Dict()
 
 # And now let's find us some representative days:
 make_optimization!(pf)
-# find_representative_periods(
-#     pf; optimizer=optimizer_with_attributes(HiGHS.Optimizer, "time_limit" => 15.0)
-# )
+opt = optimizer_with_attributes(HiGHS.Optimizer, "time_limit" => 15.0)
+find_representative_periods(pf; optimizer=opt, reset=true)
 
 # And what do these duration curves look like then?
 plot_duration_curves(pf)
+
+# It's worth pointing out how we got a pretty good approximation of the duration curves despite an MIP gap of 100%. This happens quite often, though it's of course always good to check.
 
 # ## Correlation time series
 
@@ -77,7 +87,7 @@ plot_duration_curves(pf)
 
 # The original paper of [Poncelet et al.](https://www.mech.kuleuven.be/en/tme/research/energy_environment/Pdf/wp-2015-10b.pdf) suggests to use an additional time series which explicitly captures the correlation between two time series. It's easier to understand this with an example.
 
-using Statistics, CSV, DataFrames;
+using Statistics, CSV, DataFrames, YAML;
 config_file = RPF.datadir("default.yaml");
 pf = PeriodsFinder(config_file; populate_entries=true);
 x_1 = permutedims(RPF.get_normalised_time_series_values(pf)["LFS"], [2, 1])[:];
@@ -94,7 +104,7 @@ p = Plots.plot(
     legend=:topleft,
     color=[:red :blue :orange],
     lw=2,
-    ylims=(-1,1)
+    ylims=(-1, 1),
 )
 Plots.plot!(
     p,
@@ -110,7 +120,7 @@ Plots.plot!(
 
 # Let's write this time series to a new file:
 corr_ts_file = RPF.datadir("corr_time_series.csv");
-CSV.write(corr_ts_file, DataFrame(corr12=corr_12));
+CSV.write(corr_ts_file, DataFrame(; corr12=corr_12));
 
 # Now let's make a new config file with the time series in it:
 pf.config["time_series"]["Corr Load-LFS"] = Dict(
@@ -118,7 +128,7 @@ pf.config["time_series"]["Corr Load-LFS"] = Dict(
     "csv_options" => Dict("validate" => false),
     "value_column" => "corr12",
     "weight" => 10,
-    "start" => 1
+    "start" => 1,
 );
 # for ts_name in ["Residual Load", "Corr Load-LFS", "Load", "LFS"]
 for ts_name in ["Residual Load", "Load", "LFS"]
@@ -137,18 +147,9 @@ find_representative_periods(pf);
 # Plot the duration curves:
 plot_duration_curves(pf);
 
-# Delete the files we created
-rm(corr_ts_file; force=true)
-rm(corr_config_file; force=true)
+# The approximation of the duration curve of the wind time series is unsurprisingly not great, since we put such a high weight on the correlation time series. 
 
-# debug
-rep_periods = RPF.get_set_of_representative_periods(pf)
-weights = pf.w[rep_periods]
-ntp = RPF.get_number_of_time_steps_per_period(pf)
-norm_val = RPF.get_normalised_time_series_values(pf, "LFW")
-nt = RPF.get_total_number_of_time_steps(pf)
-y = norm_val[rep_periods, :]'[:]
-x = transpose(weights * ones(1, ntp))[:] / nt * 100.0
-df = sort(DataFrame(; x=x, y=y), :y; rev=true)
-df = vcat(DataFrame(; x=0.0, y=df[1, :y]), df, )
-df[!, :x] = cumsum(df[!, :x])
+#jl # Delete the files we created.
+#jl rm(corr_ts_file; force=true)
+#jl rm(corr_config_file; force=true)
+
