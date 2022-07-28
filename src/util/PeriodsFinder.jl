@@ -115,14 +115,16 @@ Resets the inputs of `pf`, specifically `pf.x` and `pf.inputs`. Should be called
 # Example
 
 ```jldoctest
-pf = PeriodsFinder(RepresentativePeriodsFinder.datadir("only_load.yaml"); populate_entries=true);
-println("Length of L: $(length(RepresentativePeriodsFinder.get_discretised_duration_curve(pf)["Load"]))")
+using RepresentativePeriodsFinder
+RPF = RepresentativePeriodsFinder
+pf = PeriodsFinder(RPF.datadir("only_load.yaml"); populate_entries=true);
+println("Length of L: $(length(RPF.get_discretised_duration_curve(pf)["Load"]))")
 
 pf.config["method"]["optimization"]["duration_curve_error"]["number_bins"] = 80;
-println("Length of L: $(length(RepresentativePeriodsFinder.get_discretised_duration_curve(pf)["Load"]))")
+println("Length of L: $(length(RPF.get_discretised_duration_curve(pf)["Load"]))")
 
 reset_inputs!(pf);
-println("Length of L: $(length(RepresentativePeriodsFinder.get_discretised_duration_curve(pf)["Load"]))")
+println("Length of L: $(length(RPF.get_discretised_duration_curve(pf)["Load"]))")
 
 # output
 
