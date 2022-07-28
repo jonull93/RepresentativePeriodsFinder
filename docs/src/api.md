@@ -5,6 +5,10 @@ RepresentativePeriodsFinder.PeriodsFinder
 
 RepresentativePeriodsFinder.find_representative_periods
 
+RepresentativePeriodsFinder.populate_entries!
+
+RepresentativePeriodsFinder.reset_inputs!
+
 RepresentativePeriodsFinder.save
 
 RepresentativePeriodsFinder.create_synthetic_time_series_plots

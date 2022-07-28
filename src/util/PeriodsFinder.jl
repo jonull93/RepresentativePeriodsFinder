@@ -110,7 +110,28 @@ end
 """
     reset_inputs!(pf::PeriodsFinder)
 
-Resets the inputs of `pf`, specifically `pf.x` and `pf.inputs`. Should be called after making changes to `pf.config` to ensure that these are applied.
+Resets the inputs of `pf`, specifically `pf.x` and `pf.inputs`. Should be called after making changes to `pf.config` to ensure that these are applied when selecting representative periods.
+
+# Example
+
+```jldoctest
+pf = PeriodsFinder(RepresentativePeriodsFinder.datadir("only_load.yaml"); populate_entries=true);
+println("Length of L: $(length(RepresentativePeriodsFinder.get_discretised_duration_curve(pf)["Load"]))")
+
+pf.config["method"]["optimization"]["duration_curve_error"]["number_bins"] = 80;
+println("Length of L: $(length(RepresentativePeriodsFinder.get_discretised_duration_curve(pf)["Load"]))")
+
+reset_inputs!(pf);
+println("Length of L: $(length(RepresentativePeriodsFinder.get_discretised_duration_curve(pf)["Load"]))")
+
+# output
+
+[ Info: Adding Load...
+[ Info: Interpolating missing values...
+Length of L: 40
+Length of L: 40
+Length of L: 80
+```
 """
 function reset_inputs!(pf::PeriodsFinder)
     pf.x = Dict{String,Array{Float64,2}}()

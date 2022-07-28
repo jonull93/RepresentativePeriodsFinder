@@ -272,12 +272,14 @@ function get_discretised_duration_curve(pf::PeriodsFinder, ts_name::String)
 end
 
 function get_discretised_duration_curve(pf::PeriodsFinder)
-    L = Dict(
-        ts_name => get_discretised_duration_curve(pf, ts_name)
-        for ts_name in get_set_of_time_series_names(pf)
-    )
-    @pack! pf.inputs = L
-    return L
+    if haskey(pf.inputs, :L) == false
+        L = Dict(
+            ts_name => get_discretised_duration_curve(pf, ts_name)
+            for ts_name in get_set_of_time_series_names(pf)
+        )
+        @pack! pf.inputs = L
+    end
+    return pf.inputs[:L]
 end
 
 """
@@ -292,12 +294,14 @@ function get_duration_curve_parameter(pf::PeriodsFinder, ts_name::String)
 end
 
 function get_duration_curve_parameter(pf::PeriodsFinder)
-    A = Dict(
-        ts_name => get_duration_curve_parameter(pf, ts_name)
-        for ts_name in get_set_of_time_series_names(pf)
-    )
-    @pack! pf.inputs = A
-    return A
+    if haskey(pf.inputs, :A) == false
+        A = Dict(
+            ts_name => get_duration_curve_parameter(pf, ts_name)
+            for ts_name in get_set_of_time_series_names(pf)
+        )
+        @pack! pf.inputs = A
+    end
+    return pf.inputs[:A]
 end
 
 """
@@ -323,18 +327,20 @@ function get_histogram_per_period(pf::PeriodsFinder,ts_name::String)
 
     @assert all(sum(histogram_per_period, dims=2) .== get_number_of_time_steps_per_period(pf))
     
-    return recursive_set(pf.inputs, :histogram_per_period, 
+    return recursive_set(pf.inputs, :histograms_per_period, 
         ts_name, histogram_per_period; collection_type=Dict{Union{String,Symbol},Any}
     )
 end
 
 function get_histogram_per_period(pf::PeriodsFinder)
-    histograms_per_period = Dict(
-        ts_name => get_histogram_per_period(pf, ts_name)
-        for ts_name in get_set_of_time_series_names(pf)
-    )
-    @pack! pf.inputs = histograms_per_period
-    return histograms_per_period
+    if haskey(pf.inputs, :histograms_per_period) == false
+        histograms_per_period = Dict(
+            ts_name => get_histogram_per_period(pf, ts_name)
+            for ts_name in get_set_of_time_series_names(pf)
+        )
+        @pack! pf.inputs = histograms_per_period
+    end
+    return pf.inputs[:histograms_per_period]
 end
 
 function get_synthetic_time_series(pf::PeriodsFinder, ts_name::String)
