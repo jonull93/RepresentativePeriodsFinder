@@ -52,5 +52,5 @@ method:
 results:
   save_results: true
   # Options for exactly what to save here
-  result_dir: '../results' # Relative to this file
+  result_dir: 'results' # Relative to this file
   create_plots: true
