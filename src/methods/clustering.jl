@@ -77,8 +77,6 @@ function time_period_clustering(pf::PeriodsFinder)
         D[:,j] .= replaceVal
     end
 
-    @infiltrate
-
     # Correct for mandatory periods
     NCD = NCD - length(mandatory_periods)
     @assert iszero(NCD) == false "Can't run clustering if all periods are fixed."
