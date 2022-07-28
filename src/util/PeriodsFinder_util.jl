@@ -72,10 +72,10 @@ function reset_inputs!(pf::PeriodsFinder)
     # To avoid weird bugs, also update the meta dictionary in the time series:
     S = get_set_of_time_series_names(pf)
     for (ts_name, ts) in get_set_of_time_series(pf)
+        ts_name ∉ S && continue
         ts_dict = pf.config["time_series"]
         new_dict = Dict(
             k => v for (k, v) in merge(ts_dict["default"], ts_dict[ts_name])
-            if k in S
         )
         md = meta(ts)
         md = merge(md, new_dict)
