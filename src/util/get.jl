@@ -289,7 +289,8 @@ Returns an `np` by `nb` matrix used to approximate the aggregated duration curve
 """
 function get_duration_curve_parameter(pf::PeriodsFinder, ts_name::String)
     histogram_per_period = get_histogram_per_period(pf, ts_name)
-    A = cumsum(histogram_per_period, dims=2)
+    nt = get_number_of_time_steps_per_period(pf)
+    A = cumsum(histogram_per_period, dims=2) ./ nt # Normalise to get a discretised, aggregated DC between 0 and 1
     return A
 end
 
