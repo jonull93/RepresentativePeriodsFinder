@@ -2,7 +2,7 @@ using Pkg, Documenter, Literate, RepresentativePeriodsFinder
 
 # GR issues
 ENV["GRDIR"] = ""
-ENV["GKSwstype"] = "nul"
+ENV["GKSwstype"] = "100"
 Pkg.build("GR")
 
 # This is heavily copied from COSMO.jl: https://github.com/oxfordcontrol/COSMO.jl/blob/master/docs/make.jl#L1
@@ -76,7 +76,7 @@ makedocs(;
             "Re ordering representative days" => "examples/days_re_ordering.md",
             "Selecting representative hours" => "examples/rep_hours_finder.md",
             "Interfacing with TimeSeriesClustering.jl" => "examples/interfacing_with_TimeSeriesClustering.md",
-            "Ramping and correlation time series" => "examples/test_ramping_and_correlation_time_series.md",
+            "Ramping and correlation time series" => "examples/ramping_and_correlation_time_series.md",
         ],
         "Methods" => "methods.md",
         "API Reference" => "api.md",
