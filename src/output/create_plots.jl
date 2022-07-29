@@ -7,9 +7,20 @@ function create_plots(
     pf::PeriodsFinder, result_dir::String=get_abspath_to_result_dir(pf)
 )
     mkrootdirs(result_dir)
-
+    filter_ts_names = recursive_get(
+        pf.config, "results", "duration_curve_plot", "filter", String[]
+    )
+    marker = recursive_get(
+        pf.config, "results", "duration_curve_plot", "marker", :cross
+    )
+    line = recursive_get(
+        pf.config, "results", "duration_curve_plot", "line", :auto
+    )
     for (ts_name, ts) in get_set_of_time_series(pf)
-        p = create_duration_curve(pf, ts_name)
+        ts_name ∈ filter_ts_names && continue
+        p = create_duration_curve(
+            pf, ts_name; line=Symbol(line), marker=Symbol(marker)
+        )
         file_svg = joinpath(result_dir, "$(ts_name)_duration_curve.svg")
         savefig(p, file_svg)
     end
@@ -34,6 +45,11 @@ p = create_duration_curve(pf, "Load")
 display(p)
 
 # Keyword arguments
+
+* `line=:auto`: line type.
+* `marker=:cross`: marker type.
+* `original_discretised=false`: if `true`, include original discretised duration curve.
+* `aggregated_discretised=false`: if `true`, include aggregated discretised duration curve.
 ```
 """
 function create_duration_curve(
@@ -70,7 +86,7 @@ function create_duration_curve(
     y = norm_val[rep_periods, :]'[:]
     x = transpose(weights * ones(1, ntp))[:] / nt * 100.0
     df = sort(DataFrame(; x=x, y=y), :y; rev=true)
-    df = vcat(DataFrame(; x=0.0, y=df[1, :y]), df, )
+    df = vcat(DataFrame(; x=0.0, y=df[1, :y]), df)
     df[!, :x] = cumsum(df[!, :x])
     # df = vcat(DataFrame(; x=0.0, y=df[1, :y]), df)
 
@@ -103,7 +119,8 @@ function create_duration_curve(
         if aggregated_discretised
             N_total = get_number_of_periods(pf)
             A = get_duration_curve_parameter(pf)
-            x = 100 .- 
+            x =
+                100 .-
                 [
                     sum(
                         pf.w[j] / N_total * A[ts_name][j, b] for
