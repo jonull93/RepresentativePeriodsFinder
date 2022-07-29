@@ -24,7 +24,7 @@ function get_set_of_mandatory_periods(pf::PeriodsFinder)
 end
 
 function get_set_of_intermediate_periods(pf::PeriodsFinder)
-    intermediate_periods = [Int64(i) for i in 
+    intermediate_periods = Int64[Int64(i) for i in 
         recursive_get(pf.config, "method", "clustering", 
             "intermediate_periods", Int64[]
         )
