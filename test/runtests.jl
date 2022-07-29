@@ -1,6 +1,9 @@
 using Test
 
-ENV["GKSwstype"]="100"
+# GR issues - I fucking hate GR so much!!!
+ENV["GRDIR"] = ""
+ENV["GKSwstype"] = "100"
+Pkg.build("GR")
 
 tests = [
     f for f in readdir(@__DIR__) if !(isnothing(match(r"test_", f))) && !(isnothing(match(r".jl", f)))
