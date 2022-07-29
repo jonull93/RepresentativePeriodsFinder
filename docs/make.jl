@@ -45,7 +45,7 @@ for file in readdir(examples_path)
 end
 
 # Build the example documentation
-build_path = joinpath(@__DIR__, "src", "examples/")
+build_path = joinpath(@__DIR__, "src", "examples")
 for file in readdir(examples_path)
     endswith(file, ".jl") == false && continue
     Literate.markdown(

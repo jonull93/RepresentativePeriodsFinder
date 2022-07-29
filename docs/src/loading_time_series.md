@@ -1,5 +1,7 @@
 # Loading time series
 
+## Overview
+
 In the absence of additional documentation, refer to the examples in the [`test`](https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl/-/tree/dev/test) directory of this repository to understand the options available for loading in time series.
 
 For the purposes of illustration, consider [`default.yaml`](https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl/-/blob/dev/test/input_data/default.yaml) which is used for testing this package.
@@ -10,9 +12,9 @@ time_series:
     source: "time_series.csv"
     csv_options: # These are passed to CSV.read
         delim: ";"
+        silence_warnings: false # If true, won't throw error msgs when reading csv
     timestamp: "Timestamp" # optional
     weight: 1 # weight of time series in objective / clustering
-    silence_warnings: false # If true, won't throw error msgs when reading csv
     interpolation_type: "linear" # or "constant" or don't specify
     sampling_time: "Hour(1)" # Only necessary if a timestamp is not given
   
@@ -36,7 +38,8 @@ time_series:
 
   LFW:
     value_column: "LFW"
-    delim: ';'
+    csv_options:
+      delim: ';'
     weight: 1
 
   LFS:
@@ -49,3 +52,15 @@ To load the above time series (without selecting representative periods) run [`p
 The `default` entry specifies options to be used if these are not specified for the time series entries. So `Load` is read in from `time_series.csv` since there is no `source` option specified for it, while `Residual Load` is read from `residual_load.csv`.
 
 To "deactivate" a time series (i.e. only output it in the results without having it affect the aggregation algorithm) simply set the `weight` entry to `0`.
+
+## Options description
+
+* `source`: Path of the `.csv` file to be read relative to the `.yaml` file.
+* `csv_options`: Key word arguments that are passed to [`CSV.read`](https://csv.juliadata.org/stable/reading.html).
+* `value_column`: Name of the value column in the `.csv` file.
+* `timestamp`: Name of timestamp column in the `.csv` file (optional, but necessary for evventual interpolation).
+* `weight`: Weight assigned to this time series when selecting representative periods.
+* `interpolation_type`: Can be `"linear"`, `"constant"` or unspecified if no interpolation should be done. Using this feature for anything other than marginal cases is not recommended, particularly since the package works with time stamps and not time slices which makes interpolation ambiguous at times. See [`interpolate_missing_values!`](@ref), [`resample!`](@ref) and [`get_contributing_time_slices`](@ref).
+* `resample`: If true, the time series will be resampled so as to have a constant time step length. Again, using this option is to be avoided if possible and see the above references.
+* `sampling_time`: Sampling time or length of a timestep in a `DateTime` format.
+* `start`: Starting point of the time series. Useful if you have e.g. 5 years worth of data for one time series but only 1 for another and you want to specify to use year 3 of the first. The end of the time series is specified by the total number of time steps specified (see [Selecting representative periods](@ref)).
