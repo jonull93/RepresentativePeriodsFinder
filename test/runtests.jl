@@ -1,5 +1,7 @@
 using Test
 
+ENV["GKSwstype"]="100"
+
 tests = [
     f for f in readdir(@__DIR__) if !(isnothing(match(r"test_", f))) && !(isnothing(match(r".jl", f)))
 ]
