@@ -11,6 +11,7 @@ Version 0.4.4 (July 29th 202)
 - Fixed time series weights not being applied bug.
 - Created example for interfacing with [`TimeSeriesClustering.jl`](https://holgerteichgraeber.github.io/TimeSeriesClustering.jl/stable/quickstart/).
 - Fixed bin discretisation error bug (occurred when there were many zero values, e.g. for solar, see [#30](https://gitlab.kuleuven.be/UCM/representativeperiodsfinder.jl/-/issues/30)).
+- Fixed time series error bug (ordering was not occurring properly which is probably why the days re-ordering example wasn't working properly).
 - Fixed `mkrootdirs` being OS dependent.
 - Fixed `Int64` type assertions for Julia versions >1.7.
 
