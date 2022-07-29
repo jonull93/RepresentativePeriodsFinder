@@ -1,6 +1,19 @@
 RepresentativePeriodsFinder release notes
 ==========================================
 
+Version 0.4.4 (July 29th 2021)
+---------------------------------
+
+- Beefed up documentation.
+- Added more options for writing out results.
+- Added an example to illustrate how to include ramping and correlation time series.
+- Added warning if no objective present for period selection.
+- Fixed time series weights not being applied bug.
+- Created example for interfacing with [`TimeSeriesClustering.jl`](https://holgerteichgraeber.github.io/TimeSeriesClustering.jl/stable/quickstart/).
+- Fixed bin discretisation error bug (occurred when there were many zero values, e.g. for solar, see [#30](https://gitlab.kuleuven.be/UCM/representativeperiodsfinder.jl/-/issues/30)).
+- Fixed `mkrootdirs` being OS dependent.
+- Fixed `Int64` type assertions for Julia versions >1.7.
+
 Version 0.4.3 (August 9th 2021)
 ---------------------------------
 
