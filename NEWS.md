@@ -1,7 +1,7 @@
 RepresentativePeriodsFinder release notes
 ==========================================
 
-Version 0.4.4 (July 29th 2021)
+Version 0.4.4 (July 29th 202)
 ---------------------------------
 
 - Beefed up documentation.

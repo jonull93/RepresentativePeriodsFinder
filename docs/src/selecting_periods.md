@@ -115,7 +115,7 @@ optimization:
 * `time_series_error`: If this entry is present, the time series error, i.e. the error between the time series values incurred by representing one period by another, is used to select representative periods. Generally discouraged for selecting representative periods due to computational complexity, though it is useful for ordering periods throughout a year once these have been selected (see [Re-ordering days in a year](@ref)).
   * `weight=0`: Weight assigned to this error in the objective function.
   * `type`: `"absolute"` for the absolute error between two time series or `"squared"` for the squared error (2-norm). The latter requires a solver which can solve MIQPs.
-* `duration_curve_error`: If this entry is present, the duration curve error, i.e. the error incurred in approximating the original time series by selecting a period as representative and weighting it, is used to select representative periods. This is the "classic" method devised by [Poncelet et al.]((https://www.mech.kuleuven.be/en/tme/research/energy_environment/Pdf/wp-2015-10b.pdf)).
+* `duration_curve_error`: If this entry is present, the duration curve error, i.e. the error incurred in approximating the original time series by selecting a period as representative and weighting it, is used to select representative periods. This is the "classic" method devised by [Poncelet et al.](https://www.mech.kuleuven.be/en/tme/research/energy_environment/Pdf/wp-2015-10b.pdf).
   * `weight`: see above.
   * `type`: see above, except error is between aggregated and discretised duration curve.
   * `number_bins`: Number of bins into which the duration curve is discretised.

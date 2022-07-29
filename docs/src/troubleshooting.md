@@ -49,9 +49,13 @@ pf = PeriodsFinder(config_file; populate_entries=true) # This keyword argument i
 find_representative_periods(pf; optimizer=Cbc.Optimizer)
 ```
 
+## Optimal selection of representative periods based on duration curve error is slow
+
+This is a thing (it was mentioned in the original paper by [Poncelet et al.](https://www.mech.kuleuven.be/en/tme/research/energy_environment/Pdf/wp-2015-10b.pdf)). In essence it doesn't matter however, as the issue is proving optimality but you usually get good solutions quite quickly.
+
 ## Optimal ordering of representative periods is slow
 
-It may be that setting the `integral_weights` option to `true` speeds up the optimisation massively (from several hours or days to several seconds).
+It may be that setting the `integral_weights` and `binary_ordering` options to `true` speeds up the optimisation massively (from several hours or days to several seconds).
 
 ## Other errors and fixes
 
