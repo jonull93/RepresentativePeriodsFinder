@@ -3,7 +3,7 @@
 ## Overview
 
 To select periods, the general workflow is:
-```repl
+```julia
 using RepresentativePeriodsFinder, JuMP, Cbc
 config_file = "/home/user/Desktop/selecting_periods/config_file.yaml"
 pf = PeriodsFinder(config_file)
@@ -12,7 +12,7 @@ pf = find_representative_periods(pf, optimizer=optimizer)
 ```
 
 Alternatively, you can just run:
-```repl
+```julia
 config_file = "/home/user/Desktop/selecting_periods/config_file.yaml"
 optimizer = optimizer_with_attributes(Cbc.Optimizer, "seconds" => 300)
 pf = find_representative_periods(config_file, optimizer=optimizer)

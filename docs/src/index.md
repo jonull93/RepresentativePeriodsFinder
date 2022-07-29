@@ -7,7 +7,7 @@
 ## Installation
 
 `RepresentativePeriodsFinder.jl` can be added via the Julia package manager (type `]`):
-```repl
+```julia
 ] add https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl
 ```
 

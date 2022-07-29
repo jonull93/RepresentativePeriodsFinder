@@ -1,6 +1,6 @@
 # RepresentativePeriodsFinder
 
-This is a Julia package to select representative periods from time series data, typically to then be used in capacity expansion planning models. For more information see the [documentation](https://ucm.pages.gitlab\.kuleuven\.be/representativeperiodsfinder.jl/).
+This is a Julia package to select representative periods from time series data, typically to then be used in capacity expansion planning models. For more information see the [documentation](https://ucm.pages.gitlab.kuleuven.be/representativeperiodsfinder.jl/).
 
 ## Installation
 
@@ -11,19 +11,20 @@ This is a Julia package to select representative periods from time series data, 
 ## Basic useage
 
 ```julia
+using Pkg
+]add "https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl"
 using RepresentativePeriodsFinder, Cbc
 config_file = <path_to_config_file>
 find_representative_periods(config_file, optimizer=Cbc.Optimizer)
 ```
-For more information see the [documentation](https://ucm.pages.gitlab\.kuleuven\.be/representativeperiodsfinder.jl/).
-
+For more information see the [documentation](https://ucm.pages.gitlab.kuleuven.be/representativeperiodsfinder.jl/).
 ## Troubleshooting
 
-See [troubleshooting](https://ucm.pages.gitlab\.kuleuven\.be/representativeperiodsfinder.jl/troubleshooting/).
+See [troubleshooting](https://ucm.pages.gitlab.kuleuven.be/representativeperiodsfinder.jl/troubleshooting/).
 
 ## Reporting issues and feature requests
 
-If you have any issues or feature requests, report them on GitLab and mention `@steffen.kaminski` or `@u0128861`. Most of the GitLab issues already there are just waiting for someone to motivate their implementation.
+If you have any issues or feature requests, report them on GitLab and mention `@steffen.kaminski` or `@u0128861`.
 
 ## Alternative packages
 
@@ -32,8 +33,8 @@ If you have any issues or feature requests, report them on GitLab and mention `@
 ## Developers
 
 ```julia
-julia> ENV["JULIA_PKG_DEVDIR"] = "<path_to_dir_of_choice>"
-pkg> dev "https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl"
+ENV["JULIA_PKG_DEVDIR"] = "<path_to_dir_of_choice>"
+]dev "https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl"
 ```
 
 ## Acknowledgements
