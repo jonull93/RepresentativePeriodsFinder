@@ -55,7 +55,7 @@ For more advanced use cases it may be helpful to check out the [Examples](@ref) 
 `config_file.yaml` specifies two time series to be read, `Load` and `Solar`, from `time_series.csv`, which has 3 columns: `Timestamp`, `Load` and `load_factor_PV`.
 
 Load the time series by typing:
-```julia
+```repl
 using RepresentativePeriodsFinder
 config_file = "/home/user/Desktop/selecting_periods/config_file.yaml"
 pf = PeriodsFinder(config_file)
@@ -65,7 +65,7 @@ pf = PeriodsFinder(config_file)
 The configuration specified by `config_file.yaml` will select 8 representative days of 24 hours by solving an optimisation problem which minimises the difference between the original and aggregated load duration curves. Additionally, the 200th day of the year is forced to be selected.
 
 To select the representative periods:
-```julia
+```repl
 using Pkg
 Pkg.add("JuMP") # add optimisation package
 Pkg.add("Cbc") # add package for open source solver

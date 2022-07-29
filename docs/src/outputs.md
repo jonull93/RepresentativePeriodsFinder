@@ -7,7 +7,7 @@
 If the option `save_results` or `create_plots` in `results` of the configuration file is true, then running [`find_representative_periods`](@ref) will save the selection results to `.csv` and create duration curve plots in the specified directory. 
 
 Otherwise the following functions can be called:
-```julia
+```repl
 dir = "/home/user/Desktop/selecting_periods/results"
 save(pf, dir)
 create_plots(pf, dir)

@@ -6,7 +6,7 @@ This package is tested using Julia 1.2, 1.3, 1.4 and 1.5. If it doesn't work for
 
 If issues with the GR-engine (i.e. plotting) occur build the `GR` package:
 
-```julia
+```repl
 pkg> build GR
 ```
 
@@ -18,14 +18,14 @@ Many versions of the `CSV` package are incompatible with each other, so errors w
 
 `DataFrames.jl` can also be quite a troublesome package, since indexing changed between versions. If you get an error about a column not being in a `DataFrame` (i.e. your `.csv` file) when you know it should be, make sure your version of `DataFrames` is at least `0.20.0`:
 
-```julia
+```repl
 ]add DataFrames
 ]status # Check what version number is written next to the entry with DataFrames
 ```
 
 If it's not, try to update:
 
-```julia
+```repl
 ]up DataFrames
 ```
 
@@ -35,7 +35,7 @@ If this doesn't work, then it's likely some other package is preventing you from
 
 If you get an error that mentions this, forcing the `PeriodsFinder` type to load your time series with `populate_entries=true` may help:
 
-```julia
+```repl
 config_file = <path_to_config_file>
 pf = PeriodsFinder(config_file; populate_entries=true) # This keyword argument is the "key" (ha)
 find_representative_periods(pf; optimizer=Cbc.Optimizer)
