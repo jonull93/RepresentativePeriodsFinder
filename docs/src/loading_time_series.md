@@ -55,12 +55,14 @@ To "deactivate" a time series (i.e. only output it in the results without having
 
 ## Options description
 
+Default is indicated by an `=` sign.
+
 * `source`: Path of the `.csv` file to be read relative to the `.yaml` file.
 * `csv_options`: Key word arguments that are passed to [`CSV.read`](https://csv.juliadata.org/stable/reading.html).
 * `value_column`: Name of the value column in the `.csv` file.
 * `timestamp`: Name of timestamp column in the `.csv` file (optional, but necessary for evventual interpolation).
-* `weight`: Weight assigned to this time series when selecting representative periods.
-* `interpolation_type`: Can be `"linear"`, `"constant"` or unspecified if no interpolation should be done. Using this feature for anything other than marginal cases is not recommended, particularly since the package works with time stamps and not time slices which makes interpolation ambiguous at times. See [`interpolate_missing_values!`](@ref), [`resample!`](@ref) and [`get_contributing_time_slices`](@ref).
-* `resample`: If true, the time series will be resampled so as to have a constant time step length. Again, using this option is to be avoided if possible and see the above references.
-* `sampling_time`: Sampling time or length of a timestep in a `DateTime` format.
-* `start`: Starting point of the time series. Useful if you have e.g. 5 years worth of data for one time series but only 1 for another and you want to specify to use year 3 of the first. The end of the time series is specified by the total number of time steps specified (see [Selecting representative periods](@ref)).
+* `weight=0.0`: Weight assigned to this time series when selecting representative periods.
+* `interpolation_type="linear"`: Can be `"linear"`, `"constant"` or unspecified if no interpolation should be done. Using this feature for anything other than marginal cases is not recommended, particularly since the package works with time stamps and not time slices which makes interpolation ambiguous at times. See [`interpolate_missing_values!`](@ref), [`resample!`](@ref) and [`get_contributing_time_slices`](@ref).
+* `resample=false`: If `true`, the time series will be resampled so as to have a constant time step length. Again, using this option is to be avoided if possible and see the above references.
+* `sampling_time=Hour(1)`: Sampling time or length of a timestep in a `DateTime` format.
+* `start=1`: Starting point of the time series as an integer corresponding to the row or a time stamp. Useful if you have e.g. 5 years worth of data for one time series but only 1 for another and you want to specify to use year 3 of the first. The end of the time series is specified by the total number of time steps specified (see [Selecting representative periods](@ref)).
