@@ -179,7 +179,7 @@ function get_ordering_error_function(pf::PeriodsFinder, err_name::String)
 end
 
 function get_abspath_to_result_dir(pf::PeriodsFinder)
-    rel_dir = recursive_get(pf.config, "results", "result_dir", "plots")
+    rel_dir = recursive_get(pf.config, "results", "result_dir", "results")
     return abspath(joinpath(pf.config["base_dir"], rel_dir))
 end
 
