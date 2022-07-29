@@ -1,4 +1,4 @@
-using Test
+using Test, Pkg
 
 # GR issues - I fucking hate GR so much!!!
 ENV["GRDIR"] = ""
