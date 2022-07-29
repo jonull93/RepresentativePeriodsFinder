@@ -35,7 +35,7 @@ Resets the inputs of `pf`, specifically `pf.x` and `pf.inputs`. Should be called
 
 # Example
 
-```jldoctest
+```@jldoctest; setup = :(using RepresentativePeriodsFinder)
 RPF = RepresentativePeriodsFinder
 pf = PeriodsFinder(RPF.datadir("only_load.yaml"); populate_entries=true);
 println("Length of L: ", length(RPF.get_discretised_duration_curve(pf)["Load"]))

@@ -49,7 +49,7 @@ There are 3 principal types of error functions:
 * Duration curve error functions, ``f(w_{ij})``.
 * Ordering error functions, ``f(v_{ij})``
 
-The ordering error functions are user defined (see [Selecting representative periods](@ref)). For the time series and duration curve error functions, the reader is referred to [`optimization.jl` file](https://gitlab.kuleuven.be/UCM/representativeperiodsfinder.jl/-/blob/dev/src/methods/optimization.jl), as describing these is prohibitively time consuming. The time series error is briefly described in [Gonzato et al.]((https://www.mech.kuleuven.be/en/tme/research/energy-systems-integration-modeling/pdf-publications/wp-esim2021-1)) and the duration curve error in [Poncelete et al.]((https://www.mech.kuleuven.be/en/tme/research/energy_environment/Pdf/wp-2015-10b.pdf)).
+The ordering error functions are user defined (see [Selecting representative periods](@ref)). For the time series and duration curve error functions, the reader is referred to [`optimization.jl` file](https://gitlab.kuleuven.be/UCM/representativeperiodsfinder.jl/-/blob/dev/src/methods/optimization.jl), as describing these is prohibitively time consuming. The time series error is briefly described in [Gonzato et al]((https://www.mech.kuleuven.be/en/tme/research/energy-systems-integration-modeling/pdf-publications/wp-esim2021-1)) and the duration curve error in [Poncelet et al]((https://www.mech.kuleuven.be/en/tme/research/energy_environment/Pdf/wp-2015-10b.pdf)).
 
 ## Clustering
 

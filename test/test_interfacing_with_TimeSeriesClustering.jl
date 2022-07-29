@@ -4,10 +4,8 @@
 
 # Keep in mind that you will probably have to use a fork of that package for now due to package compatibility issues:
 
-#md ```julia
 #md using Pkg
 #md pkg"add https://github.com/junglegobs/TimeSeriesClustering.jl.git"
-#md ```
 
 using Pkg #jl
 Pkg.develop(; path=joinpath(@__DIR__, "..", "TimeSeriesClustering.jl")) #jl

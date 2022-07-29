@@ -49,7 +49,7 @@ results:
 
 The three principal entries of `config_file.yaml`, `time_series`, `method` and `results` are explained in the sections on [loading in a time series](@ref ts_gs), [selecting representative periods](@ref select_gs) and [Saving and inspecting results](@ref save_gs).
 
-For more advanced use cases it may be helpful to check out the [Examples](@ref) as well as the tests in the [`test`](https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl/-/tree/dev/test) directory of this repository.
+For more advanced use cases it may be helpful to check out the examples (see left hand side of this page) as well as the tests in the [`test`](https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl/-/tree/dev/test) directory of this repository.
 
 ## [Loading in time series] (@id ts_gs)
 `config_file.yaml` specifies two time series to be read, `Load` and `Solar`, from `time_series.csv`, which has 3 columns: `Timestamp`, `Load` and `load_factor_PV`.

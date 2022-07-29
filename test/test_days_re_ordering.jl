@@ -55,9 +55,6 @@ create_synthetic_time_series_plot(pf, "Load"; timestamps=timestamps)
 # We can also check out the heatmap, which shows how representative days are mapped to non-representative days throughout the year:
 create_ordering_heatmap(pf)
 
-#md # !!! note
-#md #     The above heatmap should (probably) have more entries between 0 and 1, as opposed to 0 or 1. This may be due to the small number of days, the solver or be a bug.
-
 # We can also write out the this synthetic time series to `pf.config["results"]["result_dir"]`.
 # ```julia
 # write_out_synthetic_timeseries(pf, timestamps=timestamps)

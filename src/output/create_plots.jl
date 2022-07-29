@@ -34,7 +34,7 @@ function create_plots(
 end
 
 """
-    create_duration_curve(pf::PeriodsFinder, ts_name::String)
+    create_duration_curve(pf::PeriodsFinder, ts_name::String; kwargs...)
 
 Create the duration curve for `ts_name`.
 
@@ -44,7 +44,7 @@ pf = find_representative_periods(config_file)
 p = create_duration_curve(pf, "Load")
 display(p)
 
-# Keyword arguments
+# Keyword Arguments
 
 * `line=:auto`: line type.
 * `marker=:cross`: marker type.
