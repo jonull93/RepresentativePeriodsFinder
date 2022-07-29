@@ -142,7 +142,7 @@ function get_error_term_weights(pf::PeriodsFinder)
     end
 
     for err in ord_errs
-        weights[err] = opt_general["ordering_error"][err]["weight"]
+        weights[err] = recursive_get(opt_general, "ordering_error", err, "weight", 0.0)
         check_weight_val(err, weights[err])
     end
 
