@@ -50,24 +50,42 @@ clust_data = convert(TimeSeriesClustering.ClustData, pf);
 
 # Let's run the hierarchical clustering (and time it as well, to see how it compares with the inbuilt clustering algorithm):
 n_clust = RPF.get_number_of_representative_periods(pf)
-t_1 = @elapsed cr = run_clust(
+cr = run_clust(
     clust_data;
     method="hierarchical",
     representation="centroid",
     n_clust=n_clust,
     n_init=1,
-)
+); # First run to deal with julia precompiling
+t_1 = @elapsed run_clust(
+    clust_data;
+    method="hierarchical",
+    representation="centroid",
+    n_clust=n_clust,
+    n_init=1,
+);
 
 # Converting back to a `PeriodsFinder` type is less straightforward, as the above clustering does not save which days where selected i.e. there is no `u` variable. We would compare the values of a cluster to those in each period in the original time series to find out which is which.
 
 # In any case, it may be interesting to see if the above clustering was much faster than the inbuilt `RepresentativePeriodsFinder` clustering algorithm:
-delete!(pf.config["method"], "optimization")
-delete!(pf.config["method"]["options"]["ordering_error"], "ord_err_2")
+delete!(pf.config["method"], "optimization");
+delete!(pf.config["method"]["options"]["ordering_error"], "ord_err_2");
+pf.config["method"]["options"]["ordering_error"]["ord_err_1"]["weight"] = 1.0;
 pf.inputs[:ordering_error_functions]["ord_err_1"] = (
     (x, y) -> (sum((x[i] - y[i])^2 for i in eachindex(x)))
-)
-t_2 = @elapsed find_representative_periods(pf)
+);
+find_representative_periods(pf); # First run to deal with julia precompiling
+t_2 = @elapsed find_representative_periods(pf);
+print("""
 
-# The answer is manifestly yes, even accounting for Julia's compilation times, which is good to know.
+Times [s]:
+
+TimeSeriesClustering.jl:        $t_1
+RepresentativePeriodsFinder.jl: $t_2
+Ratio:                          $(t_2/t_1)
+
+""")
+
+# The answer appears to be yes, and by quite some margin! This is worth keeping in if the speed of the period selection is paramount.
 
 Pkg.rm("TimeSeriesClustering") #jl
