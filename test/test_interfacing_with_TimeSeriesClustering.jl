@@ -4,8 +4,13 @@
 
 # Keep in mind that you will probably have to use a fork of that package for now due to package compatibility issues:
 
-using Pkg
-pkg"add https://github.com/junglegobs/TimeSeriesClustering.jl.git"
+#md ```julia
+#md using Pkg
+#md pkg"add https://github.com/junglegobs/TimeSeriesClustering.jl.git"
+#md ```
+
+using Pkg #jl
+Pkg.develop(; path=joinpath(@__DIR__, "..", "TimeSeriesClustering.jl")) #jl
 
 # Make the periods finder
 using RepresentativePeriodsFinder, TimeSeriesClustering, TimeSeries
@@ -41,11 +46,16 @@ function Base.convert(::Type{TimeSeriesClustering.ClustData}, pf::PeriodsFinder)
 end
 
 # Let's convert this to a `ClustData` type:
-cd = convert(TimeSeriesClustering.ClustData, pf);
+clust_data = convert(TimeSeriesClustering.ClustData, pf);
 
 # Let's run the hierarchical clustering (and time it as well, to see how it compares with the inbuilt clustering algorithm):
+n_clust = RPF.get_number_of_representative_periods(pf)
 t_1 = @elapsed cr = run_clust(
-    cd; method="hierarchical", representation="centroid", n_clust=8, n_init=1
+    clust_data;
+    method="hierarchical",
+    representation="centroid",
+    n_clust=n_clust,
+    n_init=1,
 )
 
 # Converting back to a `PeriodsFinder` type is less straightforward, as the above clustering does not save which days where selected i.e. there is no `u` variable. We would compare the values of a cluster to those in each period in the original time series to find out which is which.
@@ -54,10 +64,10 @@ t_1 = @elapsed cr = run_clust(
 delete!(pf.config["method"], "optimization")
 delete!(pf.config["method"]["options"]["ordering_error"], "ord_err_2")
 pf.inputs[:ordering_error_functions]["ord_err_1"] = (
-   (x,y) -> (sum((x[i] - y[i])^2 for i in eachindex(x)))
+    (x, y) -> (sum((x[i] - y[i])^2 for i in eachindex(x)))
 )
 t_2 = @elapsed find_representative_periods(pf)
 
 # The answer is manifestly yes, even accounting for Julia's compilation times, which is good to know.
 
-#jl Pkg.rm("TimeSeriesClustering")
+Pkg.rm("TimeSeriesClustering") #jl

@@ -7,7 +7,7 @@
 # ## Ramping time series
 
 # Let's create a `PeriodsFinder` instance:
-using RepresentativePeriodsFinder, Plots, TimeSeries;
+using RepresentativePeriodsFinder, Plots, TimeSeries, HiGHS;
 RPF = RepresentativePeriodsFinder;
 config_file = RPF.datadir("default.yaml");
 pf = PeriodsFinder(config_file; populate_entries=false);
