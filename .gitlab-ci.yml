@@ -11,6 +11,7 @@ default:
 test:1.2:
   image: julia:1.2.0
   script:
+    - julia --project=test -e 'using Pkg; Pkg.remove("HiGHS")'
     - julia --project=test -e 'using Pkg; Pkg.instantiate(); Pkg.develop(PackageSpec(path=pwd())); include("test/minimal_tests.jl")'
   only:
     - master
