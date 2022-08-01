@@ -21,14 +21,14 @@ function create_plots(
         p = create_duration_curve(
             pf, ts_name; line=Symbol(line), marker=Symbol(marker)
         )
-        file_svg = joinpath(result_dir, "$(ts_name)_duration_curve.svg")
-        savefig(p, file_svg)
+        file_png = joinpath(result_dir, "$(ts_name)_duration_curve.png")
+        savefig(p, file_png)
     end
 
     # Heatmap of ordering variable v, if v isn't too big
     if isdefined(pf, :v) && any(values(pf.v) .> 0) && all(size(pf.v) .< 1000)
         p = create_ordering_heatmap(pf)
-        savefig(p, joinpath(result_dir, "ordering_heatmap.svg"))
+        savefig(p, joinpath(result_dir, "ordering_heatmap.png"))
     end
     return nothing
 end
@@ -189,7 +189,7 @@ function create_synthetic_time_series_plots(
         p = create_synthetic_time_series_plot(
             pf, ts_name; timestamps=timestamps
         )
-        savefig(p, joinpath(result_dir, "$(ts_name)_synthetic_time_series.svg"))
+        savefig(p, joinpath(result_dir, "$(ts_name)_synthetic_time_series.png"))
     end
     return nothing
 end
