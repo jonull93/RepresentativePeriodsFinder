@@ -7,6 +7,8 @@ default:
   - export GKS_WSTYPE=nul
   - git clone https://github.com/junglegobs/TimeSeriesClustering.jl.git ./TimeSeriesClustering.jl/
   - julia --project=test -e 'import Pkg; Pkg.build()' # build the package
+  - mkdir /tmp/
+  - ls /tmp/
 
 test:1.2:
   image: julia:1.2.0
