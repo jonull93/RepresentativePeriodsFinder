@@ -55,7 +55,7 @@ test:latest:
   - dev
 
 pages:
-  stage: deploy
+  # stage: deploy # Have this done every time
   script:
     - julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate();' 
     # Instantiate docs environment and dev the package to add it to environment

@@ -12,7 +12,7 @@ module RepresentativePeriodsFinder
     using StatsBase                         # -> function to fit into Histogram bins
     using JuMP                              # -> optimization suite
     using Interpolations                    # -> interpolating time series
-    using Plots; gr()                       # -> output plots
+    using Plots; plotly()                   # -> output plots
     using LinearAlgebra                     # -> for e.g. transpose()
     using NamedTupleTools                   # -> for easy creation of NamedTuples
     using MathOptInterface                  # -> for solver queries
