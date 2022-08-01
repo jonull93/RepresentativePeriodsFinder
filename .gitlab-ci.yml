@@ -2,12 +2,11 @@
 # https://gitlab.com/tkpapp/GitlabJuliaDemo.jl/-/blob/master/.gitlab-ci.yml
 default:
   image: julia:latest
-
   before_script:
   - apt-get -qq update; apt-get -y --no-install-recommends install git qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools at-spi2-core libgtk-3-dev xauth xvfb gconf-gsettings-backend
   - export GKS_WSTYPE=100
   - git clone https://github.com/junglegobs/TimeSeriesClustering.jl.git ./TimeSeriesClustering.jl/
-  - julia --project=@. -e "import Pkg; Pkg.build()" # build the package
+  - julia --project=@. -e "ENV["GKSwstype"]="100"; ENV["GRDIR"] = ""; import Pkg; Pkg.build("GR"); Pkg.build()" # build the package
 
 test:1.2:
   image: julia:1.2.0
