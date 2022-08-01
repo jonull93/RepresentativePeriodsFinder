@@ -1,3 +1,5 @@
+plotly() # Force the plotly backend, at least initially, because GR SUCKS!
+
 """
     create_plots(pf::PeriodsFinder, result_dir::String)
 
