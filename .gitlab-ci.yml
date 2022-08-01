@@ -46,7 +46,7 @@ test:1.6:
 test:latest:
   image: julia:latest
   script:
-    - julia --project=test -e 'ENV["GKSwstype"]="100"; ENV["GRDIR"] = ""; import Pkg; Pkg.build("Plots"); Pkg.build()' # build the test environment
+    - julia --project=test -e 'ENV["GKSwstype"]="100"; ENV["GKS_WSTYPE"]=100 ENV["PLOTS_TEST"] = "true"; ENV["GRDIR"] = ""; import Pkg; Pkg.build("Plots"); Pkg.build()' # build the test environment
     - julia --project=@. -e "import Pkg; Pkg.test(; coverage=true)" # test the package
     - julia --project=test/coverage -e 'import Pkg; Pkg.instantiate()' # Setup coverage environment
     - julia --project=test/coverage test/coverage/coverage_summary.jl # run coverage summary
