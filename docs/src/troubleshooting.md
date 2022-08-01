@@ -1,8 +1,22 @@
 # Troubleshooting
 
-This package is tested using Julia 1.5 and above. Versions lower than that will likely lead to errors. Unfortunately this
+This package is tested using Julia 1.2 and above. If it doesn't work for you, this is in all likelihood due to your own environment! To fix this, start from a blank environment and add this package:
 
-Other errors are likely due to your Julia environment. Some troubleshooting tips to fix this are suggested below.
+```julia
+using Pkg
+Pkg.activate(".") # Create a new environment in this directory, which should not contain a Project.toml file
+Pkg.add(url="https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl")
+```
+
+See also the troubleshooting tips below.
+
+## GR
+
+If issues with the GR-engine (i.e. plotting) occur then build the `GR` package again:
+
+```julia
+]build GR
+```
 
 ## CSV
 
@@ -35,12 +49,19 @@ pf = PeriodsFinder(config_file; populate_entries=true) # This keyword argument i
 find_representative_periods(pf; optimizer=Cbc.Optimizer)
 ```
 
+## Optimal selection of representative periods based on duration curve error is slow
+
+This is a thing (it was mentioned in the original paper by [Poncelet et al.](https://www.mech.kuleuven.be/en/tme/research/energy_environment/Pdf/wp-2015-10b.pdf)). In essence it doesn't matter however, as the issue is proving optimality but you usually get good solutions quite quickly.
+
 ## Optimal ordering of representative periods is slow
 
-It may be that setting the `integral_weights` option to `true` speeds up the optimisation massively (from several hours or days to several seconds).
+It may be that setting the `integral_weights` and `binary_ordering` options to `true` speeds up the optimisation massively (from several hours or days to several seconds).
 
 ## Other errors and fixes
 
-* Make sure your time series are correct, i.e. without "NaN", "N/A" or blank entries.
-* The time series interpolation feature could fix "NaN" entries, but it is quite experimental so best to turn it off.
+* Make sure your time series are correct, i.e. without `"NaN"`, `"N/A"` or blank entries.
+* The time series interpolation feature could fix `"NaN"` entries, but it is quite experimental so best to turn it off.
 * If you've specified a timestamp column for a time series, not specifying it could fix possible bugs.
+* The most bulletproof workflow is to specify all your options in the configuration file and then call [`find_representative_periods`](@ref). Modifying `pf.config` and then calling [`find_representative_periods`](@ref)] may have unintented consequences. If you have to do it, remember to call [`populate_entries!`](@ref) or [`reset_inputs!`](@ref) beforehand.
+* This package is not compatible with 32 bit machines or Julia versions. Then again, why on earth are would you do that?
+* For "age of world" errors, see [Selecting representative periods](@ref).

@@ -2,7 +2,7 @@ using RepresentativePeriodsFinder, JuMP, Cbc
 RPF = RepresentativePeriodsFinder
 
 # Create PeriodsFinder
-config_file = normpath(joinpath(@__DIR__, "input_data", "default.yaml"))
+config_file = RPF.datadir("default.yaml")
 pf = PeriodsFinder(config_file, populate_entries=true)
 
 # Set up a random selection of days

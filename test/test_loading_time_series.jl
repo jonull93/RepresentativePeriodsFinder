@@ -1,6 +1,7 @@
 using RepresentativePeriodsFinder
+RPF = RepresentativePeriodsFinder
 
-config_file = joinpath(@__DIR__, "input_data", "default.yaml")
+config_file = RPF.datadir("default.yaml")
 pf = PeriodsFinder(config_file)
 
 @info "Populating entries.."

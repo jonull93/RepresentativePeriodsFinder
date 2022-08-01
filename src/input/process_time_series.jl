@@ -140,7 +140,7 @@ end
 
 """
     get_contributing_time_slices(
-        idx_start::Int64, idx_end::Int64,
+        idx_start::Integer, idx_end::Integer,
         t_start::DateTime, t_end::DateTime,
         timestamps::Array{DateTime,1}
     )
@@ -178,7 +178,7 @@ julia> weights
 
 """
 function get_contributing_time_slices(
-        idx_start::Int64, idx_end::Int64,
+        idx_start::Integer, idx_end::Integer,
         t_start::DateTime, t_end::DateTime,
         timestamps::Array{DateTime,1}
     )
@@ -196,15 +196,4 @@ function get_contributing_time_slices(
         end
     end
     return (t, weights)
-end
-
-
-
-function cum_bin_end!(A, bins, periods, ta::FloatTimeArray)
-    ts_name = meta(ta)["name"]
-    for p in periods
-        for b in bins
-            a[p, b] = ts.matrix_bins_cumsum_day[idx_p, idx_b]
-        end
-    end
 end

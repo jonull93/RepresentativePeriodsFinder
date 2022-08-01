@@ -1,15 +1,15 @@
 # API Reference
 
+```@autodocs
+Modules = [RepresentativePeriodsFinder]
+```
+
 ```@docs
-RepresentativePeriodsFinder.PeriodsFinder
+RepresentativePeriodsFinder.interpolate_missing_values!
 
-RepresentativePeriodsFinder.find_representative_periods
+RepresentativePeriodsFinder.resample!
 
-RepresentativePeriodsFinder.save
+RepresentativePeriodsFinder.get_contributing_time_slices
 
-RepresentativePeriodsFinder.create_synthetic_time_series_plots
-
-RepresentativePeriodsFinder.write_out_synthetic_timeseries
-
-RepresentativePeriodsFinder.load
+RepresentativePeriodsFinder.create_duration_curve
 ```

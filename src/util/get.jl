@@ -16,9 +16,7 @@ function get_set_of_bins(pf::PeriodsFinder)
 end
 
 function get_set_of_mandatory_periods(pf::PeriodsFinder)
-    # TODO: fix this
-
-    mandatory_periods = [Int64(i) for i in 
+    mandatory_periods = Int64[Int64(i) for i in 
         recursive_get(pf.config, "method", "options", "mandatory_periods", Int64[])
     ]
     @assert length(mandatory_periods) <= get_number_of_representative_periods(pf) 
@@ -26,7 +24,7 @@ function get_set_of_mandatory_periods(pf::PeriodsFinder)
 end
 
 function get_set_of_intermediate_periods(pf::PeriodsFinder)
-    intermediate_periods = [Int64(i) for i in 
+    intermediate_periods = Int64[Int64(i) for i in 
         recursive_get(pf.config, "method", "clustering", 
             "intermediate_periods", Int64[]
         )
@@ -87,17 +85,17 @@ end
 
 function get_number_of_representative_periods(pf::PeriodsFinder)
     opt = pf.config["method"]["options"]
-    return opt["representative_periods"]::Int64
+    return opt["representative_periods"]::Integer
 end
 
 function get_number_of_periods(pf::PeriodsFinder)
     opt = pf.config["method"]["options"]
-    return opt["total_periods"]::Int64
+    return opt["total_periods"]::Integer
 end
 
 function get_number_of_time_steps_per_period(pf::PeriodsFinder)
     opt = pf.config["method"]["options"]
-    return opt["time_steps_per_period"]::Int64
+    return opt["time_steps_per_period"]::Integer
 end
 
 function get_sampling_time(pf::PeriodsFinder)
@@ -116,6 +114,7 @@ function get_bin_interval_values(pf::PeriodsFinder, ts_name::String)
         )
     )
     bin_interval_values[1] -= eps()
+    bin_interval_values[end] += eps()
     return bin_interval_values
 end
 
@@ -124,15 +123,27 @@ function get_error_term_weights(pf::PeriodsFinder)
     ord_errs = get_set_of_ordering_errors(pf)
     weights = Dict{String,Float64}()
 
+    function check_weight_val(err::String, err_val::Number)
+        if err_val ≈ 0.0
+            @warn "Weight for error $err is 0 and it will not impact period selection."
+        elseif err_val < 0.0
+            @error "Weight for error $err is less than 0 which will have adverse impacts for period selection."
+        end
+    end
+
     if haskey(pf.config["method"], "optimization")
         opt = pf.config["method"]["optimization"]
         for err in ["time_series_error", "duration_curve_error"]
             weights[err] = recursive_get(opt, err, "weight", 0.0)
+            if haskey(opt, err)
+                check_weight_val(err, weights[err])
+            end
         end
     end
 
     for err in ord_errs
-        weights[err] = opt_general["ordering_error"][err]["weight"]
+        weights[err] = recursive_get(opt_general, "ordering_error", err, "weight", 0.0)
+        check_weight_val(err, weights[err])
     end
 
     return weights
@@ -168,7 +179,7 @@ function get_ordering_error_function(pf::PeriodsFinder, err_name::String)
 end
 
 function get_abspath_to_result_dir(pf::PeriodsFinder)
-    rel_dir = recursive_get(pf.config, "results", "result_dir", "plots")
+    rel_dir = recursive_get(pf.config, "results", "result_dir", "results")
     return abspath(joinpath(pf.config["base_dir"], rel_dir))
 end
 
@@ -242,21 +253,33 @@ Returns the duration curve of time series `ts_name` discretized into `nb` bins.
 """
 function get_discretised_duration_curve(pf::PeriodsFinder, ts_name::String)
     histogram_per_period = get_histogram_per_period(pf, ts_name)
+    bins = get_set_of_bins(pf) # Bins go from low to high values
     ntt = get_total_number_of_time_steps(pf)
-    L = cumsum(
-        sum(histogram_per_period, dims=1) / ntt,
-        dims=2
-    )[:]
-    return normalize_values(L)
+    L = fill(NaN, length(bins))
+    hpp_sum = (sum(histogram_per_period, dims=1) / ntt)[:]
+    last_cumsum_val = sum(hpp_sum[1:1])
+    L[1] = last_cumsum_val # First bin is at the bottom of DC
+    for b in bins[2:end]
+        cumsum_val = sum(hpp_sum[1:b])
+        if last_cumsum_val != cumsum_val
+            L[b] = cumsum_val
+        else
+            L[b] = L[b-1]
+        end
+        last_cumsum_val = cumsum_val
+    end
+    return L
 end
 
 function get_discretised_duration_curve(pf::PeriodsFinder)
-    L = Dict(
-        ts_name => get_discretised_duration_curve(pf, ts_name)
-        for ts_name in get_set_of_time_series_names(pf)
-    )
-    @pack! pf.inputs = L
-    return L
+    if haskey(pf.inputs, :L) == false
+        L = Dict(
+            ts_name => get_discretised_duration_curve(pf, ts_name)
+            for ts_name in get_set_of_time_series_names(pf)
+        )
+        @pack! pf.inputs = L
+    end
+    return pf.inputs[:L]
 end
 
 """
@@ -266,21 +289,20 @@ Returns an `np` by `nb` matrix used to approximate the aggregated duration curve
 """
 function get_duration_curve_parameter(pf::PeriodsFinder, ts_name::String)
     histogram_per_period = get_histogram_per_period(pf, ts_name)
-    np = get_number_of_periods(pf)
-    A = normalize_values(
-        cumsum(histogram_per_period, dims=2),
-        -1, 1
-    )
+    nt = get_number_of_time_steps_per_period(pf)
+    A = cumsum(histogram_per_period, dims=2) ./ nt # Normalise to get a discretised, aggregated DC between 0 and 1
     return A
 end
 
 function get_duration_curve_parameter(pf::PeriodsFinder)
-    A = Dict(
-        ts_name => get_duration_curve_parameter(pf, ts_name)
-        for ts_name in get_set_of_time_series_names(pf)
-    )
-    @pack! pf.inputs = A
-    return A
+    if haskey(pf.inputs, :A) == false
+        A = Dict(
+            ts_name => get_duration_curve_parameter(pf, ts_name)
+            for ts_name in get_set_of_time_series_names(pf)
+        )
+        @pack! pf.inputs = A
+    end
+    return pf.inputs[:A]
 end
 
 """
@@ -306,18 +328,20 @@ function get_histogram_per_period(pf::PeriodsFinder,ts_name::String)
 
     @assert all(sum(histogram_per_period, dims=2) .== get_number_of_time_steps_per_period(pf))
     
-    return recursive_set(pf.inputs, :histogram_per_period, 
+    return recursive_set(pf.inputs, :histograms_per_period, 
         ts_name, histogram_per_period; collection_type=Dict{Union{String,Symbol},Any}
     )
 end
 
 function get_histogram_per_period(pf::PeriodsFinder)
-    histograms_per_period = Dict(
-        ts_name => get_histogram_per_period(pf, ts_name)
-        for ts_name in get_set_of_time_series_names(pf)
-    )
-    @pack! pf.inputs = histograms_per_period
-    return histograms_per_period
+    if haskey(pf.inputs, :histograms_per_period) == false
+        histograms_per_period = Dict(
+            ts_name => get_histogram_per_period(pf, ts_name)
+            for ts_name in get_set_of_time_series_names(pf)
+        )
+        @pack! pf.inputs = histograms_per_period
+    end
+    return pf.inputs[:histograms_per_period]
 end
 
 function get_synthetic_time_series(pf::PeriodsFinder, ts_name::String)

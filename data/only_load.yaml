@@ -4,37 +4,15 @@ time_series:
     source: "time_series.csv"
     csv_options: # These are passed to CSV.read
         delim: ";"
+        validate: false
     timestamp: "Timestamp" # optional
     weight: 1 # weight of time series in objective / clustering
     interpolation_type: "linear" # or "constant" or don't specify
     sampling_time: "Hour(1)" # Only necessary if a timestamp is not given
-  
-  Residual Load:
-    source: "residual_load.csv"
-    csv_options: 
-      dateformat: "yyyy-mm-dd HH:MM:SS"
-      # delim: ";"
-      missingstring: "#N/A"
-      # missingstrings: ["NA", "N/A", "na"] # Careful with the plural!
-      silencewarnings: true
-    value_column: "Residual Load [MW]"
-    timestamp_column: "Timestamp"
-    
-    start: "2017-01-01 00:00:00"
-    resample: true # or false or don't specify
 
   Load:
     value_column: "Load"
     start: 1 # Can also specify an index in the CSV file (not including header)
-
-  LFW:
-    value_column: "LFW"
-    delim: ';'
-    weight: 1
-
-  LFS:
-    value_column: "LFS"
-    weight: 1
 
 
 method:
@@ -74,5 +52,5 @@ method:
 results:
   save_results: true
   # Options for exactly what to save here
-  result_dir: '../results' # Relative to this file
+  result_dir: 'results' # Relative to this file
   create_plots: true

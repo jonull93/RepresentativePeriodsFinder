@@ -81,8 +81,7 @@ function time_period_clustering(pf::PeriodsFinder)
     NCD = NCD - length(mandatory_periods)
     @assert iszero(NCD) == false "Can't run clustering if all periods are fixed."
     # TODO: could eventually replace this with a reasonable default.
-    # TODO: currently mandatory periods don't represent other periods!
-    # Since 
+    # TODO: currently mandatory periods don't represent other periods! Just themselves. I would say this is a limitation of clustering however
     ermsg = "Please allow for at least 1 period to be determined by the clustering algorithm."
     @assert NCD > 0 eval(ermsg)
     numAdj = get_number_of_clusters_of_adjacent_values(mandatory_periods)
@@ -98,11 +97,14 @@ function time_period_clustering(pf::PeriodsFinder)
     # Get intermediate periods
     intermediate_periods = get_set_of_intermediate_periods(pf)
 
+    # Create a progress meter
+    NC0 = NC
+    p = Progress(NC0 - NCD, 1.0)
+
     # Run clustering
     while NC - length(mandatory_periods) > NCD
-        if mod(NC, 100) == 0
-            @debug "Number of clusters left: $NC"
-        end
+        # Update progress meter
+        update!(p, NC0 - NCD - NC - length(mandatory_periods))
 
         # Find the two "closest" mediods
         # This takes up half of the calculation time!
@@ -214,7 +216,7 @@ function time_period_clustering(pf::PeriodsFinder)
 
         if NC in intermediate_periods
             dir = joinpath(get_abspath_to_result_dir(pf), string(NC))
-            @debug "Saving intermediate number of representative periods $NC to $dir"
+            @info "Saving intermediate number of representative periods $NC to $dir"
             calculate_rep_periods_from_clusters!(pf, ICM, IC2P, IP2C)
             save(pf, dir)
         end

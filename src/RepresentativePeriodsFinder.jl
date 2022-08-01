@@ -12,18 +12,20 @@ module RepresentativePeriodsFinder
     using StatsBase                         # -> function to fit into Histogram bins
     using JuMP                              # -> optimization suite
     using Interpolations                    # -> interpolating time series
-    using Plots; gr()                       # -> output plots
+    using Plots; plotly()                   # -> output plots
     using LinearAlgebra                     # -> for e.g. transpose()
     using NamedTupleTools                   # -> for easy creation of NamedTuples
     using MathOptInterface                  # -> for solver queries
     using FileIO                            # -> to redefine load and save
     using UnPack                            # -> to unpack dicts
+    using ProgressMeter                     # -> showing progress for clustering
 
     # Utility
     include("util/types.jl")
     include("util/PeriodsFinder.jl")
     include("util/util.jl")
     include("util/get.jl")
+    include("util/PeriodsFinder_util.jl") # Has to come after "get.jl" for doctest reasons. I think....
 
     # Input and data processing
     include("input/read_time_series.jl")
@@ -39,11 +41,11 @@ module RepresentativePeriodsFinder
     include("output/load.jl")
 
     # Exported methods
-    export PeriodsFinder, populate_entries!, 
-    find_representative_periods,
+    export PeriodsFinder, populate_entries!, reset_inputs!,
+    find_representative_periods, find_representative_periods!,
     optimize_periods_finder_model!, make_periods_finder_model!,
     cluster_periods!,
-    create_plots, create_ordering_heatmap,
+    create_plots, create_duration_curve, create_ordering_heatmap,
     create_synthetic_time_series_plots, create_synthetic_time_series_plot,
     write_out_results, write_out_synthetic_timeseries,
     save, load

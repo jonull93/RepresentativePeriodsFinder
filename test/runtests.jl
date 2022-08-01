@@ -1,5 +1,4 @@
-using Test
-ENV["GKSwstype"]="nul" #fix gr() problems in headless mode 
+using Test, Pkg
 
 tests = [
     f for f in readdir(@__DIR__) if !(isnothing(match(r"test_", f))) && !(isnothing(match(r".jl", f)))
