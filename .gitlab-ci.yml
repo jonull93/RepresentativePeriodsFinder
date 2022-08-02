@@ -6,12 +6,12 @@ default:
   - apt-get -qq update; apt-get -y --no-install-recommends install git qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools at-spi2-core libgtk-3-dev xauth xvfb gconf-gsettings-backend
   - export GKSwstype="100"
   - git clone https://github.com/junglegobs/TimeSeriesClustering.jl.git ./TimeSeriesClustering.jl/
-  - julia --project=test -e 'import Pkg; Pkg.build()' # build the package
 
 test:1.2:
   image: julia:1.2.0
   script:
     - julia --project=test -e 'using Pkg; Pkg.remove("HiGHS")'
+    - julia --project=test -e 'import Pkg; Pkg.build()'
     - julia --project=test -e 'using Pkg; Pkg.instantiate(); Pkg.develop(PackageSpec(path=pwd())); include("test/minimal_tests.jl")'
   only:
     - master
@@ -19,6 +19,7 @@ test:1.2:
 test:1.3:
   image: julia:1.3.1
   script:
+    - julia --project=test -e 'import Pkg; Pkg.build()'
     - julia --project=test -e 'using Pkg; Pkg.instantiate(); Pkg.develop(PackageSpec(path=pwd())); include("test/minimal_tests.jl")'
   only:
     - master
@@ -26,6 +27,7 @@ test:1.3:
 test:1.4:
   image: julia:1.4.2
   script:
+    - julia --project=test -e 'import Pkg; Pkg.build()'
     - julia --project=test -e 'using Pkg; Pkg.instantiate(); Pkg.develop(PackageSpec(path=pwd())); include("test/minimal_tests.jl")'
   only:
     - master
@@ -33,6 +35,7 @@ test:1.4:
 test:1.5:
   image: julia:1.5.4
   script:
+    - julia --project=test -e 'import Pkg; Pkg.build()'
     - julia --project=test -e 'using Pkg; Pkg.instantiate(); Pkg.develop(PackageSpec(path=pwd())); include("test/minimal_tests.jl")'
   only:
     - master
@@ -40,6 +43,7 @@ test:1.5:
 test:1.6:
   image: julia:1.6.6
   script:
+    - julia --project=test -e 'import Pkg; Pkg.build()'
     - julia --project=test -e 'using Pkg; Pkg.instantiate(); Pkg.develop(PackageSpec(path=pwd())); include("test/minimal_tests.jl")'
   only:
     - master
