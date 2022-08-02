@@ -145,7 +145,7 @@ make_clustering!(pf);
 find_representative_periods(pf);
 
 # Plot the duration curves:
-plot_duration_curves(pf);
+plot_duration_curves(pf)
 
 # The approximation of the duration curve of the wind time series is unsurprisingly not great, since we put such a high weight on the correlation time series. 
 

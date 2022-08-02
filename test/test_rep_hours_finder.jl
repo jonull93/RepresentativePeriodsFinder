@@ -17,14 +17,15 @@ delete!(pf.config["method"], "clustering");
 # For debugging and illustrative purposes, let's focus just on solar availailability time series
 ts_orig = copy(pf.config["time_series"]);
 for ts_name in ["LFW", "Load", "Residual Load"]
-    delete!(pf.config["time_series"], ts_name);
+    delete!(pf.config["time_series"], ts_name)
 end
 
 # Use absolute error (this is the only possibility with MILP solvers)
 pf.config["method"]["optimization"]["duration_curve_error"]["type"] = "absolute";
 
 # Increase number of bins so as to get exact solution
-pf.config["method"]["optimization"]["duration_curve_error"]["number_bins"] = 1_000;
+pf.config["method"]["optimization"]["duration_curve_error"]["number_bins"] =
+    1_000;
 
 # Make life a bit easier for the optimiser, let's reduce the number of hours from which we're selecting, i.e. we're shortening the year to the first day. This will also help with understanding what's happening.
 pf.config["method"]["options"]["total_periods"] = 24;
@@ -59,17 +60,21 @@ opt = optimizer_with_attributes(
 find_representative_periods(pf; optimizer=opt, reset=true);
 
 # Plot the duration curve of solar
+plt_vec = Plots.Plot[]
 for (ts_name, ts) in RPF.get_set_of_time_series(pf)
-    p = create_duration_curve(
-        pf,
-        ts_name;
-        line=:solid,
-        marker=:none,
-        original_discretised=true,
-        aggregated_discretised=true,
+    push!(
+        plt_vec,
+        create_duration_curve(
+            pf,
+            ts_name;
+            line=:solid,
+            marker=:none,
+            original_discretised=true,
+            aggregated_discretised=true,
+        ),
     )
-    display(p)
 end
+Plots.plot(plt_vec...)
 
 # We can see that there's some discretisation issues at the lower end of the duration curve. This is more of a plotting issue than an optimisation issue - the solver was able to reduce the error to 0 by assigning the non-zero hours to be representative and have a weight 1 and one hour with a zero value to have a weight of 16:
 
@@ -80,20 +85,18 @@ pf.w[RPF.get_set_of_representative_periods(pf)]
 # We can repeat this exercise for all time series and 7 days (though this time with less bins, since this drastically increases computation time).
 
 pf.config["time_series"] = ts_orig;
-pf.config["method"]["options"]["total_periods"] = 7*24;
+pf.config["method"]["options"]["total_periods"] = 7 * 24;
 pf.config["method"]["options"]["representative_periods"] = 20;
 pf.config["method"]["optimization"]["duration_curve_error"]["number_bins"] = 40;
 populate_entries!(pf)
 find_representative_periods(pf; optimizer=opt, reset=true);
 
-# Plot the duration curves of all the time series to see how we got on
+# Plot the duration curves of all the time series to see how we got on:
+plt_vec = Plots.Plot[]
 for (ts_name, ts) in RPF.get_set_of_time_series(pf)
-    p = create_duration_curve(
-        pf,
-        ts_name;
-    )
-    display(p)
+    push!(plt_vec, create_duration_curve(pf, ts_name;))
 end
+Plots.plot(plt_vec...)
 
 # Here we only selected 10 hours from 168 using 40 bins, and as you can see above it did not find a solution within 60 seconds. Selecting hours from the year using an optimisation method is therefore not recommended as it can be computationally expensive. A clustering based method is preferable.
 
