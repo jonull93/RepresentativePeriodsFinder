@@ -1,3 +1,5 @@
+![RepresentativePeriodsFinder logo](./docs/src/assets/logo.svg "RepresentativePeriodsFinder logo")
+
 # RepresentativePeriodsFinder
 
 This is a Julia package to select representative periods from time series data, typically to then be used in capacity expansion planning models. For more information see the [documentation](https://ucm.pages.gitlab.kuleuven.be/representativeperiodsfinder.jl/).
