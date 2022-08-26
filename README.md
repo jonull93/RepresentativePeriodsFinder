@@ -1,4 +1,4 @@
-![RepresentativePeriodsFinder logo](docs/src/assets/logo.svg "RepresentativePeriodsFinder logo")
+![RepresentativePeriodsFinder logo](docs/src/assets/logo.png "RepresentativePeriodsFinder logo")
 
 # RepresentativePeriodsFinder
 
