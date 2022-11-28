@@ -10,6 +10,10 @@ Pkg.add(url="https://gitlab.kuleuven.be/UCM/representativedaysfinder.jl")
 
 See also the troubleshooting tips below.
 
+## Julia version
+
+As of the time of writing (November 2022), Julia versions greater 1.6.7 do not appear to work, that is you will get an error about indexing `TimeArrays` by `DateTime` unit ranges. 
+
 ## GR
 
 If issues with the GR-engine (i.e. plotting) occur then build the `GR` package again:
