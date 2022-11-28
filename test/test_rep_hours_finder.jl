@@ -3,7 +3,7 @@
 # In this example we'll see how to select representative hours from a single day using the optimisation based approach. Obviously this approach could be extended to hours in a year, as is done at the end.
 
 # First we create an instance of a PeriodsFinder. We'll use the default `.yaml` configuration file and modify it, but you could just edit it directly.
-using RepresentativePeriodsFinder, PrettyPrint, JuMP, HiGHS;
+using RepresentativePeriodsFinder, PrettyPrint, JuMP, HiGHS, Plots;
 RPF = RepresentativePeriodsFinder;
 config_file = RPF.datadir("default.yaml");
 pf = PeriodsFinder(config_file; populate_entries=false);
