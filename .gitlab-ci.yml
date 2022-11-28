@@ -1,10 +1,10 @@
 # See this template here: 
 # https://gitlab.com/tkpapp/GitlabJuliaDemo.jl/-/blob/master/.gitlab-ci.yml
 default:
-  image: julia:latest
+  image: julia:1.6.7
   before_script:
   - apt-get -qq update; apt-get -y --no-install-recommends install git qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools at-spi2-core libgtk-3-dev xauth xvfb gconf-gsettings-backend
-  # - export GKSwstype="100"
+  - export GKSwstype="100"
   - git clone https://github.com/junglegobs/TimeSeriesClustering.jl.git ./TimeSeriesClustering.jl/
 
 # test:1.2:
@@ -57,6 +57,7 @@ test:latest:
     - julia --project=test/coverage test/coverage/coverage_summary.jl # run coverage summary
   coverage: '/Code coverage: \d+\.\d+/' # Regex expression to determine coverage
   only:
+  - master
   - dev
 
 pages:

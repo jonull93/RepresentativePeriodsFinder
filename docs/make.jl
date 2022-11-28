@@ -12,7 +12,7 @@ fix_math_md(content) = replace(content, r"\$\$(.*?)\$\$"s => s"```math\1```")
 fix_suffix(filename) = replace(filename, ".jl" => ".md")
 function postprocess(cont)
     return """
-           The source files for all examples can be found in [/examples](https://gitlab.kuleuven.be/UCM/representativeperiodsfinder.jl/-/tree/master/examples/).
+           The source files for all examples can be found in [/test](https://gitlab.kuleuven.be/UCM/representativeperiodsfinder.jl/-/tree/master/test/).
            """ * cont
 end
 
