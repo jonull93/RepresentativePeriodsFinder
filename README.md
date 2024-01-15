@@ -1,3 +1,5 @@
+# THIS IS A FORKED (15/01/2024) VERSION OF [https://gitlab.kuleuven.be/UCM/representativeperiodsfinder.jl](https://gitlab.kuleuven.be/UCM/representativeperiodsfinder.jl) 
+
 ![RepresentativePeriodsFinder logo](docs/src/assets/logo.png "RepresentativePeriodsFinder logo")
 
 # RepresentativePeriodsFinder
